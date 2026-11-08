@@ -132,7 +132,10 @@ async function mulaLogin(req, env, url, now) {
 }
 
 async function callback(req, env, url, f, now) {
-  const gagal = (kod) => lencong('/?ralat=' + encodeURIComponent(kod), [kuki(KUKI_STATE, '', 0)]);
+  // butiran = kod ralat daripada Google (cth invalid_client); bukan rahsia, membantu diagnosis.
+  const gagal = (kod, butiran) => lencong(
+    '/?ralat=' + encodeURIComponent(kod) + (butiran ? '&d=' + encodeURIComponent(String(butiran).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)) : ''),
+    [kuki(KUKI_STATE, '', 0)]);
 
   if (url.searchParams.get('error')) return gagal(url.searchParams.get('error'));
   const state = url.searchParams.get('state') || '';
@@ -159,7 +162,7 @@ async function callback(req, env, url, f, now) {
   const tok = await res.json().catch(() => ({}));
   if (!res.ok || !tok.id_token) {
     console.error('Tukar token gagal', res.status, tok.error, tok.error_description);
-    return gagal('tukar_token_gagal');
+    return gagal('tukar_token_gagal', tok.error || ('http_' + res.status));
   }
 
   // id_token diterima terus dari Google melalui TLS; semak tuntutan asas.

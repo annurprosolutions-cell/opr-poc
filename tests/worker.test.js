@@ -252,3 +252,23 @@ test('sulitan token: pusingan penuh dan kunci salah gagal', async () => {
   await assert.rejects(nyahsulit(blob, 'z'.repeat(40)));
   await assert.rejects(sulit('x', 'pendek'));
 });
+
+test('tukar token gagal: kod ralat Google dipaparkan dalam URL, tanpa rahsia', async () => {
+  const e = env();
+  const g = googlePalsu();
+  const f0 = g.f;
+  const gagalKlien = async (url, opt) => {
+    const b = opt && opt.body ? new URLSearchParams(String(opt.body)) : null;
+    if (String(url) === 'https://oauth2.googleapis.com/token' && b && b.get('grant_type') === 'authorization_code') {
+      return Response.json({ error: 'invalid_client', error_description: 'Unauthorized' }, { status: 401 });
+    }
+    return f0(url, opt);
+  };
+  const r1 = await handle(req('/auth/login?mode=guru'), e, deps(g));
+  const state = new URL(r1.headers.get('location')).searchParams.get('state');
+  const r2 = await handle(req('/auth/callback?code=x&state=' + state, { kuki: kukiDari(r1) }), e, { fetch: gagalKlien, now: () => T0 });
+  const lok = r2.headers.get('location');
+  assert.match(lok, /ralat=tukar_token_gagal/);
+  assert.match(lok, /d=invalid_client/);
+  assert.ok(!lok.includes('rahsia-ujian'));
+});

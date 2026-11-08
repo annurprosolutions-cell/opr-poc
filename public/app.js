@@ -52,6 +52,10 @@ export const MESEJ_RALAT = {
 };
 
 export function ralatDariUrl() {
-  const kod = new URLSearchParams(location.search).get('ralat');
-  return kod ? (MESEJ_RALAT[kod] || 'Log masuk tidak berjaya (' + kod + ').') : '';
+  const q = new URLSearchParams(location.search);
+  const kod = q.get('ralat');
+  const butiran = String(q.get('d') || '').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);
+  if (!kod) return '';
+  const asas = MESEJ_RALAT[kod] || 'Log masuk tidak berjaya (' + kod + ').';
+  return butiran ? asas + ' [kod: ' + butiran + ']' : asas;
 }
