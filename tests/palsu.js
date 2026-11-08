@@ -15,7 +15,14 @@ export function kvPalsu() {
     m,
     async get(k, jenis) { const v = m.has(k) ? m.get(k) : null; return v !== null && jenis === 'json' ? JSON.parse(v) : v; },
     async put(k, v) { m.set(k, String(v)); },
-    async delete(k) { m.delete(k); }
+    async delete(k) { m.delete(k); },
+    async list({ prefix = '', cursor } = {}) {
+      const semua = [...m.keys()].filter(k => k.startsWith(prefix)).sort();
+      const mula = cursor ? Number(cursor) : 0, had = 2;   // halaman kecil supaya paging diuji
+      const keys = semua.slice(mula, mula + had).map(name => ({ name }));
+      const tamat = mula + had >= semua.length;
+      return { keys, list_complete: tamat, cursor: tamat ? undefined : String(mula + had) };
+    }
   };
 }
 
@@ -67,6 +74,12 @@ export function googlePalsu(senario = {}) {
     if (u === 'https://oauth2.googleapis.com/token' && badanForm.get('grant_type') === 'refresh_token') {
       if (senario.refreshMati) return Response.json({ error: 'invalid_grant' }, { status: 400 });
       return Response.json({ access_token: 'akses-2', scope: DRIVE });
+    }
+    // ---- API BCL palsu: senario.bclPesanan = { ORDER: data transaksi }
+    const mBcl = u.match(/^https:\/\/bcl\.test\/api\/transactions\/([^/?]+)$/);
+    if (mBcl) {
+      const o = (senario.bclPesanan || {})[decodeURIComponent(mBcl[1])];
+      return o ? Response.json({ success: true, data: o }) : Response.json({ success: false }, { status: 404 });
     }
     if (u.startsWith('https://oauth2.googleapis.com/tokeninfo')) {
       return Response.json({ scope: DRIVE, email: senario.email || 'admin@sekolah.edu.my' });

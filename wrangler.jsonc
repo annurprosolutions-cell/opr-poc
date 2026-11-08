@@ -16,10 +16,23 @@
   "vars": {
     "BASE_URL": "https://opr.annurpro.com",
     // Client ID OAuth "Annur OPR Web" (bukan rahsia).
-    "GOOGLE_CLIENT_ID": "98079080039-lb3hpj8qrl0mm9c50nu4qo93g1s9ivjh.apps.googleusercontent.com"
+    "GOOGLE_CLIENT_ID": "98079080039-lb3hpj8qrl0mm9c50nu4qo93g1s9ivjh.apps.googleusercontent.com",
+    // Lesen
+    "TRIAL_DAYS": "14",
+    "GRACE_DAYS": "7",
+    "PRICE_MONTH": "20",
+    "PRICE_YEAR": "200",
+    "YEARLY_MIN_AMOUNT": "150",
+    // Borang BCL Annur OPR: pautan (butang Langgan) dan ID borang (hanya borang ini diterima)
+    "BUY_URL": "",
+    "BCL_FORM_ID": "",
+    // E-mel Google pemilik yang boleh membuka /pemilik (dipisah koma)
+    "OWNER_EMAILS": "annurprosolutions@gmail.com"
   },
   // Secret (isi di dashboard Cloudflare, JANGAN letak di sini):
   //   GOOGLE_CLIENT_SECRET  - dari Google Cloud > Credentials
   //   APP_SECRET            - rentetan rawak min 32 aksara (kunci sulitan token)
+  //   BCL_WEBHOOK_KEY       - rentetan rawak panjang dalam URL webhook /bcl/<kunci>
+  //   BCL_API_TOKEN         - token API BCL (API Read sahaja) untuk mengesahkan bayaran
   "observability": { "enabled": true }
 }

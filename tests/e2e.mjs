@@ -20,7 +20,11 @@ mkdirSync(OUT, { recursive: true });
 
 const JENIS_FAIL = { html: 'text/html; charset=utf-8', js: 'text/javascript', css: 'text/css' };
 const g = googlePalsu();
+let masaKini = T0;   // boleh dimajukan untuk menguji tamat lesen
+const KUNCI_BCL = 'k-' + 'y'.repeat(40);
 const e = binaEnv({
+  BUY_URL: 'https://bcl.my/f/annur-opr', OWNER_EMAILS: 'pemilik@annurpro.com',
+  BCL_WEBHOOK_KEY: KUNCI_BCL, BCL_API_TOKEN: 'api', BCL_API_URL: 'https://bcl.test/api', BCL_FORM_ID: '777',
   ASSETS: { fetch: async (r) => {
     let p = new URL(r.url).pathname;
     if (p === '/') p = '/index.html';
@@ -46,7 +50,7 @@ async function pasangLaluan(ctx) {
     }
     if (u.origin !== ASAS) return r.abort();
     const body = ['GET', 'HEAD'].includes(q.method()) ? undefined : q.postDataBuffer();
-    const res = await handle(new Request(q.url(), { method: q.method(), headers: q.headers(), body }), e, { fetch: g.f, now: () => T0 });
+    const res = await handle(new Request(q.url(), { method: q.method(), headers: q.headers(), body }), e, { fetch: g.f, now: () => masaKini });
     const kuki = res.headers.getSetCookie();
     if (res.status >= 300 && res.status < 400) return lencongHalaman(r, new URL(res.headers.get('location'), ASAS).href, kuki);
     const headers = {};
@@ -88,6 +92,9 @@ try {
   await admin.click('#hantar');
   await admin.waitForURL(/\/s\/smkwakanda/);
   await admin.waitForSelector('#tab button');
+  semak((await admin.textContent('#notisLesen')).includes('Tempoh percubaan percuma tamat 13 hari lagi (21/11/2026)'), 'admin nampak notis percubaan 14 hari');
+  semak((await admin.getAttribute('#notisLesen a.butang', 'href')) === 'https://bcl.my/f/annur-opr', 'butang Langgan menuju borang BCL');
+  semak((await admin.textContent('#notisLesen')).includes('admin@sekolah.edu.my'), 'notis memberitahu emel untuk diisi dalam borang BCL');
   const tabAdmin = await admin.$$eval('#tab button', b => b.map(x => x.textContent));
   semak(JSON.stringify(tabAdmin) === JSON.stringify(['Borang OPR', 'Laporan', 'Dashboard', 'Guru', 'Tetapan', 'Drive']), 'admin utama nampak 6 tab');
 
@@ -260,6 +267,43 @@ try {
   semak(lap.length === 4, 'Google Sheet: 3 baris laporan + tajuk');
   const audit = g.sheet.get(sek.sheetId).tabs.get('AuditLog').map(r => r[3]);
   semak(['TAMBAH_GURU', 'SIMPAN_LAPORAN', 'KEMASKINI_GURU', 'TANDA_DISEMAK', 'SIMPAN_TETAPAN', 'MUAT_NAIK_LOGO', 'SIMPAN_SENARAI'].every(x => audit.includes(x)), 'AuditLog merekod semua tindakan');
+
+  // ---------------------------------------------------------- lesen: tamat percubaan -> bayar -> buka semula
+  masaKini = T0 + 20 * 864e5;
+  await admin.goto(ASAS + '/s/smkwakanda');
+  await admin.waitForSelector('#notisLesen .mesej');
+  semak((await admin.textContent('#notisLesen')).includes('Tempoh percubaan percuma telah tamat'), 'selepas 14 hari: notis percubaan tamat');
+  semak(await admin.evaluate(() => document.body.classList.contains('lesen-tamat')), 'butang simpan disekat bila lesen tamat');
+  await admin.click('#tab button[data-tab=Laporan]');
+  await admin.waitForSelector('#senaraiLaporan .item');
+  semak((await admin.$$('#senaraiLaporan .item')).length === 3, 'laporan sedia ada masih boleh dibaca selepas tamat');
+
+  g.senario.bclPesanan = { 'OPR-1': { order_number: 'OPR-1', status: 'success', status_code: 3, amount: 201, items: [{ name: 'Langganan Tahunan Annur OPR', amount: 200 }] } };
+  const hook = await handle(new Request(ASAS + '/bcl/' + KUNCI_BCL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+    event: 'payment-success', data: { formable_id: 777, record_type: 'Transaction', record_id: 'OPR-1',
+      main_data: { order_number: 'OPR-1', payer_email: 'bendahari@gmail.com', transaction_type: 'live', subtotal_amount: '200.00', amount: '201.00', status: 3, is_paid: 1 },
+      custom_fields_data: { 'E-mel Google untuk sistem': 'admin@sekolah.edu.my' } } }) }), e, { fetch: g.f, now: () => masaKini });
+  semak((await hook.json()).months === 12, 'webhook BCL tahunan diterima dan disahkan');
+  await admin.goto(ASAS + '/s/smkwakanda');
+  await admin.waitForSelector('#tab button');
+  semak(!(await admin.evaluate(() => document.body.classList.contains('lesen-tamat'))) && (await admin.textContent('#notisLesen')) === '', 'selepas bayar: sistem dibuka semula, tiada notis');
+
+  // ---------------------------------------------------------- halaman pemilik
+  masaKini = T0;   // id_token palsu luput sejam selepas T0; kembalikan masa untuk log masuk baharu
+  const pemilik = await pengguna('pemilik@annurpro.com');
+  await pemilik.masuk();
+  await pemilik.goto(ASAS + '/pemilik');
+  await pemilik.click('#perluLogin a.butang');
+  await pemilik.waitForSelector('#badanSekolah tr');
+  const baris = await pemilik.textContent('#badanSekolah');
+  semak(baris.includes('SMK Wakanda') && baris.includes('tahunan') && baris.includes('Aktif'), 'pemilik nampak sekolah dengan pelan tahunan aktif');
+  semak((await pemilik.textContent('#badanBayaran')).includes('OPR-1'), 'pemilik nampak bayaran');
+  await pemilik.click('#badanSekolah button:text("+1 bulan")');
+  await pemilik.waitForFunction(() => document.getElementById('mesej').textContent.includes('SMK Wakanda: tahunan'));
+  semak(true, 'pemilik tambah 1 bulan secara manual');
+  await pemilik.screenshot({ path: OUT + '5-pemilik.png', fullPage: true });
+  const bukanPemilik = await admin.evaluate(() => fetch('/api/pemilik/ringkasan').then(r => r.status));
+  semak(bukanPemilik === 403, 'admin sekolah tidak boleh membuka API pemilik');
 
   semak(ralatJs.length === 0, 'tiada ralat JavaScript' + (ralatJs.length ? ': ' + ralatJs.join(' | ') : ''));
   const lebar = await admin.evaluate(() => document.documentElement.scrollWidth > innerWidth);

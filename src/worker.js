@@ -24,6 +24,7 @@ import {
 } from './google.js';
 import { VERSI_SKEMA, TAB, KOLUM, SUBFOLDER, tetapanAsal, barisSenaraiAsal, jenisLalai, JENIS_SAH } from './skema.js';
 import { binaRekod, barisIkutTajuk, ringkasan, butiran, hurufLajur, STATUS } from './laporan.js';
+import { nilai, lesenSekolah, mulaPercubaan, pakaiKredit, lanjutLesen, prosesBcl, hariIni } from './lesen.js';
 
 const SKOP_GURU = 'openid email profile';
 const SKOP_ADMIN = 'openid email profile https://www.googleapis.com/auth/drive.file';
@@ -42,7 +43,8 @@ const KESELAMATAN_HTML = {
 
 export default {
   fetch(req, env, ctx) {
-    return handle(req, env, { fetch: (...a) => fetch(...a), now: () => Date.now() });
+    return handle(req, env, { fetch: (...a) => fetch(...a), now: () => Date.now(),
+      waitUntil: ctx && ctx.waitUntil ? (p) => ctx.waitUntil(p) : null });
   }
 };
 
@@ -56,6 +58,12 @@ export async function handle(req, env, deps = {}) {
     if (p === '/auth/login' && req.method === 'GET') return await mulaLogin(req, env, url, now);
     if (p === '/auth/callback' && req.method === 'GET') return await callback(req, env, url, f, now);
     if (p === '/auth/logout' && req.method === 'POST') return await logout(req, env);
+
+    if (p.startsWith('/bcl/')) return await webhookBcl(req, env, url, f, now, deps.waitUntil);
+    if (p.startsWith('/api/pemilik/')) {
+      if (req.method !== 'GET' && !originSah(req, env, url)) return ralat('Permintaan ditolak (origin).', 403);
+      return await apiPemilik(req, env, url, now);
+    }
 
     if (p.startsWith('/api/')) {
       if (req.method !== 'GET' && !originSah(req, env, url)) return ralat('Permintaan ditolak (origin).', 403);
@@ -288,6 +296,8 @@ async function ciptaSekolah(req, env, sesi, now, fGlobal) {
   await env.OPR_KV.put('school:' + s.slug, JSON.stringify(rekod));
   await env.OPR_KV.put('admin:' + sesi.email, s.slug);
   await env.OPR_KV.delete('pending:' + sesi.email);
+  await mulaPercubaan(env, s.slug, sesi.email, now());
+  await pakaiKredit(env, s.slug, sesi.email, now());
 
   // Sediakan folder + Sheet terus. Jika gagal, sekolah tetap berdaftar dan
   // admin boleh tekan "Sediakan Google Drive" semula (langkah boleh disambung).
@@ -528,6 +538,14 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
   if (sub === '' && req.method === 'GET') return json({ ok: true, slug: sek.slug, nama: sek.nama });
   if (!sesi) return ralat('Belum log masuk.', 401);
   const pemilik = sesi.email === sek.adminEmail;
+  const lesen = nilai(await lesenSekolah(env, sek, now()), now(), env);
+  const infoLesen = { lesen, buyUrl: env.BUY_URL || '' };
+  // Lesen tamat: operasi tulis disekat; baca, buka PDF dan eksport kekal. Data dalam Drive tidak disentuh.
+  if (req.method === 'POST' && !lesen.ok && !['/setup', '/health'].includes(sub)) {
+    return ralat(lesen.reason === 'percubaan-tamat'
+      ? 'Tempoh percubaan sekolah ini telah tamat. Laporan sedia ada masih boleh dibuka; langgan untuk terus menambah laporan.'
+      : 'Langganan sekolah ini telah tamat. Laporan sedia ada masih boleh dibuka; perbaharui langganan untuk terus menambah laporan.', 402, { lesenTamat: true, lesen });
+  }
   const maklumatPemilik = () => ({ statusToken: sek.statusToken, sedia: !!sek.sheetId,
     pautanSheet: sek.sheetId ? pautanSheet(sek.sheetId) : '', pautanFolder: sek.folderId ? pautanFolder(sek.folderId) : '' });
 
@@ -544,7 +562,7 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
   if (!sek.sheetId) {
     if (sub === '/me' && req.method === 'GET') {
       return json({ ok: true, email: sesi.email, nama: sesi.nama, peranan: pemilik ? 'admin' : 'tiada', pemilik,
-        belumSedia: true, ...(pemilik ? maklumatPemilik() : {}) });
+        belumSedia: true, ...infoLesen, ...(pemilik ? maklumatPemilik() : {}) });
     }
     return ralat('Sistem sekolah ini belum disediakan oleh admin.', 409, { perluSedia: true });
   }
@@ -562,8 +580,8 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
     const r = await denganAkses(env, sek, f, now, async (g) => {
       const kenal = await kenalPasti(g, sek, sesi.email);
       if (sub === '/me' && req.method === 'GET') {
-        return json({ ok: true, email: sesi.email, nama: sesi.nama, peranan: kenal.peranan, pemilik,
-          ...(pemilik ? maklumatPemilik() : {}) });
+        return json({ ok: true, email: sesi.email, nama: sesi.nama, peranan: kenal.peranan, pemilik, adminEmail: sek.adminEmail,
+          ...infoLesen, ...(pemilik ? maklumatPemilik() : {}) });
       }
       if (kenal.peranan === 'tiada' || kenal.peranan === 'tidak_aktif') {
         return ralat(kenal.peranan === 'tidak_aktif' ? 'Akaun anda telah dinyahaktifkan oleh admin sekolah.' : 'Akaun anda belum didaftarkan dalam sekolah ini.', 403);
@@ -604,7 +622,7 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
       return ralat('Laluan tidak dijumpai.', 404);
     });
     if (r.gagal) {
-      if (sub === '/me' && pemilik) return json({ ok: true, email: sesi.email, nama: sesi.nama, peranan: 'admin', pemilik, ...maklumatPemilik() });
+      if (sub === '/me' && pemilik) return json({ ok: true, email: sesi.email, nama: sesi.nama, peranan: 'admin', pemilik, ...infoLesen, ...maklumatPemilik() });
       return responsGagalToken(r.gagal, pemilik);
     }
     return r.hasil;
@@ -970,7 +988,7 @@ async function tulisTetapan(g, sek, ubah) {
   await kemaskiniJulat(g, sek.sheetId, TAB.TETAPAN, 'A2:B' + (baris.length + 1), baris);
 }
 
-async function simpanTetapan({ g, sek, sesi, kenal, badan }) {
+async function simpanTetapan({ env, g, sek, sesi, kenal, badan }) {
   const masuk = (badan && typeof badan.tetapan === 'object' && badan.tetapan) || {};
   const ubah = {}, ditolak = [];
   for (const [k, v0] of Object.entries(masuk)) {
@@ -989,6 +1007,7 @@ async function simpanTetapan({ g, sek, sesi, kenal, badan }) {
   }
   if (!Object.keys(ubah).length) return ralat('Tiada tetapan yang sah untuk disimpan.');
   await tulisTetapan(g, sek, ubah);
+  if (ubah.NAMA_SEKOLAH && ubah.NAMA_SEKOLAH !== sek.nama) { sek.nama = ubah.NAMA_SEKOLAH; await simpanSekolah(env, sek); }
   await audit(g, sek, sesi, kenal.peranan, 'SIMPAN_TETAPAN', Object.keys(ubah).join(',').slice(0, 200), 'BERJAYA', '');
   return json({ ok: true, disimpan: Object.keys(ubah), ditolak });
 }
@@ -1069,6 +1088,117 @@ async function padamSenarai({ g, sek, sesi, kenal, badan }) {
   await tulisSemulaSenarai(g, sek, tinggal);
   await audit(g, sek, sesi, kenal.peranan, 'PADAM_SENARAI', kat, 'BERJAYA', '');
   return json({ ok: true });
+}
+
+
+// ======================================================================
+// Fasa 4: webhook BCL dan API pemilik (AnnurPro)
+// ======================================================================
+
+function samaRahsia(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
+// https://opr.annurpro.com/bcl/<BCL_WEBHOOK_KEY>. Jawab segera; kerja diteruskan di latar.
+async function webhookBcl(req, env, url, f, now, waitUntil) {
+  if (!env.BCL_WEBHOOK_KEY || !samaRahsia(url.pathname.slice(5), env.BCL_WEBHOOK_KEY)) return ralat('Tidak dijumpai.', 404);
+  if (req.method !== 'POST') return ralat('Kaedah tidak disokong.', 405);
+  let body; try { body = await req.json(); } catch (e) { return ralat('JSON tidak sah.', 400); }
+  const kerja = prosesBcl(body, env, { now: now(), fetch: f }).then(async (r) => {
+    try {
+      await env.OPR_KV.put('log:' + new Date(now()).toISOString() + ':' + String((body.data || {}).record_id || ''),
+        JSON.stringify({ event: body.event, result: r }), { expirationTtl: 90 * 86400 });
+    } catch (e) { /* abaikan */ }
+    return r;
+  }, (e) => ({ ok: false, reason: 'ralat', message: String(e && e.message) }));
+  if (waitUntil) { waitUntil(kerja); return json({ ok: true, received: true }); }
+  return json(await kerja);
+}
+
+async function senaraiKunci(env, prefix, had = 2000) {
+  const keluar = [];
+  let cursor;
+  do {
+    const r = await env.OPR_KV.list({ prefix, cursor });
+    keluar.push(...r.keys.map(k => k.name));
+    cursor = r.list_complete ? null : r.cursor;
+  } while (cursor && keluar.length < had);
+  return keluar;
+}
+
+async function bacaSemua(env, prefix, had) {
+  const kunci = await senaraiKunci(env, prefix, had);
+  return Promise.all(kunci.map(async k => ({ kunci: k, nilai: await env.OPR_KV.get(k, 'json') })));
+}
+
+function pemilikSah(env, sesi) {
+  const senarai = String(env.OWNER_EMAILS || '').toLowerCase().split(',').map(x => x.trim()).filter(Boolean);
+  return !!(sesi && senarai.includes(sesi.email));
+}
+
+async function apiPemilik(req, env, url, now) {
+  const sesi = await sesiSemasa(req, env);
+  if (!sesi) return ralat('Belum log masuk.', 401);
+  if (!pemilikSah(env, sesi)) return ralat('Hanya pemilik AnnurPro.', 403);
+  const p = url.pathname;
+  const harga = { bulanan: Number(env.PRICE_MONTH || 20), tahunan: Number(env.PRICE_YEAR || 200) };
+
+  if (p === '/api/pemilik/ringkasan' && req.method === 'GET') {
+    const sekolah = (await bacaSemua(env, 'school:')).filter(x => x.nilai).map(x => x.nilai);
+    const lesenSemua = Object.fromEntries((await bacaSemua(env, 'lesen:')).map(x => [x.kunci.slice(6), x.nilai]));
+    const t = now();
+    const baris = sekolah.map(sk => {
+      const l = lesenSemua[sk.slug] || null;
+      return { slug: sk.slug, nama: sk.nama, adminEmail: sk.adminEmail, dicipta: sk.dicipta, sedia: !!sk.sheetId,
+        statusToken: sk.statusToken, lesen: l, status: nilai(l, t, env) };
+    }).sort((a, b) => String(b.dicipta).localeCompare(String(a.dicipta)));
+    const bayaran = (await bacaSemua(env, 'bcl:')).filter(x => x.nilai).map(x => ({ order: x.kunci.slice(4), ...x.nilai }))
+      .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    const kredit = (await bacaSemua(env, 'kredit:')).filter(x => x.nilai).map(x => ({ email: x.kunci.slice(7), ...x.nilai }));
+    const log = (await bacaSemua(env, 'log:', 200)).map(x => ({ kunci: x.kunci.slice(4), ...x.nilai })).reverse().slice(0, 100);
+    const berbayar = baris.filter(b => b.status.ok && b.lesen && ['bulanan', 'tahunan'].includes(b.lesen.plan));
+    const mrr = berbayar.reduce((s, b) => s + (b.lesen.plan === 'tahunan' ? harga.tahunan / 12 : harga.bulanan), 0);
+    const hari30 = hariIni(t - 30 * 864e5);
+    return json({ ok: true, sekolah: baris, bayaran, kredit, log, ringkasan: {
+      jumlahSekolah: baris.length, berbayarAktif: berbayar.length,
+      percubaanAktif: baris.filter(b => b.status.ok && b.lesen && b.lesen.plan === 'percubaan').length,
+      tamat: baris.filter(b => !b.status.ok).length, mrr: Math.round(mrr * 100) / 100,
+      hasil30Hari: bayaran.filter(b => b.at >= hari30).reduce((s, b) => s + (Number(b.amount) || 0), 0),
+      webhookGagal: log.filter(l => l.result && l.result.ok === false).length
+    } });
+  }
+
+  let badan = {};
+  try { badan = await req.json(); } catch (e) { badan = {}; }
+
+  if (p === '/api/pemilik/lesen' && req.method === 'POST') {
+    const slug = String(badan.slug || '');
+    if (!await env.OPR_KV.get('school:' + slug)) return ralat('Sekolah tidak dijumpai.', 404);
+    if (badan.tambahBulan !== undefined) {
+      const n = parseInt(badan.tambahBulan, 10);
+      if (!(n >= 1 && n <= 120)) return ralat('Bulan mesti 1 hingga 120.');
+      return json({ ok: true, lesen: await lanjutLesen(env, slug, n, now()) });
+    }
+    const exp = String(badan.expires || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(exp)) return ralat('Tarikh tamat mesti format YYYY-MM-DD.');
+    const plan = ['percubaan', 'bulanan', 'tahunan', 'pilot'].includes(badan.plan) ? badan.plan : 'tahunan';
+    const kini = await env.OPR_KV.get('lesen:' + slug, 'json');
+    const lesen = { ...(kini || {}), plan, expires: exp, day: +exp.slice(8), updatedAt: new Date(now()).toISOString(), olehPemilik: sesi.email };
+    await env.OPR_KV.put('lesen:' + slug, JSON.stringify(lesen));
+    return json({ ok: true, lesen });
+  }
+
+  if (p === '/api/pemilik/kredit' && req.method === 'POST') {
+    const email = String(badan.email || '').toLowerCase(), slug = String(badan.slug || '');
+    if (!await env.OPR_KV.get('school:' + slug)) return ralat('Sekolah tidak dijumpai.', 404);
+    const lesen = await pakaiKredit(env, slug, email, now());
+    return lesen ? json({ ok: true, lesen }) : ralat('Tiada kredit untuk e-mel ini.', 404);
+  }
+
+  return ralat('Laluan tidak dijumpai.', 404);
 }
 
 // ======================================================================

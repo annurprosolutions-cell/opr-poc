@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pemilik | Annur OPR</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main class="bekas lebar">
+  <div class="kepala">
+    <a class="jenama" href="/">Annur <span>OPR</span></a>
+    <div id="pengguna" class="pengguna"></div>
+  </div>
+  <h1>Pemilik</h1>
+  <div id="mesej"></div>
+
+  <section id="perluLogin" class="kad tersembunyi">
+    <p>Log masuk dengan akaun Google pemilik AnnurPro.</p>
+    <p><a class="butang" href="/auth/login?mode=guru&amp;next=/pemilik">Log masuk dengan Google</a></p>
+  </section>
+
+  <div id="isi" class="tersembunyi">
+    <section class="kad">
+      <div class="baris-antara"><h2>Ringkasan</h2><button id="muatSemula" class="butang sekunder" type="button">Muat semula</button></div>
+      <div id="jubin" class="jubin"></div>
+    </section>
+
+    <section class="kad">
+      <div class="baris-antara"><h2>Sekolah</h2><input id="cari" type="text" placeholder="Cari nama, pautan atau emel" aria-label="Cari sekolah" style="max-width:320px"></div>
+      <div class="skrol-x"><table class="jadual"><thead><tr>
+        <th>Sekolah</th><th>Admin</th><th>Pelan</th><th>Tamat</th><th>Status</th><th>Tindakan</th>
+      </tr></thead><tbody id="badanSekolah"></tbody></table></div>
+    </section>
+
+    <section class="kad" id="kadKredit">
+      <h2>Kredit belum dipakai</h2>
+      <p class="redup kecil">Bayaran untuk emel yang belum mendaftarkan sekolah. Ia dipakai automatik bila emel itu mendaftar. Jika emel tersalah taip, pindahkan ke sekolah yang betul.</p>
+      <div class="skrol-x"><table class="jadual"><thead><tr><th>Emel</th><th>Bulan</th><th>Nama sekolah (borang)</th><th>Pindah ke pautan sekolah</th></tr></thead><tbody id="badanKredit"></tbody></table></div>
+    </section>
+
+    <section class="kad">
+      <h2>Bayaran</h2>
+      <div class="skrol-x"><table class="jadual"><thead><tr><th>Tarikh</th><th>Pesanan</th><th>Emel</th><th>Sekolah</th><th>Bulan</th><th>RM</th></tr></thead><tbody id="badanBayaran"></tbody></table></div>
+    </section>
+
+    <section class="kad">
+      <h2>Log webhook (90 hari)</h2>
+      <p class="redup kecil">BCL tidak menghantar semula webhook yang gagal. Jika ada yang gagal, semak di BCL &gt; Tools &gt; Webhook Logs dan tekan Resend.</p>
+      <div class="skrol-x"><table class="jadual"><thead><tr><th>Masa</th><th>Event</th><th>Keputusan</th></tr></thead><tbody id="badanLog"></tbody></table></div>
+    </section>
+  </div>
+
+  <footer>&copy; AnnurPro Solutions</footer>
+</main>
+<script type="module" src="/pemilik.js"></script>
+</body>
+</html>

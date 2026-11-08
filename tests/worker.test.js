@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handle } from '../src/worker.js';
 import { sulit, nyahsulit, semakSlug } from '../src/lib.js';
+import { tambahBulan, hariIni, nilai } from '../src/lesen.js';
 
 import { ASAS, CLIENT_ID, DRIVE, T0, kvPalsu, env, idToken, googlePalsu } from './palsu.js';
 
@@ -660,4 +661,178 @@ test('senarai dropdown: ganti isi, cipta baharu, padam ditolak jika masih diguna
   assert.equal((await panggilApi(e, g, sesiAdmin, '/senarai/padam', { kategori: 'AGENSI_LUAR' })).ok, true);
   assert.equal((await panggilApi(e, g, ali.sesi, '/config')).senarai.AGENSI_LUAR, undefined);
   assert.equal((await panggilApi(e, g, ali.sesi, '/senarai', { kategori: 'X1', item: ['a'] })).status, 403);
+});
+
+// ======================================================================
+// Fasa 4: lesen, percubaan, BCL, pemilik
+// ======================================================================
+
+const HARI = 864e5;
+const KUNCI_BCL = 'k-' + 'x'.repeat(40);
+function envBcl(lebih = {}) {
+  return env({ BCL_WEBHOOK_KEY: KUNCI_BCL, BCL_API_TOKEN: 'api-tok', BCL_API_URL: 'https://bcl.test/api', BCL_FORM_ID: '777',
+    BUY_URL: 'https://bcl.my/f/opr', OWNER_EMAILS: 'pemilik@annurpro.com', ...lebih });
+}
+async function sekolahSiapBcl(lebih) {
+  const e = envBcl(lebih); const g = googlePalsu();
+  const { sesi } = await logMasuk(e, g, 'admin');
+  await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: sesi }, body: { nama: 'SMK Wakanda', slug: 'smkwakanda' } }), e, deps(g));
+  return { e, g, sesiAdmin: sesi };
+}
+const pada = (g, ms) => ({ fetch: g.f, now: () => ms });
+const jualan = (order, item, amount, custom, extra = {}) => ({
+  event: 'payment-success',
+  data: { formable_type: 'payment_form', formable_id: 777, record_type: 'Transaction', record_id: order,
+    main_data: { order_number: order, payer_email: 'Bendahari@Gmail.com', transaction_type: 'live', subtotal_amount: amount,
+      fee_amount: '1.00', amount: (parseFloat(amount) + 1).toFixed(2), status: 3, is_paid: 1, items: [{ item, quantity: 1, amount }], ...extra },
+    custom_fields_data: custom || { 'E-mel Google untuk sistem': 'Admin@Sekolah.edu.my' } }
+});
+const pesanan = (order, nama, amount) => ({ order_number: order, status: 'success', status_code: 3, amount: parseFloat(amount) + 1, items: [{ name: nama, amount }] });
+async function webhook(e, g, body, ms = T0, kunci = KUNCI_BCL) {
+  const r = await handle(new Request(ASAS + '/bcl/' + kunci, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }), e, pada(g, ms));
+  return { status: r.status, ...(await r.json()) };
+}
+
+test('tarikh lesen: waktu Malaysia dan bulan berlabuh', () => {
+  assert.equal(hariIni(Date.UTC(2026, 10, 8, 17, 0)), '2026-11-09');   // 01:00 MYT keesokan hari
+  assert.equal(tambahBulan('2027-01-31', 1, 31), '2027-02-28');
+  assert.equal(tambahBulan('2027-02-28', 1, 31), '2027-03-31');
+  assert.equal(tambahBulan('2026-11-30', 12, 30), '2027-11-30');
+  const e = { GRACE_DAYS: '7' };
+  assert.equal(nilai({ plan: 'percubaan', expires: '2026-11-07' }, T0, e).reason, 'percubaan-tamat');
+  assert.equal(nilai({ plan: 'tahunan', expires: '2026-11-03' }, T0, e).reason, 'tamat-tempoh-ihsan');
+  assert.equal(nilai({ plan: 'tahunan', expires: '2026-10-01' }, T0, e).reason, 'tamat');
+  assert.equal(nilai(null, T0, e).reason, 'tiada');
+});
+
+test('percubaan 14 hari bermula semasa daftar; tamat = tulis disekat, baca dan eksport kekal', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiapBcl();
+  const l = await e.OPR_KV.get('lesen:smkwakanda', 'json');
+  assert.deepEqual([l.plan, l.expires], ['percubaan', '2026-11-21']);
+  const me = await panggilApi(e, g, sesiAdmin, '/me');
+  assert.deepEqual([me.lesen.ok, me.lesen.daysLeft, me.buyUrl], [true, 13, 'https://bcl.my/f/opr']);
+  const s1 = await panggilApi(e, g, sesiAdmin, '/laporan', { data: { tajuk: 'Sebelum tamat' }, consent: true, status: 'HANTAR' });
+  assert.equal(s1.ok, true);
+
+  const lepas = T0 + 20 * HARI;
+  const tulis = await handle(req('/api/s/smkwakanda/laporan', { method: 'POST', kuki: { opr_sesi: sesiAdmin }, body: { data: { tajuk: 'X' }, consent: true } }), e, pada(g, lepas));
+  assert.equal(tulis.status, 402);
+  const t = await tulis.json();
+  assert.equal(t.lesenTamat, true);
+  assert.match(t.ralat, /percubaan/);
+  assert.equal((await handle(req('/api/s/smkwakanda/guru', { method: 'POST', kuki: { opr_sesi: sesiAdmin }, body: { teks: 'a@b.com' } }), e, pada(g, lepas))).status, 402);
+  // Baca, buka laporan dan eksport kekal
+  assert.equal((await handle(req('/api/s/smkwakanda/laporan', { kuki: { opr_sesi: sesiAdmin } }), e, pada(g, lepas))).status, 200);
+  assert.equal((await handle(req('/api/s/smkwakanda/laporan/' + s1.id, { kuki: { opr_sesi: sesiAdmin } }), e, pada(g, lepas))).status, 200);
+  assert.equal((await handle(req('/api/s/smkwakanda/eksport', { kuki: { opr_sesi: sesiAdmin } }), e, pada(g, lepas))).status, 200);
+  const meLepas = await (await handle(req('/api/s/smkwakanda/me', { kuki: { opr_sesi: sesiAdmin } }), e, pada(g, lepas))).json();
+  assert.equal(meLepas.lesen.reason, 'percubaan-tamat');
+});
+
+test('percubaan hanya sekali bagi setiap e-mel admin', async () => {
+  const { e } = await sekolahSiapBcl();
+  await e.OPR_KV.delete('lesen:smkwakanda');
+  const { mulaPercubaan } = await import('../src/lesen.js');
+  assert.equal(await mulaPercubaan(e, 'smkwakanda', 'admin@sekolah.edu.my', T0), null);
+});
+
+test('BCL: kunci rahsia, borang lain, transaksi ujian dan pesanan tidak dibayar ditolak', async () => {
+  const { e, g } = await sekolahSiapBcl();
+  assert.equal((await webhook(e, g, {}, T0, 'salah')).status, 404);
+  assert.equal((await handle(new Request(ASAS + '/bcl/' + KUNCI_BCL, { method: 'POST', body: '{}' }), env(), pada(g, T0))).status, 404); // tiada kunci dikonfigurasi
+  const lain = jualan('L-1', 'Langganan Tahunan', '200.00'); lain.data.formable_id = 1;
+  assert.equal((await webhook(e, g, lain)).ignored, 'borang-lain');
+  assert.equal((await webhook(e, g, jualan('L-2', 'Langganan Tahunan', '200.00', null, { transaction_type: 'test' }))).ignored, 'transaksi-ujian');
+  // API kata belum dibayar
+  g.senario.bclPesanan = { 'L-3': { order_number: 'L-3', status: 'pending', status_code: 1, amount: 201 } };
+  assert.equal((await webhook(e, g, jualan('L-3', 'Langganan Tahunan', '200.00'))).reason, 'belum-dibayar');
+  // Jumlah webhook berbeza daripada API
+  g.senario.bclPesanan = { 'L-4': pesanan('L-4', 'Langganan Tahunan', '200.00') };
+  assert.equal((await webhook(e, g, jualan('L-4', 'Langganan Tahunan', '20.00'))).reason, 'jumlah-tidak-sepadan');
+  assert.equal((await e.OPR_KV.get('lesen:smkwakanda', 'json')).plan, 'percubaan');
+});
+
+test('BCL tahunan: disahkan API, dilanjut dari tarikh tamat percubaan, sekali sahaja', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiapBcl();
+  g.senario.bclPesanan = { 'L-10': pesanan('L-10', 'Langganan Tahunan OPR', '200.00') };
+  const r = await webhook(e, g, jualan('L-10', 'Langganan Tahunan OPR', '200.00'));
+  assert.deepEqual([r.ok, r.slug, r.months, r.expires], [true, 'smkwakanda', 12, '2027-11-21']);
+  const ulang = await webhook(e, g, jualan('L-10', 'Langganan Tahunan OPR', '200.00'));
+  assert.equal(ulang.duplicate, true);
+  assert.equal((await e.OPR_KV.get('lesen:smkwakanda', 'json')).expires, '2027-11-21');
+  const rek = await e.OPR_KV.get('bcl:L-10', 'json');
+  assert.equal(rek.amount, 201);
+  const me = await panggilApi(e, g, sesiAdmin, '/me');
+  assert.deepEqual([me.lesen.plan, me.lesen.ok], ['tahunan', true]);
+});
+
+test('BCL selepas tamat: lanjut dari hari ini dan tulis dibuka semula', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiapBcl();
+  const lepas = T0 + 30 * HARI;   // 2026-12-08
+  g.senario.bclPesanan = { 'L-20': pesanan('L-20', 'Langganan Bulanan OPR', '20.00') };
+  const r = await webhook(e, g, jualan('L-20', 'Langganan Bulanan OPR', '20.00'), lepas);
+  assert.deepEqual([r.months, r.expires], [1, '2027-01-08']);
+  const tulis = await handle(req('/api/s/smkwakanda/laporan', { method: 'POST', kuki: { opr_sesi: sesiAdmin }, body: { data: { tajuk: 'Selepas bayar' }, consent: true } }), e, pada(g, lepas));
+  assert.equal(tulis.status, 200);
+});
+
+test('BCL sebelum sekolah didaftar: disimpan sebagai kredit dan dipakai semasa daftar', async () => {
+  const e = envBcl(); const g = googlePalsu({ email: 'baru@sekolah.edu.my' });
+  g.senario.bclPesanan = { 'L-30': pesanan('L-30', 'Langganan Tahunan', '200.00') };
+  const r = await webhook(e, g, jualan('L-30', 'Langganan Tahunan', '200.00', { 'E-mel Google untuk sistem': 'baru@sekolah.edu.my', 'Nama sekolah': 'SMK Baharu' }));
+  assert.deepEqual([r.ok, r.kredit], [true, true]);
+  assert.equal((await e.OPR_KV.get('kredit:baru@sekolah.edu.my', 'json')).months, 12);
+  const { sesi } = await logMasuk(e, g, 'admin');
+  await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: sesi }, body: { nama: 'SMK Baharu', slug: 'smkbaharu' } }), e, deps(g));
+  const l = await e.OPR_KV.get('lesen:smkbaharu', 'json');
+  assert.deepEqual([l.plan, l.expires], ['tahunan', '2027-11-21']);   // percubaan + 12 bulan
+  assert.equal(await e.OPR_KV.get('kredit:baru@sekolah.edu.my'), null);
+  assert.equal((await e.OPR_KV.get('bcl:L-30', 'json')).slug, 'smkbaharu');
+});
+
+test('BCL: pautan /s/<slug> dalam borang mengatasi e-mel; auto-debit melanjut 1 bulan setiap potongan', async () => {
+  const { e, g } = await sekolahSiapBcl();
+  g.senario.bclPesanan = { 'L-40': pesanan('L-40', 'Langganan Bulanan', '20.00') };
+  const r = await webhook(e, g, jualan('L-40', 'Langganan Bulanan', '20.00', { 'E-mel Google untuk sistem': 'bendahari@gmail.com', 'Pautan sekolah': 'https://opr.annurpro.com/s/smkwakanda' }));
+  assert.equal(r.slug, 'smkwakanda');
+  const daftar = { event: 'payment-success', data: { formable_id: 777, record_type: 'DirectDebit', record_id: 'DD-1',
+    main_data: { order_number: 'DD-1', payer_email: 'x@gmail.com', transaction_type: 'live' }, custom_fields_data: { 'E-mel Google untuk sistem': 'admin@sekolah.edu.my' } } };
+  assert.equal((await webhook(e, g, daftar)).mandate, 'DD-1');
+  const potong = { event: 'direct-debit', data: { formable_id: 777, record_id: 'DD-1', main_data: { order_number: 'DDP-1', status: 3, amount: '20.00', transaction_type: 'live' } } };
+  const sebelum = (await e.OPR_KV.get('lesen:smkwakanda', 'json')).expires;
+  const p1 = await webhook(e, g, potong);
+  assert.equal(p1.expires, tambahBulan(sebelum, 1, +sebelum.slice(8)));
+  assert.equal((await webhook(e, g, potong)).duplicate, true);
+});
+
+test('API pemilik: hanya OWNER_EMAILS; ringkasan, tambah bulan, tetapkan tarikh, pakai kredit', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiapBcl();
+  assert.equal((await handle(req('/api/pemilik/ringkasan', { kuki: { opr_sesi: sesiAdmin } }), e, deps(g))).status, 403);
+  g.senario.email = 'pemilik@annurpro.com';
+  const { sesi } = await logMasuk(e, g, 'guru');
+  g.senario.email = 'admin@sekolah.edu.my';
+  const r = await (await handle(req('/api/pemilik/ringkasan', { kuki: { opr_sesi: sesi } }), e, deps(g))).json();
+  assert.equal(r.sekolah.length, 1);
+  assert.deepEqual([r.sekolah[0].slug, r.sekolah[0].status.reason, r.ringkasan.percubaanAktif], ['smkwakanda', 'ok', 1]);
+  const pos = (laluan, body) => handle(req(laluan, { method: 'POST', kuki: { opr_sesi: sesi }, body }), e, deps(g)).then(x => x.json());
+  assert.equal((await pos('/api/pemilik/lesen', { slug: 'smkwakanda', tambahBulan: 12 })).lesen.expires, '2027-11-21');
+  assert.equal((await pos('/api/pemilik/lesen', { slug: 'smkwakanda', expires: '2027-12-31', plan: 'pilot' })).lesen.plan, 'pilot');
+  assert.equal((await pos('/api/pemilik/lesen', { slug: 'smkwakanda', expires: '31/12/2027' })).ok, false);
+  await e.OPR_KV.put('kredit:salah@taip.com', JSON.stringify({ months: 1, orders: [] }));
+  assert.equal((await pos('/api/pemilik/kredit', { email: 'salah@taip.com', slug: 'smkwakanda' })).lesen.expires, '2028-01-31');
+  const r2 = await (await handle(req('/api/pemilik/ringkasan', { kuki: { opr_sesi: sesi } }), e, deps(g))).json();
+  // Kredit dibayar menukar pilot kepada bulanan, jadi kini dikira langganan berbayar aktif
+  assert.equal(r2.sekolah[0].lesen.plan, 'bulanan');
+  assert.equal(r2.ringkasan.berbayarAktif, 1);
+  assert.equal(r2.ringkasan.mrr, 20);
+});
+
+test('tambah 1 bulan kepada pelan tahunan aktif: pelan kekal tahunan', async () => {
+  const { lanjutLesen } = await import('../src/lesen.js');
+  const e = envBcl();
+  await e.OPR_KV.put('lesen:x', JSON.stringify({ plan: 'tahunan', expires: '2027-06-30', day: 30 }));
+  const l = await lanjutLesen(e, 'x', 1, T0);
+  assert.deepEqual([l.plan, l.expires], ['tahunan', '2027-07-30']);
+  await e.OPR_KV.put('lesen:y', JSON.stringify({ plan: 'tahunan', expires: '2026-01-01' }));   // sudah tamat
+  assert.equal((await lanjutLesen(e, 'y', 1, T0)).plan, 'bulanan');
 });

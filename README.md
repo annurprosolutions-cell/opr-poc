@@ -11,6 +11,7 @@ Cloudflare Worker "annur-opr"  (repo ini, deploy automatik setiap push ke main)
  ├─ src/worker.js      /auth/*, /api/*, /s/*
  ├─ src/google.js      Drive + Sheets API (tiada carian ikut nama; semua ikut ID)
  ├─ src/skema.js       tab, kolum dan data asal Sheet sekolah
+ ├─ src/lesen.js       lesen + webhook BCL (dari Worker lesen Annur Time Table)
  ├─ src/laporan.js     normalisasi + rekod laporan (dari Code.gs v2)
  ├─ public/dokumen.js  enjin pratonton A4 + PDF (kod v2 verbatim + lapisan sambungan)
  ├─ public/pentadbiran.js  dashboard, tetapan, logo, jenis, senarai, semakan (admin)
@@ -33,7 +34,7 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | 3a | Peranan dari tab Guru (berkuat kuasa serta-merta), admin tambah guru (tampal senarai), hierarki admin, borang OPR 8 jenis, simpan/edit/padam laporan, cache token | Siap |
 | 3b-1 | Pratonton A4 + jana PDF (enjin v2 verbatim, gaya Kotak/Poster), gambar ke Drive, lampiran PDF, "Sertakan", Rupa Dokumen, buka PDF | Siap |
 | 3b-2 | Semakan + PDF bertandatangan, dashboard + eksport CSV, tab Tetapan (identiti, logo, warna, dasar PDF, jenis laporan, senarai), butang pratonton di telefon | Siap |
-| 4 | Licence, percubaan, BCL | |
+| 4 | Lesen ikut sekolah: percubaan 14 hari, BCL (disahkan API, idempoten, kredit sebelum daftar, auto-debit), tempoh ihsan 7 hari, sekatan tulis bila tamat, notis dalam app, halaman /pemilik | Siap |
 | 5 | Sale page, pengesahan Google, manual, video | |
 
 ## Ujian
@@ -65,6 +66,9 @@ npx wrangler dev --local --var GOOGLE_CLIENT_ID:ujian --var BASE_URL:http://loca
 | `OPR_KV` id | KV | `wrangler.jsonc` |
 | `GOOGLE_CLIENT_SECRET` | **secret** | Dashboard Cloudflare sahaja |
 | `APP_SECRET` | **secret**, min 32 aksara | Dashboard Cloudflare sahaja |
+| `BCL_WEBHOOK_KEY` | **secret**, rentetan rawak panjang | Dashboard Cloudflare sahaja |
+| `BCL_API_TOKEN` | **secret**, token BCL (API Read) | Dashboard Cloudflare sahaja |
+| `BUY_URL`, `BCL_FORM_ID`, `OWNER_EMAILS`, `TRIAL_DAYS`, `GRACE_DAYS` | var | `wrangler.jsonc` |
 
 Jangan sesekali commit secret ke repo ini. Jika `APP_SECRET` ditukar, semua admin perlu sambung semula Google.
 

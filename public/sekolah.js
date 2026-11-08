@@ -18,6 +18,7 @@ async function mulaSesi() {
   }
   if (!ME.ok) return mesej($('mesej'), 'bahaya', ME.ralat || 'Tidak dapat memuatkan maklumat akaun.');
 
+  paparLesen(ME);
   $('pengguna').append(el('span', { text: ME.email }),
     el('button', { class: 'butang sekunder', type: 'button', onclick: logKeluar, text: 'Keluar' }));
 
@@ -44,6 +45,46 @@ async function mulaSesi() {
   if (ME.pemilik) tabs.push('Drive');
   bina(tabs);
   sediaBorang();
+}
+
+// ====================================================================== lesen
+const tarikhDmy = (iso) => iso ? iso.split('-').reverse().join('/') : '';
+
+// Notis ikut peraturan Annur Time Table: percubaan (info >7 hari, amaran <=7, segera <=3),
+// berbayar (amaran <=14, segera <=3), tempoh ihsan (segera), tamat (kritikal).
+function paparLesen(me) {
+  const L = me.lesen, bekas = $('notisLesen');
+  bekas.textContent = '';
+  if (!L) return;
+  const admin = me.peranan === 'admin';
+  const hari = (n) => n === 0 ? 'hari ini' : n + ' hari lagi';
+  let jenis = '', teks = '';
+  if (L.reason === 'ok' && L.plan === 'percubaan') {
+    jenis = L.daysLeft <= 3 ? 'bahaya' : L.daysLeft <= 7 ? 'amaran' : 'ok';
+    teks = 'Tempoh percubaan percuma tamat ' + hari(L.daysLeft) + ' (' + tarikhDmy(L.expires) + ').';
+    if (!admin && L.daysLeft > 3) return;
+  } else if (L.reason === 'ok' && L.daysLeft !== null && L.daysLeft <= 14) {
+    jenis = L.daysLeft <= 3 ? 'bahaya' : 'amaran';
+    teks = 'Langganan sekolah tamat ' + hari(L.daysLeft) + ' (' + tarikhDmy(L.expires) + ').';
+    if (!admin) return;
+  } else if (L.reason === 'tamat-tempoh-ihsan') {
+    jenis = 'bahaya';
+    teks = 'Langganan sekolah tamat pada ' + tarikhDmy(L.expires) + '. Sistem masih boleh digunakan dalam tempoh ihsan; sila perbaharui segera.';
+  } else if (!L.ok) {
+    jenis = 'bahaya';
+    teks = (L.reason === 'percubaan-tamat' ? 'Tempoh percubaan percuma telah tamat.' : 'Langganan sekolah telah tamat.')
+      + ' Laporan sedia ada masih boleh dibuka dan dimuat turun. Data dalam Google Drive sekolah tidak dipadam.';
+  } else return;
+
+  const kotak = el('div', { class: 'mesej ' + jenis }, el('div', { text: teks }));
+  if (admin && me.buyUrl) {
+    kotak.append(el('p', { class: 'kecil', style: 'margin:8px 0', text: 'Semasa membayar, isi medan "E-mel Google untuk sistem" dengan: ' + (me.adminEmail || me.email) }),
+      el('a', { class: 'butang', href: me.buyUrl, target: '_blank', rel: 'noopener', text: L.plan === 'percubaan' || L.reason === 'tiada' ? 'Langgan sekarang' : 'Perbaharui langganan' }));
+  } else if (!admin && !L.ok) {
+    kotak.append(el('p', { class: 'kecil', style: 'margin:6px 0 0', text: 'Sila maklumkan admin sekolah untuk memperbaharui langganan.' }));
+  }
+  bekas.append(kotak);
+  if (!L.ok) document.body.classList.add('lesen-tamat');
 }
 
 // ====================================================================== tab
