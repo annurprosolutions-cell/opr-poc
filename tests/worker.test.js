@@ -270,5 +270,26 @@ test('tukar token gagal: kod ralat Google dipaparkan dalam URL, tanpa rahsia', a
   const lok = r2.headers.get('location');
   assert.match(lok, /ralat=tukar_token_gagal/);
   assert.match(lok, /d=invalid_client/);
+  assert.match(lok, /m=Unauthorized/);
   assert.ok(!lok.includes('rahsia-ujian'));
+});
+
+test('/api/diag: tunjuk bentuk konfigurasi, tidak pernah memulangkan nilai rahsia', async () => {
+  const sec = 'GOCSPX-' + 'x'.repeat(28);
+  const e = env({ GOOGLE_CLIENT_SECRET: sec, GOOGLE_CLIENT_ID: '123-abc.apps.googleusercontent.com' });
+  const r = await handle(req('/api/diag'), e, deps(googlePalsu()));
+  const teks = await r.text();
+  const d = JSON.parse(teks);
+  assert.equal(d.clientSecret.ada, true);
+  assert.equal(d.clientSecret.panjang, 35);
+  assert.equal(d.clientSecret.bermulaGOCSPX, true);
+  assert.equal(d.clientSecret.adaRuangKosong, false);
+  assert.equal(d.clientId.nomborProjek, '123');
+  assert.equal(d.redirectUri, ASAS + '/auth/callback');
+  assert.ok(!teks.includes(sec) && !teks.includes('a'.repeat(48)));
+
+  const kosong = await (await handle(req('/api/diag'), env({ GOOGLE_CLIENT_SECRET: '' }), deps(googlePalsu()))).json();
+  assert.equal(kosong.clientSecret.ada, false);
+  const buruk = await (await handle(req('/api/diag'), env({ GOOGLE_CLIENT_SECRET: ' GOCSPX-abc\n' }), deps(googlePalsu()))).json();
+  assert.equal(buruk.clientSecret.adaRuangKosong, true);
 });

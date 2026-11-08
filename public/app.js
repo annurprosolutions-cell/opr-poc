@@ -56,6 +56,7 @@ export function ralatDariUrl() {
   const kod = q.get('ralat');
   const butiran = String(q.get('d') || '').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);
   if (!kod) return '';
+  const huraian = String(q.get('m') || '').replace(/[^a-zA-Z0-9 ._-]/g, '').slice(0, 80);
   const asas = MESEJ_RALAT[kod] || 'Log masuk tidak berjaya (' + kod + ').';
-  return butiran ? asas + ' [kod: ' + butiran + ']' : asas;
+  return butiran ? asas + ' [kod: ' + butiran + (huraian ? ' - ' + huraian : '') + ']' : asas;
 }

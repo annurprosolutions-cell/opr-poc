@@ -133,8 +133,10 @@ async function mulaLogin(req, env, url, now) {
 
 async function callback(req, env, url, f, now) {
   // butiran = kod ralat daripada Google (cth invalid_client); bukan rahsia, membantu diagnosis.
-  const gagal = (kod, butiran) => lencong(
-    '/?ralat=' + encodeURIComponent(kod) + (butiran ? '&d=' + encodeURIComponent(String(butiran).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)) : ''),
+  const gagal = (kod, butiran, huraian) => lencong(
+    '/?ralat=' + encodeURIComponent(kod)
+      + (butiran ? '&d=' + encodeURIComponent(String(butiran).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)) : '')
+      + (huraian ? '&m=' + encodeURIComponent(String(huraian).replace(/[^a-zA-Z0-9 ._-]/g, '').slice(0, 80)) : ''),
     [kuki(KUKI_STATE, '', 0)]);
 
   if (url.searchParams.get('error')) return gagal(url.searchParams.get('error'));
@@ -162,7 +164,7 @@ async function callback(req, env, url, f, now) {
   const tok = await res.json().catch(() => ({}));
   if (!res.ok || !tok.id_token) {
     console.error('Tukar token gagal', res.status, tok.error, tok.error_description);
-    return gagal('tukar_token_gagal', tok.error || ('http_' + res.status));
+    return gagal('tukar_token_gagal', tok.error || ('http_' + res.status), tok.error_description);
   }
 
   // id_token diterima terus dari Google melalui TLS; semak tuntutan asas.
@@ -215,6 +217,8 @@ async function logout(req, env) {
 
 async function api(req, env, url, f, now) {
   const p = url.pathname;
+  if (p === '/api/diag' && req.method === 'GET') return diag(env, url);
+
   const sesi = await sesiSemasa(req, env);
 
   if (p === '/api/me' && req.method === 'GET') {
@@ -262,6 +266,29 @@ async function api(req, env, url, f, now) {
   }
 
   return ralat('Laluan tidak dijumpai.', 404);
+}
+
+// Diagnosis konfigurasi. HANYA bentuk (ada/tiada, panjang, awalan format) dan
+// tidak pernah memulangkan nilai rahsia. Awalan "GOCSPX-" ialah format tetap
+// semua secret Google, bukan sebahagian daripada nilai rahsia.
+function diag(env, url) {
+  const id = String(env.GOOGLE_CLIENT_ID || '');
+  const sec = String(env.GOOGLE_CLIENT_SECRET || '');
+  const app = String(env.APP_SECRET || '');
+  return json({
+    ok: true,
+    redirectUri: asasUrl(env, url) + '/auth/callback',
+    clientId: { ada: !!id, formatBetul: /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(id), nomborProjek: id.split('-')[0] || '' },
+    clientSecret: {
+      ada: !!sec,
+      panjang: sec.length,
+      bermulaGOCSPX: sec.startsWith('GOCSPX-'),
+      adaRuangKosong: /\s/.test(sec),
+      adaPetik: /['"]/.test(sec)
+    },
+    appSecret: { ada: !!app, panjang: app.length, cukupPanjang: app.length >= 32 },
+    kv: !!env.OPR_KV
+  });
 }
 
 async function ciptaSekolah(req, env, sesi, now) {
