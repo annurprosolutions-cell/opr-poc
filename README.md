@@ -9,6 +9,8 @@ URL: `https://opr.annurpro.com`, setiap sekolah: `https://opr.annurpro.com/s/<sl
 Cloudflare Worker "annur-opr"  (repo ini, deploy automatik setiap push ke main)
  ├─ public/            halaman statik (tiada build step, tiada CDN luar)
  ├─ src/worker.js      /auth/*, /api/*, /s/*
+ ├─ src/google.js      Drive + Sheets API (tiada carian ikut nama; semua ikut ID)
+ ├─ src/skema.js       tab, kolum dan data asal Sheet sekolah
  └─ KV OPR_KV          sekolah, sesi, token admin (tersulit)
 
 Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
@@ -23,7 +25,7 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | Fasa | Isi | Status |
 |---|---|---|
 | 1 | Worker, log masuk Google (PKCE), sesi, pendaftaran sekolah `/s/<slug>`, ujian sambungan Drive | Siap |
-| 2 | Wizard cipta Sheet + folder dalam Drive admin | |
+| 2 | Folder + subfolder + Google Sheet (5 tab, 8 jenis laporan, 186 item senarai) dicipta automatik dalam Drive admin; penyediaan boleh disambung jika gagal; ujian tulis/baca | Siap |
 | 3 | Senarai guru, borang OPR + PDF (dari v2), senarai laporan, semakan | |
 | 4 | Licence, percubaan, BCL | |
 | 5 | Sale page, pengesahan Google, manual, video | |

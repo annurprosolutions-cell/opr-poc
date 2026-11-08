@@ -36,14 +36,22 @@ function idToken(tuntutan) {
   return bhg({ alg: 'RS256' }) + '.' + bhg(tuntutan) + '.sig';
 }
 
-// Google palsu: rekod setiap panggilan, jawab ikut senario.
+// Google palsu: OAuth + Drive + Sheets dalam memori. Rekod setiap panggilan.
 function googlePalsu(senario = {}) {
   const panggilan = [];
+  const fail = new Map();      // id -> { name, mimeType, parents, trashed }
+  const sheet = new Map();     // id -> { title, tabs: Map(nama -> rows[][]) }
+  let kiraan = 0;
+  const gagalSheetKali = { n: senario.gagalSheetKali || 0 };
+
   const f = async (url, opt = {}) => {
     const u = String(url);
-    const badan = opt.body ? new URLSearchParams(String(opt.body)) : null;
-    panggilan.push({ url: u, badan });
-    if (u === 'https://oauth2.googleapis.com/token' && badan.get('grant_type') === 'authorization_code') {
+    const kaedah = (opt.method || 'GET').toUpperCase();
+    const teks = opt.body instanceof Blob ? '' : (opt.body ? String(opt.body) : '');
+    const badanForm = u.startsWith('https://oauth2.googleapis.com/token') ? new URLSearchParams(teks) : null;
+    panggilan.push({ url: u, kaedah, badan: badanForm });
+
+    if (u === 'https://oauth2.googleapis.com/token' && badanForm.get('grant_type') === 'authorization_code') {
       const email = senario.email || 'admin@sekolah.edu.my';
       return Response.json({
         access_token: 'akses-1',
@@ -55,16 +63,74 @@ function googlePalsu(senario = {}) {
         })
       });
     }
-    if (u === 'https://oauth2.googleapis.com/token' && badan.get('grant_type') === 'refresh_token') {
+    if (u === 'https://oauth2.googleapis.com/token' && badanForm.get('grant_type') === 'refresh_token') {
       if (senario.refreshMati) return Response.json({ error: 'invalid_grant' }, { status: 400 });
       return Response.json({ access_token: 'akses-2', scope: DRIVE });
     }
     if (u.startsWith('https://oauth2.googleapis.com/tokeninfo')) {
       return Response.json({ scope: DRIVE, email: senario.email || 'admin@sekolah.edu.my' });
     }
+
+    // ---- Drive
+    const mDrive = u.match(/^https:\/\/www\.googleapis\.com\/drive\/v3\/files(?:\/([^?]+))?(?:\?(.*))?$/);
+    if (mDrive) {
+      const [, id, qs] = mDrive; const q = new URLSearchParams(qs || '');
+      if (!id && kaedah === 'POST') {
+        const meta = JSON.parse(teks);
+        const nid = 'fold-' + (++kiraan);
+        fail.set(nid, { name: meta.name, mimeType: meta.mimeType, parents: meta.parents || ['root'], trashed: false });
+        return Response.json({ id: nid, name: meta.name });
+      }
+      const rec = fail.get(id);
+      if (!rec) return Response.json({ error: { code: 404, message: 'File not found: ' + id } }, { status: 404 });
+      if (kaedah === 'GET') return Response.json({ id, name: rec.name, parents: rec.parents, trashed: rec.trashed });
+      if (kaedah === 'PATCH') {
+        const tambah = q.get('addParents'), buang = q.get('removeParents');
+        if (buang) rec.parents = rec.parents.filter(x => !buang.split(',').includes(x));
+        if (tambah) rec.parents.push(...tambah.split(','));
+        const meta = teks ? JSON.parse(teks) : {};
+        if (meta.trashed) rec.trashed = true;
+        return Response.json({ id, parents: rec.parents });
+      }
+    }
+
+    // ---- Sheets
+    if (u.startsWith('https://sheets.googleapis.com/v4/spreadsheets')) {
+      if (kaedah === 'POST' && /\/spreadsheets\?/.test(u)) {
+        if (gagalSheetKali.n > 0) {
+          gagalSheetKali.n--;
+          return Response.json({ error: { code: 403, status: 'PERMISSION_DENIED',
+            message: 'Google Sheets API has not been used in project 98079080039 before or it is disabled.' } }, { status: 403 });
+        }
+        const badan = JSON.parse(teks);
+        const sid = 'sheet-' + (++kiraan);
+        const tabs = new Map();
+        badan.sheets.forEach(sh => {
+          const rows = (sh.data[0].rowData || []).map(r => r.values.map(c => {
+            assert.ok('stringValue' in c.userEnteredValue, 'semua sel mesti stringValue');
+            return c.userEnteredValue.stringValue;
+          }));
+          tabs.set(sh.properties.title, rows);
+        });
+        sheet.set(sid, { title: badan.properties.title, tabs });
+        fail.set(sid, { name: badan.properties.title, mimeType: 'sheet', parents: ['root'], trashed: false });
+        return Response.json({ spreadsheetId: sid });
+      }
+      const m = u.match(/\/spreadsheets\/([^/]+)\/values\/([^?:]+)(:append)?/);
+      const sh = m && sheet.get(m[1]);
+      if (!sh) return Response.json({ error: { code: 404, message: 'Requested entity was not found.' } }, { status: 404 });
+      const tab = decodeURIComponent(m[2]).replace(/^'|'(!.*)?$/g, '').replace(/''/g, "'");
+      const rows = sh.tabs.get(tab);
+      if (m[3]) {
+        assert.match(u, /valueInputOption=RAW/);
+        rows.push(...JSON.parse(teks).values);
+        return Response.json({ updates: { updatedRange: tab + '!A' + rows.length } });
+      }
+      return Response.json({ values: rows });
+    }
     return new Response('tidak dijangka: ' + u, { status: 599 });
   };
-  return { f, panggilan };
+  return { f, panggilan, fail, sheet };
 }
 
 function deps(g) { return { fetch: g.f, now: () => T0 }; }
@@ -117,32 +183,103 @@ test('login guru: tiada skop Drive dan tiada akses offline', async () => {
   assert.equal(u.searchParams.get('access_type'), null);
 });
 
-test('aliran penuh: admin sambung, daftar sekolah, uji Drive', async () => {
+test('aliran penuh: admin sambung, daftar sekolah (folder + Sheet dicipta), uji tulis/baca', async () => {
   const e = env(); const g = googlePalsu();
   const { r2, sesi } = await logMasuk(e, g, 'admin', '&next=/daftar');
   assert.equal(r2.headers.get('location'), '/daftar');
   assert.ok(sesi);
 
-  // refresh token disimpan tersulit, bukan teks biasa
   const pending = e.OPR_KV.m.get('pending:admin@sekolah.edu.my');
   assert.ok(pending && !pending.includes('refresh-admin'));
 
   const me = await (await handle(req('/api/me', { kuki: { opr_sesi: sesi } }), e, deps(g))).json();
   assert.equal(me.driveDisambung, true);
-  assert.equal(me.sekolahAdmin, null);
 
   const cipta = await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: sesi }, body: { nama: 'SMK Wakanda', slug: 'smkwakanda' } }), e, deps(g));
-  assert.equal(cipta.status, 200);
-  assert.equal((await cipta.json()).pautan, '/s/smkwakanda');
+  const c = await cipta.json();
+  assert.equal(c.pautan, '/s/smkwakanda');
+  assert.equal(c.sedia, true, c.ralatSedia);
+
+  // Folder utama + 3 subfolder, Sheet dalam folder utama
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  assert.ok(sek.folderId && sek.sheetId);
+  assert.equal(g.fail.get(sek.folderId).name, 'Annur OPR - SMK Wakanda');
+  for (const k of ['PDF', 'LAMPIRAN', 'ASET']) assert.deepEqual(g.fail.get(sek.subfolder[k]).parents, [sek.folderId]);
+  assert.deepEqual(g.fail.get(sek.sheetId).parents, [sek.folderId]);
+
+  // Tab dan data asal
+  const tabs = g.sheet.get(sek.sheetId).tabs;
+  assert.deepEqual([...tabs.keys()], ['Guru', 'Laporan', 'Senarai', 'Tetapan', 'AuditLog']);
+  assert.deepEqual(tabs.get('Guru')[1].slice(0, 4), ['admin@sekolah.edu.my', 'Cikgu Ujian', 'admin', 'YA']);
+  assert.equal(tabs.get('Laporan').length, 1);
+  assert.equal(tabs.get('Senarai').length, 187);
+  assert.ok(tabs.get('Senarai').some(r => r[0] === 'MINGGU_BERTUGAS'));
+  const jenis = JSON.parse(tabs.get('Tetapan').find(r => r[0] === 'JENIS_TETAPAN')[1]);
+  assert.equal(Object.keys(jenis).length, 8);
 
   const peranan = await (await handle(req('/api/s/smkwakanda/me', { kuki: { opr_sesi: sesi } }), e, deps(g))).json();
   assert.equal(peranan.peranan, 'admin');
+  assert.equal(peranan.sedia, true);
+  assert.match(peranan.pautanSheet, /docs\.google\.com\/spreadsheets\/d\/sheet-/);
 
   const uji = await (await handle(req('/api/s/smkwakanda/health', { method: 'POST', kuki: { opr_sesi: sesi } }), e, deps(g))).json();
   assert.equal(uji.ok, true);
-  assert.equal(uji.drive, true);
+  assert.equal(uji.tulis, true);
+  assert.equal(uji.namaDalamSheet, 'SMK Wakanda');
+  assert.equal(tabs.get('AuditLog').at(-1)[3], 'UJI_SAMBUNGAN');
   const refresh = g.panggilan.find(p => p.badan && p.badan.get('grant_type') === 'refresh_token');
   assert.equal(refresh.badan.get('refresh_token'), 'refresh-admin@sekolah.edu.my');
+});
+
+test('Sheets API gagal semasa daftar: sekolah tetap berdaftar, butang sediakan menyambung tanpa pendua', async () => {
+  const e = env(); const g = googlePalsu({ gagalSheetKali: 1 });
+  const { sesi } = await logMasuk(e, g, 'admin');
+  const c = await (await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: sesi }, body: { nama: 'SMK Wakanda', slug: 'smkwakanda' } }), e, deps(g))).json();
+  assert.equal(c.ok, true);
+  assert.equal(c.sedia, false);
+  assert.match(c.ralatSedia, /belum diaktifkan/);
+
+  let sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  assert.ok(sek.folderId && !sek.sheetId);
+  const folderAsal = sek.folderId;
+  const bilFolder = [...g.fail.values()].filter(x => x.mimeType === 'application/vnd.google-apps.folder').length;
+
+  const belum = await handle(req('/api/s/smkwakanda/health', { method: 'POST', kuki: { opr_sesi: sesi } }), e, deps(g));
+  assert.equal(belum.status, 409);
+  assert.equal((await belum.json()).perluSedia, true);
+
+  const sedia = await (await handle(req('/api/s/smkwakanda/setup', { method: 'POST', kuki: { opr_sesi: sesi } }), e, deps(g))).json();
+  assert.equal(sedia.ok, true);
+  sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  assert.equal(sek.folderId, folderAsal);
+  assert.ok(sek.sheetId);
+  assert.equal([...g.fail.values()].filter(x => x.mimeType === 'application/vnd.google-apps.folder').length, bilFolder);
+
+  // Panggil sekali lagi: tiada apa dicipta semula
+  const bilSheet = g.sheet.size;
+  await handle(req('/api/s/smkwakanda/setup', { method: 'POST', kuki: { opr_sesi: sesi } }), e, deps(g));
+  assert.equal(g.sheet.size, bilSheet);
+});
+
+test('guru tidak boleh menjalankan penyediaan Drive', async () => {
+  const e = env(); const g = googlePalsu();
+  const a = await logMasuk(e, g, 'admin');
+  await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: a.sesi }, body: { nama: 'SMK Wakanda', slug: 'smkwakanda' } }), e, deps(g));
+  const gg = googlePalsu({ email: 'guru@gmail.com', skop: 'openid email' });
+  const b = await logMasuk(e, gg, 'guru', '&s=smkwakanda');
+  const r = await handle(req('/api/s/smkwakanda/setup', { method: 'POST', kuki: { opr_sesi: b.sesi } }), e, deps(gg));
+  assert.equal(r.status, 403);
+});
+
+test('folder sekolah dalam tong sampah dikesan oleh ujian sambungan', async () => {
+  const e = env(); const g = googlePalsu();
+  const { sesi } = await logMasuk(e, g, 'admin');
+  await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: sesi }, body: { nama: 'SMK Wakanda', slug: 'smkwakanda' } }), e, deps(g));
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  g.fail.get(sek.folderId).trashed = true;
+  const r = await handle(req('/api/s/smkwakanda/health', { method: 'POST', kuki: { opr_sesi: sesi } }), e, deps(g));
+  assert.equal(r.status, 409);
+  assert.match((await r.json()).ralat, /Tong Sampah/);
 });
 
 test('admin kedua tidak boleh daftar sekolah kedua; slug sama ditolak', async () => {

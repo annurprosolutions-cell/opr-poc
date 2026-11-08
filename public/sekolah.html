@@ -28,7 +28,20 @@
     <h2>Panel admin</h2>
     <p>Anda admin sekolah ini. Pautan untuk guru:</p>
     <p><code id="pautanGuru"></code></p>
-    <p style="margin-top:16px"><button id="ujiDrive" class="butang sekunder" type="button">Uji sambungan Google Drive</button></p>
+
+    <div id="belumSedia" class="tersembunyi">
+      <div class="mesej amaran">Folder dan pangkalan data (Google Sheet) sekolah belum disediakan dalam Google Drive anda.</div>
+      <p><button id="butangSedia" class="butang" type="button">Sediakan Google Drive</button></p>
+    </div>
+    <div id="sudahSedia" class="tersembunyi">
+      <p>Data sekolah disimpan dalam Google Drive anda:</p>
+      <p class="baris-butang">
+        <a id="pautanSheet" class="butang sekunder" href="#" target="_blank" rel="noopener">Buka Google Sheet</a>
+        <a id="pautanFolder" class="butang sekunder" href="#" target="_blank" rel="noopener">Buka folder Drive</a>
+      </p>
+      <p class="redup kecil">Jangan tukar nama tab atau baris pertama (tajuk kolum) dalam Sheet. Sistem bergantung padanya.</p>
+      <p style="margin-top:16px"><button id="ujiDrive" class="butang sekunder" type="button">Uji sambungan Google Drive</button></p>
+    </div>
     <div id="hasilUji"></div>
     <p class="redup kecil">Borang laporan, senarai guru dan dashboard akan muncul di sini dalam fasa seterusnya.</p>
   </section>
@@ -55,7 +68,9 @@
     $('pautan').textContent = 'opr.annurpro.com/s/' + sek.slug;
 
     const q = new URLSearchParams(location.search);
-    if (q.get('baru')) mesej($('mesej'), 'ok', 'Sekolah berjaya didaftarkan. Kongsi pautan di bawah dengan guru.');
+    if (q.get('baru')) mesej($('mesej'), q.get('sedia') === '0' ? 'amaran' : 'ok', q.get('sedia') === '0'
+      ? 'Sekolah berjaya didaftarkan, tetapi Google Drive belum siap disediakan. Tekan "Sediakan Google Drive" di bawah.'
+      : 'Sekolah berjaya didaftarkan. Folder dan Google Sheet telah dicipta dalam Drive anda. Kongsi pautan di bawah dengan guru.');
     if (q.get('disambung')) mesej($('mesej'), 'ok', 'Google Drive berjaya disambung semula.');
 
     const me = await api('/api/s/' + encodeURIComponent(sek.slug) + '/me');
@@ -70,6 +85,7 @@
       if (me.peranan === 'admin') {
         $('pautanGuru').textContent = location.origin + '/s/' + sek.slug;
         tunjuk('panelAdmin');
+        paparStatusSedia(me);
         if (me.statusToken === 'perlu_sambung') paparSambungSemula();
       } else {
         $('emelBukan').textContent = me.email;
@@ -77,6 +93,26 @@
       }
     }
   }
+
+  function paparStatusSedia(info) {
+    const sedia = !!info.sedia;
+    $('belumSedia').classList.toggle('tersembunyi', sedia);
+    $('sudahSedia').classList.toggle('tersembunyi', !sedia);
+    if (sedia) { $('pautanSheet').href = info.pautanSheet; $('pautanFolder').href = info.pautanFolder; }
+  }
+
+  $('butangSedia').addEventListener('click', async () => {
+    $('butangSedia').disabled = true;
+    mesej($('hasilUji'), 'amaran', 'Mencipta folder dan Google Sheet dalam Drive anda...');
+    const r = await api('/api/s/' + encodeURIComponent(slug) + '/setup', { method: 'POST' });
+    $('butangSedia').disabled = false;
+    if (r.ok) {
+      paparStatusSedia({ sedia: true, pautanSheet: r.pautanSheet, pautanFolder: r.pautanFolder });
+      mesej($('mesej'), 'ok', '');
+      mesej($('hasilUji'), 'ok', 'Siap. Folder "Annur OPR" dan Google Sheet sekolah telah dicipta dalam Drive anda.');
+    } else if (r.perluSambung) paparSambungSemula();
+    else mesej($('hasilUji'), 'bahaya', r.ralat || 'Penyediaan gagal. Cuba lagi.');
+  });
 
   function paparSambungSemula() {
     $('hasilUji').textContent = '';
@@ -91,7 +127,8 @@
     mesej($('hasilUji'), 'amaran', 'Menguji...');
     const r = await api('/api/s/' + encodeURIComponent(slug) + '/health', { method: 'POST' });
     $('ujiDrive').disabled = false;
-    if (r.ok && r.drive) mesej($('hasilUji'), 'ok', 'Berjaya. Annur OPR boleh menyimpan fail dalam Google Drive anda.');
+    if (r.ok && r.tulis) mesej($('hasilUji'), 'ok', 'Berjaya. Annur OPR boleh menulis dan membaca Google Sheet sekolah ("' + r.namaDalamSheet + '").');
+    else if (r.perluSedia) paparStatusSedia({ sedia: false });
     else if (r.perluSambung) paparSambungSemula();
     else mesej($('hasilUji'), 'bahaya', r.ralat || 'Sambungan berjaya tetapi kebenaran Drive tiada. Sila sambung semula.');
   });

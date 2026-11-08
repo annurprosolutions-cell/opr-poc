@@ -18,6 +18,11 @@ import {
   randomId, sha256b64url, sulit, nyahsulit, bacaKuki, kuki,
   semakSlug, bersihNama, json, ralat, decodeJwtPayload
 } from './lib.js';
+import {
+  RalatGoogle, ciptaFolder, ciptaSpreadsheet, pindahKeFolder, infoFail,
+  tambahBaris, bacaObjek, pautanSheet, pautanFolder
+} from './google.js';
+import { VERSI_SKEMA, TAB, KOLUM, SUBFOLDER, tetapanAsal, barisSenaraiAsal } from './skema.js';
 
 const SKOP_GURU = 'openid email profile';
 const SKOP_ADMIN = 'openid email profile https://www.googleapis.com/auth/drive.file';
@@ -237,7 +242,7 @@ async function api(req, env, url, f, now) {
 
   if (p === '/api/schools' && req.method === 'POST') {
     if (!sesi) return ralat('Sila log masuk dahulu.', 401);
-    return await ciptaSekolah(req, env, sesi, now);
+    return await ciptaSekolah(req, env, sesi, now, f);
   }
 
   m = p.match(/^\/api\/s\/([^/]+)(\/[a-z]+)?$/);
@@ -253,8 +258,16 @@ async function api(req, env, url, f, now) {
     if (sub === '/me' && req.method === 'GET') {
       if (!sesi) return ralat('Belum log masuk.', 401);
       const peranan = sesi.email === sek.adminEmail ? 'admin' : 'tiada';
-      return json({ ok: true, email: sesi.email, nama: sesi.nama, peranan,
-        statusToken: peranan === 'admin' ? sek.statusToken : undefined });
+      const asas = { ok: true, email: sesi.email, nama: sesi.nama, peranan };
+      if (peranan !== 'admin') return json(asas);
+      return json({ ...asas, statusToken: sek.statusToken, sedia: !!sek.sheetId,
+        pautanSheet: sek.sheetId ? pautanSheet(sek.sheetId) : '',
+        pautanFolder: sek.folderId ? pautanFolder(sek.folderId) : '' });
+    }
+    if (sub === '/setup' && req.method === 'POST') {
+      if (!sesi) return ralat('Belum log masuk.', 401);
+      if (sesi.email !== sek.adminEmail) return ralat('Hanya admin sekolah ini.', 403);
+      return await jalanSediakan(env, sek, sesi, f, now);
     }
     if (sub === '/health' && req.method === 'POST') {
       if (!sesi) return ralat('Belum log masuk.', 401);
@@ -266,7 +279,7 @@ async function api(req, env, url, f, now) {
   return ralat('Laluan tidak dijumpai.', 404);
 }
 
-async function ciptaSekolah(req, env, sesi, now) {
+async function ciptaSekolah(req, env, sesi, now, fGlobal) {
   let badan;
   try { badan = await req.json(); } catch (e) { return ralat('Data tidak sah.'); }
 
@@ -296,7 +309,16 @@ async function ciptaSekolah(req, env, sesi, now) {
   await env.OPR_KV.put('school:' + s.slug, JSON.stringify(rekod));
   await env.OPR_KV.put('admin:' + sesi.email, s.slug);
   await env.OPR_KV.delete('pending:' + sesi.email);
-  return json({ ok: true, slug: s.slug, pautan: '/s/' + s.slug });
+
+  // Sediakan folder + Sheet terus. Jika gagal, sekolah tetap berdaftar dan
+  // admin boleh tekan "Sediakan Google Drive" semula (langkah boleh disambung).
+  let sedia = false, ralatSedia = '';
+  try {
+    const t = await tokenAdmin(env, rekod, fGlobal, now);
+    if (t.ok) { await sediakanDrive(env, rekod, { at: t.accessToken, f: fGlobal }, sesi, now); sedia = true; }
+    else ralatSedia = t.perluSambung ? 'Sambungan Google tamat.' : (t.ralat || '');
+  } catch (e) { ralatSedia = mesejRalatGoogle(e); }
+  return json({ ok: true, slug: s.slug, pautan: '/s/' + s.slug, sedia, ralatSedia });
 }
 
 // Dapatkan access token admin daripada refresh token tersulit.
@@ -329,17 +351,106 @@ export async function tokenAdmin(env, sek, f, now) {
   return { ok: true, accessToken: t.access_token, skop: String(t.scope || '') };
 }
 
-async function ujiDrive(env, sek, f, now) {
-  const t = await tokenAdmin(env, sek, f, now);
-  if (!t.ok) {
-    return t.perluSambung
-      ? ralat('Sambungan Google admin telah tamat atau dibatalkan. Sila sambung semula.', 409, { perluSambung: true })
-      : ralat('Google tidak memberi akses buat masa ini (' + t.ralat + '). Cuba lagi sebentar.', 502);
+// ======================================================================
+// Fasa 2: Sheet + folder dalam Drive admin
+// ======================================================================
+
+export function mesejRalatGoogle(e) {
+  if (e instanceof RalatGoogle) {
+    if (e.apiTidakAktif) return 'Google Drive API atau Google Sheets API belum diaktifkan dalam projek Google Cloud "Annur OPR". Hubungi AnnurPro.';
+    if (e.status === 404) return 'Fail sekolah tidak dijumpai dalam Google Drive (mungkin telah dipadam).';
+    if (e.status === 403) return 'Google menolak akses kepada fail sekolah (' + e.message + ').';
+    if (e.status === 429) return 'Google sedang sibuk (had kadar). Cuba lagi sebentar.';
+    return 'Ralat Google: ' + e.message;
   }
-  const info = await f('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(t.accessToken));
-  const d = await info.json().catch(() => ({}));
-  const skop = String(d.scope || t.skop).split(/\s+/);
-  return json({ ok: true, drive: skop.includes(SKOP_DRIVE), emailToken: d.email || '' });
+  return 'Ralat tidak dijangka: ' + (e && e.message || e);
+}
+
+async function simpanSekolah(env, sek) {
+  await env.OPR_KV.put('school:' + sek.slug, JSON.stringify(sek));
+}
+
+// Idempotent: setiap langkah disimpan ke KV sebaik siap, jadi jika gagal di
+// tengah jalan, panggilan seterusnya menyambung dari langkah yang belum siap
+// dan tidak mencipta folder/Sheet pendua.
+export async function sediakanDrive(env, sek, g, sesi, now) {
+  const tajuk = 'Annur OPR - ' + sek.nama;
+
+  if (!sek.folderId) {
+    sek.folderId = await ciptaFolder(g, tajuk);
+    await simpanSekolah(env, sek);
+  }
+  sek.subfolder = sek.subfolder || {};
+  for (const [kunci, nama] of Object.entries(SUBFOLDER)) {
+    if (!sek.subfolder[kunci]) {
+      sek.subfolder[kunci] = await ciptaFolder(g, nama, sek.folderId);
+      await simpanSekolah(env, sek);
+    }
+  }
+  if (!sek.sheetId) {
+    const masa = new Date(now()).toISOString();
+    const tahun = new Date(now()).getUTCFullYear();
+    const id = await ciptaSpreadsheet(g, tajuk + ' (Pangkalan Data)', [
+      { nama: TAB.GURU, tajuk: KOLUM[TAB.GURU], baris: [[sek.adminEmail, sesi.nama || '', 'admin', 'YA', masa, 'sistem']] },
+      { nama: TAB.LAPORAN, tajuk: KOLUM[TAB.LAPORAN] },
+      { nama: TAB.SENARAI, tajuk: KOLUM[TAB.SENARAI], baris: barisSenaraiAsal() },
+      { nama: TAB.TETAPAN, tajuk: KOLUM[TAB.TETAPAN], baris: tetapanAsal(sek.nama, tahun) },
+      { nama: TAB.AUDIT, tajuk: KOLUM[TAB.AUDIT], baris: [[masa, sesi.email, 'admin', 'SEDIAKAN_SISTEM', sek.slug, 'BERJAYA', 'Versi skema ' + VERSI_SKEMA]] }
+    ]);
+    sek.sheetId = id;
+    sek.sheetDalamFolder = false;
+    await simpanSekolah(env, sek);
+  }
+  if (!sek.sheetDalamFolder) {
+    await pindahKeFolder(g, sek.sheetId, sek.folderId);
+    sek.sheetDalamFolder = true;
+  }
+  sek.versiSkema = VERSI_SKEMA;
+  sek.sediaPada = sek.sediaPada || new Date(now()).toISOString();
+  await simpanSekolah(env, sek);
+  return sek;
+}
+
+async function aksesAdmin(env, sek, f, now) {
+  const t = await tokenAdmin(env, sek, f, now);
+  if (t.ok) return { g: { at: t.accessToken, f } };
+  return {
+    respons: t.perluSambung
+      ? ralat('Sambungan Google admin telah tamat atau dibatalkan. Sila sambung semula.', 409, { perluSambung: true })
+      : ralat('Google tidak memberi akses buat masa ini (' + t.ralat + '). Cuba lagi sebentar.', 502)
+  };
+}
+
+async function jalanSediakan(env, sek, sesi, f, now) {
+  const a = await aksesAdmin(env, sek, f, now);
+  if (a.respons) return a.respons;
+  try {
+    await sediakanDrive(env, sek, a.g, sesi, now);
+  } catch (e) {
+    console.error('Sediakan Drive gagal', sek.slug, e && e.message);
+    return ralat(mesejRalatGoogle(e), 502);
+  }
+  return json({ ok: true, pautanSheet: pautanSheet(sek.sheetId), pautanFolder: pautanFolder(sek.folderId) });
+}
+
+// Ujian sebenar: tulis satu baris ke AuditLog dan baca semula Tetapan.
+async function ujiDrive(env, sek, f, now) {
+  if (!sek.sheetId) return ralat('Google Drive sekolah belum disediakan.', 409, { perluSedia: true });
+  const a = await aksesAdmin(env, sek, f, now);
+  if (a.respons) return a.respons;
+  try {
+    const folder = await infoFail(a.g, sek.folderId);
+    if (folder.trashed) return ralat('Folder "Annur OPR" sekolah berada dalam Tong Sampah Google Drive. Sila pulihkannya.', 409);
+    await tambahBaris(a.g, sek.sheetId, TAB.AUDIT,
+      [[new Date(now()).toISOString(), sek.adminEmail, 'admin', 'UJI_SAMBUNGAN', sek.slug, 'BERJAYA', '']]);
+    const tetapan = await bacaObjek(a.g, sek.sheetId, TAB.TETAPAN);
+    const nama = (tetapan.find(r => r.Kunci === 'NAMA_SEKOLAH') || {}).Nilai || '';
+    return json({ ok: true, drive: true, tulis: true, baca: !!nama, namaDalamSheet: String(nama),
+      pautanSheet: pautanSheet(sek.sheetId), pautanFolder: pautanFolder(sek.folderId) });
+  } catch (e) {
+    console.error('Uji Drive gagal', sek.slug, e && e.message);
+    return ralat(mesejRalatGoogle(e), 502);
+  }
 }
 
 // ======================================================================

@@ -125,7 +125,7 @@
     ev.preventDefault();
     $('hantar').disabled = true;
     const r = await api('/api/schools', { method: 'POST', body: { nama: $('nama').value, slug: $('slug').value } });
-    if (r.ok) { location.href = r.pautan + '?baru=1'; return; }
+    if (r.ok) { location.href = r.pautan + '?baru=1' + (r.sedia ? '' : '&sedia=0'); return; }
     mesej($('ralat'), 'bahaya', r.ralat || 'Pendaftaran gagal.');
     if (r.perluSambung) { $('langkahBorang').classList.add('tersembunyi'); tunjuk('langkahSambung'); }
     kemaskiniButang();
