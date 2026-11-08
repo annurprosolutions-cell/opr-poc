@@ -20,7 +20,7 @@ import {
 } from './lib.js';
 import {
   RalatGoogle, ciptaFolder, ciptaSpreadsheet, pindahKeFolder, infoFail,
-  tambahBaris, bacaObjek, bacaJadual, kemaskiniJulat, pautanSheet, pautanFolder
+  tambahBaris, bacaObjek, bacaJadual, kemaskiniJulat, pautanSheet, pautanFolder, muatNaik, muatTurun, buangKeTong
 } from './google.js';
 import { VERSI_SKEMA, TAB, KOLUM, SUBFOLDER, tetapanAsal, barisSenaraiAsal, jenisLalai, JENIS_SAH } from './skema.js';
 import { binaRekod, barisIkutTajuk, ringkasan, butiran, hurufLajur, STATUS } from './laporan.js';
@@ -549,8 +549,14 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
     return ralat('Sistem sekolah ini belum disediakan oleh admin.', 409, { perluSedia: true });
   }
 
-  let badan = {};
-  if (req.method === 'POST') { try { badan = await req.json(); } catch (e) { badan = {}; } }
+  let badan = {}, bait = null;
+  if (req.method === 'POST' && sub === '/fail') {
+    const panjang = Number(req.headers.get('content-length') || 0);
+    if (panjang > HAD_FAIL.pdf) return ralat('Fail terlalu besar.', 413);
+    bait = new Uint8Array(await req.arrayBuffer());
+  } else if (req.method === 'POST') {
+    try { badan = await req.json(); } catch (e) { badan = {}; }
+  }
 
   try {
     const r = await denganAkses(env, sek, f, now, async (g) => {
@@ -563,7 +569,7 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
         return ralat(kenal.peranan === 'tidak_aktif' ? 'Akaun anda telah dinyahaktifkan oleh admin sekolah.' : 'Akaun anda belum didaftarkan dalam sekolah ini.', 403);
       }
       const admin = kenal.peranan === 'admin';
-      const ctx = { env, sek, sesi, g, kenal, admin, pemilik, badan, url, now };
+      const ctx = { env, sek, sesi, g, kenal, admin, pemilik, badan, url, now, bait, req };
 
       if (sub === '/config' && req.method === 'GET') {
         const c = await bacaConfig(g, sek);
@@ -574,6 +580,9 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
       if (sub === '/guru/kemaskini' && req.method === 'POST') return admin ? await kemaskiniGuru(ctx) : ralat('Hanya admin.', 403);
       if (sub === '/laporan' && req.method === 'GET') return await senaraiLaporan(ctx);
       if (sub === '/laporan' && req.method === 'POST') return await simpanLaporan(ctx);
+      if (sub === '/fail' && req.method === 'POST') return await terimaFail(ctx);
+      const mf = sub.match(/^\/laporan\/([A-Za-z0-9-]{8,64})\/fail\/([A-Za-z0-9_-]{10,128})$/);
+      if (mf && req.method === 'GET') return await hantarFail(ctx, mf[1], mf[2]);
       const ml = sub.match(/^\/laporan\/([A-Za-z0-9-]{8,64})(\/padam)?$/);
       if (ml && !ml[2] && req.method === 'GET') return await bacaLaporan(ctx, ml[1]);
       if (ml && ml[2] && req.method === 'POST') return await padamLaporan(ctx, ml[1]);
@@ -684,7 +693,8 @@ async function bacaLaporan({ g, sek, sesi, admin }, id) {
   return json({ ok: true, data: butiran(rekod) });
 }
 
-async function simpanLaporan({ g, sek, sesi, admin, kenal, badan, now }) {
+async function simpanLaporan(ctx) {
+  const { g, sek, sesi, admin, kenal, badan, now } = ctx;
   const d = badan.data || {};
   if (!String(d.tajuk || '').trim()) return ralat('Sila isi nama program / aktiviti.');
   const status = String(badan.status || '').toUpperCase() === 'HANTAR' ? STATUS.HANTAR : STATUS.DRAF;
@@ -702,16 +712,22 @@ async function simpanLaporan({ g, sek, sesi, admin, kenal, badan, now }) {
     // Admin yang mengedit laporan telah disemak: status semakan dikekalkan (bug v2 diperbaiki).
     const statusAkhir = String(lama.Status).toUpperCase() === STATUS.DISEMAK ? STATUS.DISEMAK : status;
     const rekod = binaRekod(d, { lama, sesi, status: statusAkhir, tetapan, masa });
+    const f = await pakaiFail(ctx, rekod, lama, tetapan);
+    if (f.respons) return f.respons;
     const tajuk = jadual.tajuk;
     await kemaskiniJulat(g, sek.sheetId, TAB.LAPORAN, 'A' + lama._baris + ':' + hurufLajur(tajuk.length) + lama._baris, [barisIkutTajuk(tajuk, rekod)]);
+    await selesaiFail(ctx, f);
     await audit(g, sek, sesi, kenal.peranan, 'SIMPAN_LAPORAN', rekod.ID, 'BERJAYA', rekod.Jenis + ' / ' + statusAkhir + ' (kemas kini)');
     return json({ ok: true, id: rekod.ID, status: statusAkhir });
   }
 
   if (!badan.consent) return ralat('Sila tanda persetujuan notis PDPA sebelum menyimpan.');
   const rekod = binaRekod(d, { lama: null, sesi, status, tetapan, id: crypto.randomUUID(), masa });
+  const f = await pakaiFail(ctx, rekod, null, tetapan);
+  if (f.respons) return f.respons;
   const { tajuk } = await bacaJadual(g, sek.sheetId, TAB.LAPORAN);
   await tambahBaris(g, sek.sheetId, TAB.LAPORAN, [barisIkutTajuk(tajuk.length ? tajuk : KOLUM[TAB.LAPORAN], rekod)]);
+  await selesaiFail(ctx, f);
   await audit(g, sek, sesi, kenal.peranan, 'SIMPAN_LAPORAN', rekod.ID, 'BERJAYA', rekod.Jenis + ' / ' + status + ' (baharu)');
   return json({ ok: true, id: rekod.ID, status });
 }
@@ -725,6 +741,84 @@ async function padamLaporan({ g, sek, sesi, admin, kenal, now }, id) {
   await kemaskiniJulat(g, sek.sheetId, TAB.LAPORAN, 'A' + rekod._baris + ':' + hurufLajur(jadual.tajuk.length) + rekod._baris, [barisIkutTajuk(jadual.tajuk, baru)]);
   await audit(g, sek, sesi, kenal.peranan, 'PADAM_LAPORAN', id, 'BERJAYA', 'soft delete');
   return json({ ok: true });
+}
+
+
+// ---------------------------------------------------------------- fail (PDF + gambar)
+const HAD_FAIL = { lampiran: 10 * 1024 * 1024, pdf: 25 * 1024 * 1024 };
+const MIME_FAIL = { lampiran: ['image/jpeg', 'image/png', 'image/webp'], pdf: ['application/pdf'] };
+const MAKS_LAMPIRAN = 20;
+
+function namaFailSelamat(n, lalai) {
+  const s = String(n || '').replace(/[\u0000-\u001f\u007f/\\:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 150);
+  return s || lalai;
+}
+
+// Terima satu fail (badan binari). Fail disimpan terus ke subfolder Drive
+// sekolah dan direkod sebagai "muat naik tergantung" milik pengguna ini
+// sehingga ia dilampirkan pada laporan (atau luput selepas 1 hari).
+async function terimaFail({ env, g, sek, sesi, url, bait, req }) {
+  const jenis = url.searchParams.get('jenis') === 'pdf' ? 'pdf' : 'lampiran';
+  const mime = String(req.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (!MIME_FAIL[jenis].includes(mime)) return ralat(jenis === 'pdf' ? 'Hanya fail PDF dibenarkan.' : 'Hanya gambar JPG, PNG atau WEBP dibenarkan.', 400);
+  if (!bait || !bait.length) return ralat('Fail kosong.', 400);
+  if (bait.length > HAD_FAIL[jenis]) return ralat('Fail melebihi had ' + Math.round(HAD_FAIL[jenis] / 1048576) + 'MB.', 413);
+  const sub = sek.subfolder || {};
+  const folder = (jenis === 'pdf' ? sub.PDF : sub.LAMPIRAN) || sek.folderId;
+  const nama = namaFailSelamat(url.searchParams.get('nama'), jenis === 'pdf' ? 'laporan.pdf' : 'gambar.jpg');
+  const id = await muatNaik(g, folder, nama, mime, bait);
+  await env.OPR_KV.put('upload:' + sek.slug + ':' + id, JSON.stringify({ email: sesi.email, jenis }), { expirationTtl: 86400 });
+  return json({ ok: true, fileId: id });
+}
+
+// Sahkan fail yang dirujuk oleh laporan dan isi medan fail dalam rekod.
+// Fail baharu MESTI dimuat naik oleh pengguna yang sama untuk sekolah ini.
+async function pakaiFail({ env, sek, sesi, badan }, rekod, lama, tetapan) {
+  const lamaPdf = lama ? String(lama.PdfFileId || '') : '';
+  const lamaLampiran = lama ? String(lama.LampiranIds || '').split(',').filter(Boolean) : [];
+  const pdf = badan.pdfFileId !== undefined ? String(badan.pdfFileId || '') : lamaPdf;
+  const lampiran = Array.isArray(badan.lampiranIds) ? badan.lampiranIds.map(String).filter(Boolean) : lamaLampiran;
+  if (lampiran.length > MAKS_LAMPIRAN) return { respons: ralat('Maksimum ' + MAKS_LAMPIRAN + ' gambar setiap laporan.') };
+  if (String(tetapan.WAJIB_PDF || '').toUpperCase() === 'YA' && !pdf) {
+    return { respons: ralat('Sekolah anda menetapkan PDF wajib dijana sebelum laporan disimpan. Hidupkan "Jana PDF".') };
+  }
+  const baharu = [];
+  const semak = [[pdf, 'pdf', lamaPdf ? [lamaPdf] : []], ...lampiran.map(id => [id, 'lampiran', lamaLampiran])];
+  for (const [id, jenis, sedia] of semak) {
+    if (!id || sedia.includes(id)) continue;
+    if (!/^[A-Za-z0-9_-]{10,128}$/.test(id)) return { respons: ralat('Rujukan fail tidak sah.') };
+    const rek = await env.OPR_KV.get('upload:' + sek.slug + ':' + id, 'json');
+    if (!rek || rek.email !== sesi.email || rek.jenis !== jenis) return { respons: ralat('Fail tidak sah atau sudah luput. Sila muat naik semula.', 400) };
+    baharu.push(id);
+  }
+  rekod.PdfFileId = pdf;
+  rekod.PdfNama = pdf ? (pdf === lamaPdf ? String(lama.PdfNama || '') : namaFailSelamat(badan.pdfNama, 'laporan.pdf')) : '';
+  rekod.LampiranIds = lampiran.join(',');
+  const buang = [lamaPdf, ...lamaLampiran].filter(id => id && id !== pdf && !lampiran.includes(id));
+  return { baharu, buang };
+}
+
+// Dipanggil HANYA selepas baris laporan berjaya ditulis: fail lama yang tidak
+// lagi dirujuk dibuang ke Tong Sampah (bug v2: fail lama dibuang dahulu).
+async function selesaiFail({ env, g, sek }, f) {
+  for (const id of f.baharu) await env.OPR_KV.delete('upload:' + sek.slug + ':' + id);
+  for (const id of f.buang) {
+    try { await buangKeTong(g, id); } catch (e) { console.error('Buang fail lama gagal', id, e && e.message); }
+  }
+}
+
+async function hantarFail({ g, sek, sesi, admin }, id, fileId) {
+  const { rekod } = await cariLaporan(g, sek, id);
+  if (!rekod) return ralat('Laporan tidak dijumpai.', 404);
+  if (!admin && String(rekod.PemilikEmail).toLowerCase() !== sesi.email) return ralat('Anda tiada kebenaran untuk fail ini.', 403);
+  const dibenar = [rekod.PdfFileId, rekod.PdfDisemakId, ...String(rekod.LampiranIds || '').split(',')].map(String).filter(Boolean);
+  if (!dibenar.includes(fileId)) return ralat('Fail tidak berkaitan dengan laporan ini.', 404);
+  const res = await muatTurun(g, fileId);
+  return new Response(res.body, { headers: {
+    'content-type': res.headers.get('content-type') || 'application/octet-stream',
+    'cache-control': 'private, no-store',
+    'x-content-type-options': 'nosniff'
+  } });
 }
 
 // ======================================================================

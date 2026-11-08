@@ -109,7 +109,9 @@ export function butiran(r) {
   for (const [kunci, [kolum]] of Object.entries(MEDAN)) o[kunci] = String(r[kolum] ?? '');
   return { ...o, slotTtd: String(r.SlotTtd || ''), warnaKertas: String(r.WarnaKertas || ''),
     susunGambar: String(r.SusunGambar || ''), gayaLaporan: String(r.GayaLaporan || ''),
-    logoFooter: String(r.LogoFooter || ''), disemakOleh: String(r.DisemakOleh || ''), disemakPada: String(r.DisemakPada || '') };
+    logoFooter: String(r.LogoFooter || ''), disemakOleh: String(r.DisemakOleh || ''), disemakPada: String(r.DisemakPada || ''),
+    pdfFileId: String(r.PdfFileId || ''), pdfNama: String(r.PdfNama || ''), pdfDisemakId: String(r.PdfDisemakId || ''),
+    lampiranIds: String(r.LampiranIds || '').split(',').filter(Boolean) };
 }
 
 export const TAJUK_LAPORAN = KOLUM[TAB.LAPORAN];

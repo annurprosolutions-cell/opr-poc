@@ -83,3 +83,29 @@ select:focus,textarea:focus,input:focus{outline:2px solid var(--utama);outline-o
 .semak-kotak{display:flex;gap:10px;align-items:flex-start;font-weight:400;font-size:.85rem;color:var(--redup);margin-top:16px}
 .pautan-butang{background:none;border:0;color:var(--redup);text-decoration:underline;font:inherit;font-size:.85rem;cursor:pointer;padding:0}
 .butang.bahaya{background:transparent;color:var(--bahaya);border:1px solid var(--bahaya)}
+.bekas.lebar{max-width:1320px}
+.medan-kepala{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:14px 0 6px}
+.medan-kepala label,.medan-kepala .label-teks{margin:0;font-weight:600;font-size:.9rem}
+.chk-sertakan{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.68rem;color:var(--redup);font-weight:600;text-transform:uppercase;letter-spacing:.03em;margin:0}
+.chk-sertakan input{width:15px;height:15px;accent-color:var(--utama)}
+.chk-sertakan:has(input:not(:checked)){opacity:.55}
+.borang-grid{display:grid;gap:16px;margin-top:14px}
+.borang-grid > .lajur-borang > .kad:first-child{margin-top:0}
+.lajur-pratonton h2{margin:0}
+@media (min-width:1100px){
+  .borang-grid{grid-template-columns:440px minmax(0,1fr);align-items:start}
+  .lajur-pratonton{position:sticky;top:12px}
+  .lajur-pratonton .pratonton-bekas{max-height:calc(100vh - 70px)}
+}
+.lajur-pratonton .pratonton-bekas{margin-top:10px}
+.ruang-kecil{margin-top:8px}
+input[type=file]{width:100%;font:inherit;font-size:.85rem}
+.swatch-baris{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.swatch{width:32px;height:32px;border-radius:8px;border:2px solid var(--garis);cursor:pointer;padding:0}
+.swatch.aktif{border-color:var(--teks);box-shadow:0 0 0 2px var(--kad) inset}
+input.warna{width:56px;height:40px;padding:2px;border:1px solid var(--garis);border-radius:8px;background:var(--bg)}
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:16px}
+.overlay-kad{background:var(--kad);color:var(--teks);border-radius:14px;padding:22px 26px;min-width:240px;text-align:center}
+.pusing{width:40px;height:40px;margin:0 auto 12px;border-radius:50%;border:3px solid var(--garis);border-top-color:var(--utama);animation:pusing 1s linear infinite}
+@keyframes pusing{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.pusing{animation:none}}

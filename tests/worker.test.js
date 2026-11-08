@@ -424,3 +424,112 @@ test('access token di-cache; 401 daripada Google mencetuskan token baharu dan cu
   assert.equal(r.ok, true);
   assert.equal(bilRefresh(), awal + 1);       // token baharu diambil sekali
 });
+
+// ======================================================================
+// Fasa 3b-1: fail PDF dan gambar
+// ======================================================================
+
+async function muatNaikFail(e, g, sesi, jenis, mime, bait, nama = 'fail') {
+  const r = await handle(new Request(ASAS + '/api/s/smkwakanda/fail?jenis=' + jenis + '&nama=' + encodeURIComponent(nama), {
+    method: 'POST', body: bait,
+    headers: { Origin: ASAS, 'content-type': mime, Cookie: 'opr_sesi=' + encodeURIComponent(sesi) }
+  }), e, deps(g));
+  return { status: r.status, ...(await r.json()) };
+}
+
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4, 250, 0, 13]);
+const PDFB = new TextEncoder().encode('%PDF-1.4 ujian');
+
+test('muat naik: ke subfolder betul, jenis/saiz disemak, bukan ahli ditolak', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'ali@gmail.com' });
+  const ali = await logMasukSebagai(e, g, 'ali@gmail.com');
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+
+  const gbr = await muatNaikFail(e, g, ali.sesi, 'lampiran', 'image/png', PNG, 'gambar 1.png');
+  assert.equal(gbr.ok, true);
+  assert.deepEqual(g.fail.get(gbr.fileId).parents, [sek.subfolder.LAMPIRAN]);
+  assert.deepEqual([...g.fail.get(gbr.fileId).data], [...PNG]);   // bait binari utuh
+  const pdf = await muatNaikFail(e, g, ali.sesi, 'pdf', 'application/pdf', PDFB, 'OPR_x.pdf');
+  assert.deepEqual(g.fail.get(pdf.fileId).parents, [sek.subfolder.PDF]);
+
+  assert.equal((await muatNaikFail(e, g, ali.sesi, 'lampiran', 'text/html', PNG)).status, 400);
+  assert.equal((await muatNaikFail(e, g, ali.sesi, 'pdf', 'image/png', PNG)).status, 400);
+  assert.equal((await muatNaikFail(e, g, ali.sesi, 'lampiran', 'image/png', new Uint8Array(10 * 1024 * 1024 + 1))).status, 413);
+  const asing = await logMasukSebagai(e, g, 'orang@luar.com');
+  assert.equal((await muatNaikFail(e, g, asing.sesi, 'lampiran', 'image/png', PNG)).status, 403);
+});
+
+test('laporan dengan PDF + gambar: hanya fail milik sendiri diterima; fail lama dibuang selepas simpan', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'ali@gmail.com\nabu@gmail.com' });
+  const ali = await logMasukSebagai(e, g, 'ali@gmail.com');
+  const abu = await logMasukSebagai(e, g, 'abu@gmail.com');
+
+  const g1 = (await muatNaikFail(e, g, ali.sesi, 'lampiran', 'image/png', PNG)).fileId;
+  const g2 = (await muatNaikFail(e, g, ali.sesi, 'lampiran', 'image/png', PNG)).fileId;
+  const p1 = (await muatNaikFail(e, g, ali.sesi, 'pdf', 'application/pdf', PDFB)).fileId;
+  const gAbu = (await muatNaikFail(e, g, abu.sesi, 'lampiran', 'image/png', PNG)).fileId;
+
+  // Fail milik guru lain atau ID rekaan ditolak
+  const data = { tajuk: 'Program Gambar' };
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan', { data, consent: true, lampiranIds: [g1, gAbu] })).status, 400);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan', { data, consent: true, lampiranIds: ['xxxxxxxxxxxxxxxx'] })).status, 400);
+  // PDF tidak boleh dihantar sebagai lampiran (jenis mesti sepadan)
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan', { data, consent: true, pdfFileId: g1 })).status, 400);
+
+  const s1 = await panggilApi(e, g, ali.sesi, '/laporan', { data, consent: true, status: 'HANTAR', pdfFileId: p1, pdfNama: 'OPR_Program.pdf', lampiranIds: [g1, g2] });
+  assert.equal(s1.ok, true);
+  const senarai = await panggilApi(e, g, ali.sesi, '/laporan');
+  assert.equal(senarai.data[0].adaPdf, true);
+
+  // Muat turun: pemilik dan admin boleh; guru lain tidak; fail asing ditolak
+  const turun = await handle(req('/api/s/smkwakanda/laporan/' + s1.id + '/fail/' + g1, { kuki: { opr_sesi: ali.sesi } }), e, deps(g));
+  assert.equal(turun.status, 200);
+  assert.deepEqual([...new Uint8Array(await turun.arrayBuffer())], [...PNG]);
+  assert.equal((await handle(req('/api/s/smkwakanda/laporan/' + s1.id + '/fail/' + p1, { kuki: { opr_sesi: sesiAdmin } }), e, deps(g))).status, 200);
+  assert.equal((await handle(req('/api/s/smkwakanda/laporan/' + s1.id + '/fail/' + g1, { kuki: { opr_sesi: abu.sesi } }), e, deps(g))).status, 403);
+  assert.equal((await handle(req('/api/s/smkwakanda/laporan/' + s1.id + '/fail/' + gAbu, { kuki: { opr_sesi: ali.sesi } }), e, deps(g))).status, 404);
+
+  // Edit: buang g2, tambah g3, PDF baharu -> g2 dan PDF lama ke Tong Sampah SELEPAS simpan
+  const g3 = (await muatNaikFail(e, g, ali.sesi, 'lampiran', 'image/png', PNG)).fileId;
+  const p2 = (await muatNaikFail(e, g, ali.sesi, 'pdf', 'application/pdf', PDFB)).fileId;
+  const s2 = await panggilApi(e, g, ali.sesi, '/laporan', { id: s1.id, data, status: 'HANTAR', pdfFileId: p2, lampiranIds: [g1, g3] });
+  assert.equal(s2.ok, true);
+  assert.equal(g.fail.get(g2).trashed, true);
+  assert.equal(g.fail.get(p1).trashed, true);
+  assert.equal(g.fail.get(g1).trashed, false);
+  assert.equal(g.fail.get(g3).trashed, false);
+
+  // Edit tanpa medan fail: fail sedia ada dikekalkan
+  await panggilApi(e, g, ali.sesi, '/laporan', { id: s1.id, data: { tajuk: 'Tukar tajuk sahaja' }, status: 'HANTAR' });
+  const b = await panggilApi(e, g, ali.sesi, '/laporan/' + s1.id);
+  assert.equal(b.data.tajuk, 'Tukar tajuk sahaja');
+  const rows = g.sheet.get((await e.OPR_KV.get('school:smkwakanda', 'json')).sheetId).tabs.get('Laporan');
+  const t = rows[0];
+  assert.equal(rows[1][t.indexOf('LampiranIds')], g1 + ',' + g3);
+  assert.equal(rows[1][t.indexOf('PdfFileId')], p2);
+});
+
+test('simpan gagal = fail lama TIDAK dibuang (bug v2 dibetulkan)', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'ali@gmail.com' });
+  const ali = await logMasukSebagai(e, g, 'ali@gmail.com');
+  const p1 = (await muatNaikFail(e, g, ali.sesi, 'pdf', 'application/pdf', PDFB)).fileId;
+  const s1 = await panggilApi(e, g, ali.sesi, '/laporan', { data: { tajuk: 'X' }, consent: true, pdfFileId: p1 });
+  const p2 = (await muatNaikFail(e, g, ali.sesi, 'pdf', 'application/pdf', PDFB)).fileId;
+  // Tajuk kosong -> simpan ditolak; PDF lama mesti kekal
+  const r = await panggilApi(e, g, ali.sesi, '/laporan', { id: s1.id, data: { tajuk: '' }, pdfFileId: p2 });
+  assert.equal(r.status, 400);
+  assert.equal(g.fail.get(p1).trashed, false);
+});
+
+test('WAJIB_PDF = YA: laporan tanpa PDF ditolak', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const tet = g.sheet.get(sek.sheetId).tabs.get('Tetapan');
+  tet.find(r => r[0] === 'WAJIB_PDF')[1] = 'YA';
+  const r = await panggilApi(e, g, sesiAdmin, '/laporan', { data: { tajuk: 'Tanpa PDF' }, consent: true });
+  assert.equal(r.status, 400);
+  assert.match(r.ralat, /PDF wajib/);
+});

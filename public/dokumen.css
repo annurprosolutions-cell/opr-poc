@@ -1,0 +1,240 @@
+/* =====================================================================
+   DOKUMEN A4 (pratonton + PDF). CSS di bawah "CSS V2" diambil VERBATIM
+   daripada OPR v2 supaya PDF kekal sama. #pdfContent tidak bergantung pada
+   Tailwind atau CSS aplikasi.
+   ===================================================================== */
+#pdfContent{ --w1:#0f766e; --w2:#312e81; --aksen:#f59e0b; color:#0f172a;
+  font-family:'Poppins',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+.hidden{display:none !important}
+
+/* Senarai lampiran (v2 guna Tailwind + Font Awesome; diganti di sini) */
+#senaraiLampiran{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+#senaraiLampiran > div{display:flex;align-items:center;gap:10px;border:1px solid var(--garis);border-radius:10px;padding:8px}
+#senaraiLampiran img{width:40px;height:40px;object-fit:cover;border-radius:6px;flex:0 0 auto}
+#senaraiLampiran span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem}
+#senaraiLampiran p{color:var(--redup);font-size:.85rem;text-align:center;margin:4px 0}
+#senaraiLampiran button{background:none;border:1px solid var(--bahaya);color:var(--bahaya);border-radius:8px;
+  min-height:34px;padding:4px 10px;font:inherit;font-size:.8rem;cursor:pointer}
+#senaraiLampiran button i{display:none}
+#senaraiLampiran button::after{content:'Buang'}
+#senaraiLampiran > div > i{display:none}
+
+/* Bekas pratonton dalam aplikasi: A4 dikecilkan supaya muat skrin telefon */
+.pratonton-bekas{overflow:auto;background:#cbd5e1;border-radius:12px;padding:12px;max-height:80vh}
+.pratonton-skala{transform-origin:top left}
+
+/* ===================================================================== CSS V2 */
+#pdfContent h1, #pdfContent h2, #pdfContent h3,
+#pdfContent p, #pdfContent figure, #pdfContent figcaption{margin:0;padding:0;}
+
+.lbl{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;
+  color:#64748b;font-weight:700;margin-bottom:3px;line-height:1.2;}
+.chk-sertakan{display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;
+  font-size:.62rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+.chk-sertakan input{accent-color:#4f46e5;width:13px;height:13px;cursor:pointer;}
+.chk-sertakan:has(input:not(:checked)){opacity:.55;}
+.val{color:#0f172a;font-weight:500;font-size:.9rem;line-height:1.4;
+  white-space:pre-wrap;word-break:break-word;}
+
+.a4-page{
+  width:100%;max-width:210mm;min-height:297mm;max-height:297mm;
+  overflow:hidden;padding:12mm;box-sizing:border-box;background:var(--kertas,#fffbeb);
+  margin:0 auto 16px;position:relative;box-shadow:0 10px 15px -3px rgba(0,0,0,.1);
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.a4-page.lampiran{justify-content:flex-start;gap:8px;}
+
+/* Mod penjanaan PDF.
+   Semasa html2pdf merakam kanvas, setiap muka mesti TEPAT bersaiz A4 dan
+   tiada jurang antara muka — kalau tidak, potongan muka surat akan hanyut
+   dan meninggalkan jalur putih di bahagian bawah. Lebar juga dikunci 210mm
+   supaya telefon menghasilkan PDF yang sama dengan komputer. */
+#pdfContent.menjana{width:210mm;max-width:none;margin:0;}
+#pdfContent.menjana .a4-page{width:210mm;max-width:none;margin:0;box-shadow:none;}
+/* Hos sementara: kandungan dipindahkan ke penjuru kiri atas dokumen semasa
+   dirakam, supaya tiada bapa yang mengalihkan atau mengeratnya. */
+#hosJana{position:absolute;left:0;top:0;width:210mm;background:#fff;}
+.a4-page > *{margin-bottom:3mm;}
+.kotak{background:#fff;border-radius:8px;padding:8px 12px;
+  box-shadow:0 4px 6px -1px rgba(0,0,0,.05);
+  border:1px solid rgba(0,0,0,.05);border-left:5px solid var(--w1);}
+.kotak.rose{border-left-color:#e11d48;} .kotak.indigo{border-left-color:#4f46e5;}
+.kotak.amber{border-left-color:#d97706;} .kotak.emerald{border-left-color:#059669;}
+.kotak.sky{border-left-color:#0284c7;} .kotak.teal{border-left-color:#0d9488;}
+
+/* --- KEPALA PENUH: muka 1 sahaja ---
+   Logo bersebelahan di kiri, blok teks di kanan (rata kiri). */
+.pv-kepala{display:flex;align-items:center;gap:16px;
+  border-bottom:2px solid var(--w2);padding-bottom:12px;margin-bottom:12px;}
+.pv-logo-set{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+.pv-logo{height:76px;width:auto;max-width:86px;object-fit:contain;}
+.pv-kepala-teks{flex:1;min-width:0;text-align:left;}
+.pv-tajuk-dok{font-size:1.7rem;font-weight:700;color:#0f172a;line-height:1.05;}
+.pv-sekolah{font-size:.8rem;font-weight:700;text-transform:uppercase;
+  color:var(--w2);line-height:1.25;margin-top:6px;}
+.pv-alamat{font-size:.7rem;font-weight:600;color:var(--w2);line-height:1.35;}
+.pv-moto{font-size:.68rem;font-style:italic;color:var(--w1);margin-top:3px;}
+
+/* --- KEPALA RINGKAS: muka gambar & lampiran ---
+   Tajuk besar di kiri, logo kecil bersebelahan di kanan. */
+.pv-kepala-ringkas{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:14px;padding-bottom:10px;margin-bottom:12px;flex:0 0 auto;
+  border-bottom:2px solid var(--aksen);}
+.pv-kepala-ringkas.merah{border-bottom-color:#e11d48;}
+.pv-tajuk-muka{font-size:1.5rem;font-weight:700;color:#0f172a;
+  text-transform:uppercase;line-height:1.05;}
+.pv-sub-muka{font-size:.72rem;font-weight:700;color:#e11d48;margin-top:2px;}
+.pv-logo-kecil{height:52px;width:auto;max-width:60px;object-fit:contain;}
+
+/* --- Baris jenis laporan: satu template, empat profil --- */
+.pv-jenis{text-align:center;font-size:.72rem;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--w2);background:#f1f5f9;
+  border:1px solid #e2e8f0;border-radius:4px;padding:5px 8px;margin-bottom:8px;}
+
+/* --- Bahagian lain dokumen --- */
+.pv-grid{display:grid;gap:6px;}
+.pv-1{grid-template-columns:minmax(0,1fr);}
+.pv-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+.pv-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+.pv-4{grid-template-columns:repeat(4,minmax(0,1fr));}
+.pv-sela{margin-bottom:8px;}
+.pv-besar{font-size:1rem;font-weight:700;}
+.pv-kecil{font-size:.78rem;}
+.pv-tebal{font-weight:700;}
+.pv-kaki{border-top:2px solid #cbd5e1;padding-top:10px;}
+.pv-tandatangan{gap:20px;margin-bottom:10px;}
+.pv-garis{border-bottom:1px solid #94a3b8;margin-top:22px;}
+.pv-nota{font-size:9px;color:#64748b;margin-top:3px;}
+.pv-baris-kaki{display:flex;justify-content:space-between;font-size:9.5px;color:#64748b;}
+.pv-lajur{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
+.pv-isi{flex:1 1 auto;min-height:0;gap:9px;}
+.pv-kaki-muka{display:flex;justify-content:space-between;align-items:flex-end;
+  border-top:2px solid #cbd5e1;padding-top:10px;flex:0 0 auto;font-size:9.5px;color:#64748b;}
+
+/* Kad gambar.
+   PENTING — kenapa TIDAK guna object-fit:
+   html2canvas (penjana PDF) tidak menyokong object-fit. Ia melukis <img>
+   meregang penuh ke dalam kotak elemen, jadi pratonton nampak betul tetapi
+   PDF keluar mengembang. Penyelesaiannya: biar <img> mengambil saiz
+   semulajadinya (max-width/max-height + auto) di dalam bingkai flex yang
+   memusatkannya. Kotak elemen = kotak imej, jadi html2canvas melukis
+   dengan nisbah yang betul. */
+.kad-gambar{background:#fff;border:1px solid #e8edf3;border-radius:8px;
+  overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 4px 6px -1px rgba(0,0,0,.05);}
+.kad-bingkai{flex:1 1 auto;min-height:0;display:flex;align-items:center;
+  justify-content:center;background:#f8fafc;overflow:hidden;}
+.kad-gambar img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;}
+.kad-gambar figcaption{font-size:9.5px;line-height:1.3;padding:5px 7px;color:#78350f;
+  background:#fffbeb;border-top:1px solid #fde68a;text-align:center;flex:0 0 auto;font-weight:600;}
+
+/* --- Jalur gambar SATU MUKA (gaya Kotak, sehingga 5 gambar) ---
+   Bila laporan ada 1-5 gambar dan gaya = KOTAK, gambar disatukan terus pada
+   muka 1 dalam jalur padat ini (bukan muka 2 berasingan) supaya PDF benar-
+   benar SATU muka. Lebih daripada 5 gambar (atau jika kandungan melimpah)
+   jatuh balik automatik ke muka 2 (lihat kemaskiniLayoutGambar()).
+
+   v2.11.0 — PENGISIAN RUANG BAKI (bukan tinggi tetap lagi): sebelum ni jalur
+   gambar tetap 20mm tinggi tak kira berapa banyak ruang baki ada di muka —
+   bila medan maklumat sikit (borang ringkas/Poster kosong), ruang kosong
+   besar tergantung antara jalur gambar dan kaki tandatangan (sebab
+   .a4-page guna justify-content:space-between). Guru minta gambar ISI
+   ruang baki tu, bukan biar kosong. Fix: #pvStripSatuMuka/#psGridGambar kini
+   flex:1 (bukan flex:0 0 auto) supaya ia MENGEMBANG untuk mengisi apa
+   sahaja ruang yang tinggal selepas semua kotak maklumat + kaki tandatangan
+   — min-height:20mm dikekalkan sebagai LANTAI (bukan siling) supaya kalau
+   kotak maklumat memang banyak (cth Kokurikulum 15 kotak), jalur tetap
+   ambil sekurang-kurangnya 20mm yang sama seperti dulu (justeru overflow
+   sebenar tetap dikesan betul oleh jaringan keselamatan scrollHeight —
+   lantai ni TIDAK PERNAH dikecilkan, cuma siling dibuang). Rantaian flex
+   bersarang: .pv-isi-satu/.poster-isi (pembalut kandungan) → #pvStripSatuMuka/
+   #psGridGambar (flex:1, lantai 20mm) → .strip-grid (lajur baris, flex:1) →
+   .strip-baris (satu baris, flex:1 supaya semua baris kongsi tinggi sama
+   rata) → .strip-kad → .strip-bingkai (flex:1, isi penuh kad). Setiap
+   peringkat guna flexbox SAHAJA (bukan CSS grid) — teknik yang sama macam
+   .a4-page sendiri, sudah terbukti selamat dengan html2canvas dalam sistem
+   ni; grid tak pernah diuji dengan html2canvas di sini jadi dielakkan. */
+.pv-isi-satu, .poster-isi{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
+.pv-isi-satu > *, .poster-isi > *{flex:0 0 auto;}
+#pvStripSatuMuka, #psGridGambar{flex:1 1 auto;min-height:20mm;display:flex;flex-direction:column;}
+.strip-grid{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;gap:6px;}
+.strip-baris{display:flex;flex:1 1 0;min-height:0;gap:6px;}
+.strip-kad{flex:1 1 0;min-width:0;min-height:0;background:#fff;border:1px solid #e8edf3;border-radius:6px;
+  overflow:hidden;display:flex;flex-direction:column;box-shadow:0 2px 4px -1px rgba(0,0,0,.05);}
+/* PENTING — kenapa background-image DI SINI (bukan <img> seperti .kad-bingkai):
+   sel jalur/poster ini kecil dan nisbahnya tidak tentu (kadang jauh lebih
+   lebar/tinggi daripada gambar asal), jadi saiz semulajadi <img> boleh
+   tenggelam dalam banyak ruang kosong. html2canvas TIDAK menyokong CSS
+   object-fit pada <img>, tetapi ia MELUKIS background-image dengan
+   background-size:cover dengan betul — jadi teknik "isi penuh" di sini guna
+   background-image, bukan <img>. Gambar dokumentasi UTAMA (muka 2 / lampiran)
+   kekal guna <img> saiz semulajadi seperti biasa; ini khusus untuk
+   thumbnail kecil sahaja. */
+.strip-bingkai{flex:1 1 auto;min-height:0;background:#f8fafc no-repeat center/cover;overflow:hidden;}
+.strip-kad figcaption{font-size:8px;line-height:1.25;padding:3px 4px;color:#78350f;
+  background:#fffbeb;border-top:1px solid #fde68a;text-align:center;font-weight:600;flex:0 0 auto;}
+
+/* --- Gaya POSTER: templat padat satu muka (alternatif kepada Kotak) ---
+   v2.10.1 — reka bentuk asal (sisi gelap sempit 26mm + lajur gambar potret
+   46mm) DIGUGURKAN selepas laporan sebenar (medan teks realistik, bukan
+   ujian ringkas) menunjukkan dua pepijat: (1) kotak maklumat tidak muat
+   dalam lajur sempit itu bila teks panjang — .poster-sisi-blok tiada
+   ketinggian tetap tetapi html2canvas didapati salah kira ketinggian
+   -webkit-line-clamp (dipakai pada Objektif/Ucapan/Kekuatan/Improve),
+   menyebabkan teks kelihatan bertindan (overlap) dalam PDF; (2) apabila
+   ketinggian sebenar jadi lebih panjang daripada dijangka, kandungan itu
+   melimpah past 297mm SENYAP — tiada jaringan keselamatan scrollHeight
+   untuk gaya Poster (tidak seperti gaya Kotak), jadi html2pdf memotong
+   lambakan itu ke muka PDF ke-2 yang hampir kosong.
+   Templat baharu guna corak SAMA yang terbukti selamat pada gaya Kotak —
+   .kotak/.pv-grid/.lbl/.val, aliran dokumen biasa, TIADA -webkit-line-
+   clamp — supaya kedua-dua gaya sama tahan lasak. Bezanya dengan Kotak:
+   warna aksen (bukan indigo), tajuk laporan jadi kepala utama (bukan kotak
+   berasingan), dan gambar diletak sebagai JALUR LANDSKAP di bawah SEMUA
+   maklumat (bukan lajur potret di sisi — ruang lajur sempit menjadikan
+   gambar kecil & tenggelam). Terhad kepada 5 gambar sepertimana gaya
+   Kotak; lebih daripada itu ATAU jika kandungan tetap melimpah (jaringan
+   keselamatan scrollHeight — kini turut dipakai untuk Poster, lihat
+   kemaskiniLayoutGambar()) jatuh balik SEPENUHNYA kepada gaya Kotak
+   dua-muka, sama seperti sebelum ini. */
+.a4-page.poster{padding:10mm;background:var(--kertas,#fff);}
+.poster-kepala{border-bottom-color:var(--aksen);}
+.poster-tajuk{font-size:1.3rem;font-weight:700;color:#0f172a;line-height:1.12;}
+.poster-sekolah{font-size:.72rem;font-weight:700;text-transform:uppercase;
+  color:var(--w2);margin-top:3px;}
+.poster-rumusan-blok{background:#fffbeb;border:1px solid #fde68a;border-left:5px solid var(--aksen);
+  border-radius:8px;padding:8px 10px;}
+.poster-rumusan-teks{font-size:.8rem;color:#0f172a;line-height:1.42;
+  white-space:pre-wrap;word-break:break-word;}
+.poster-chip-baris{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+.poster-chip{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;
+  border-left:4px solid #0d9488;}
+.poster-chip-lbl{font-size:.58rem;text-transform:uppercase;letter-spacing:.03em;
+  color:#64748b;font-weight:700;margin-bottom:2px;}
+.poster-chip-val{font-size:.7rem;color:#0f172a;font-weight:500;line-height:1.32;
+  white-space:pre-wrap;word-break:break-word;}
+.poster-bawah{flex:0 0 auto;border-top:2px solid #cbd5e1;padding-top:6px;}
+.poster-bawah-baris{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;}
+/* --- Logo tambahan (kaki PDF, v2.12) — pilihan per-laporan, lihat
+   LOGO_FOOTER_SLOT. Sebaris DI BAWAH ruang tandatangan (Pegawai Pelapor &
+   Pengesahan), guna teknik SAMA seperti .pv-logo (header sekolah) — height
+   tetap + object-fit:contain pada <img> — sebab ini badge/logo rasmi
+   berlatar lutsinar (bukan gambar aktiviti dgn nisbah rawak), jadi TIDAK
+   tertakluk pada larangan object-fit untuk gambar aktiviti (lihat nota
+   .kad-bingkai) — .pv-logo/.pv-logo-kecil header sedia ada dah buktikan
+   teknik ni selamat dgn html2canvas dalam sistem ni.
+   v2.12.1 — dibesarkan (26px->42px Kotak, 22px->36px Poster) supaya benar-
+   benar kelihatan, bukan sekadar hiasan kecik yang mudah tertinggal mata.
+   Jajaran (kiri/tengah/kanan) ditetapkan admin (LOGO_FOOTER_ALIGN, lalai
+   TENGAH) — lihat lukisLogoFooterPdf(). */
+.pv-logo-footer, .poster-logo-footer{display:flex;align-items:center;justify-content:center;gap:14px;margin:10px 0;flex-wrap:wrap;}
+.pv-logo-footer img, .poster-logo-footer img{height:42px;width:auto;max-width:60px;object-fit:contain;}
+.poster-logo-footer{margin:8px 0;}
+.poster-logo-footer img{height:36px;max-width:52px;}
+.logo-footer-kiri{justify-content:flex-start;}
+.logo-footer-tengah{justify-content:center;}
+.logo-footer-kanan{justify-content:flex-end;}
+.poster-ttd{display:flex;gap:16px;flex-wrap:wrap;}
+.poster-ttd-blok{font-size:.62rem;color:#334155;}
+.poster-ttd-garis{border-bottom:1px solid #94a3b8;width:34mm;margin:10px 0 2px;}
+.poster-baki{font-size:8.5px;color:#64748b;text-align:right;}

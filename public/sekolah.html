@@ -6,9 +6,13 @@
 <title>Annur OPR</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/dokumen.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-<main class="bekas">
+<div id="overlay" class="overlay tersembunyi" role="status" aria-live="polite"><div class="overlay-kad"><div class="pusing"></div><p id="overlayTeks">Sedang memproses...</p></div></div>
+<main class="bekas" id="utama">
   <div class="kepala">
     <a class="jenama" href="/">Annur <span>OPR</span></a>
     <div id="pengguna" class="pengguna"></div>
@@ -39,7 +43,9 @@
     <nav id="tab" class="tab" role="tablist"></nav>
 
     <!-- BORANG -->
-    <section id="paneBorang" class="kad pane tersembunyi">
+    <section id="paneBorang" class="pane tersembunyi borang-grid">
+      <div class="lajur-borang">
+      <div class="kad">
       <div class="baris-antara">
         <h2 id="tajukBorang">Laporan baharu</h2>
         <span id="lencanaEdit" class="pil hantar tersembunyi">MOD EDIT</span>
@@ -52,52 +58,269 @@
 
         <label data-label="Tajuk" for="fTajuk">Nama Program</label>
         <input id="fTajuk" name="tajuk" type="text" maxlength="300">
-
-        <label data-label="Unit" for="fUnit">Unit</label>
+        <div class="medan-kepala"><label data-label="Unit" for="fUnit">Unit</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tUnit" checked><span>Sertakan</span></label></div>
         <select id="fUnit" name="unit"></select>
-
+        <div class="grid-2"><div>
+        <div class="medan-kepala"><label data-label="Anjuran" for="fAnjuran">Anjuran</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tAnjuran" checked><span>Sertakan</span></label></div>
+        <select id="fAnjuran" name="anjuran"></select>
+        </div><div>
+        <div class="medan-kepala"><label data-label="Peringkat" for="fPeringkat">Peringkat</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tPeringkat" checked><span>Sertakan</span></label></div>
+        <select id="fPeringkat" name="peringkat"></select>
+        </div></div>
+        <div class="medan-kepala"><label data-label="Tarikh" for="fTarikh">Tarikh</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tTarikh" checked><span>Sertakan</span></label></div>
+        <input id="fTarikh" name="tarikhProgram" type="date">
+        <div class="grid-2"><div>
+        <div class="medan-kepala"><label data-label="Masa" for="fMasa">Masa</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tMasa" checked><span>Sertakan</span></label></div>
+        <input id="fMasa" name="masa" type="time">
+        </div><div>
+        <div class="medan-kepala"><label data-label="Tempat" for="fTempat">Tempat</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tTempat" checked><span>Sertakan</span></label></div>
+        <input id="fTempat" name="tempat" type="text" maxlength="200">
+        </div></div>
+        <div class="medan-kepala"><span class="label-teks">Kehadiran</span><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tKehadiran" checked><span>Sertakan</span></label></div>
         <div class="grid-2">
-          <div><label data-label="Anjuran" for="fAnjuran">Anjuran</label><select id="fAnjuran" name="anjuran"></select></div>
-          <div><label data-label="Peringkat" for="fPeringkat">Peringkat</label><select id="fPeringkat" name="peringkat"></select></div>
+          <div><label data-label="Lelaki" for="fLelaki" class="kecil">Murid Lelaki</label><input id="fLelaki" name="jumLelaki" type="number" min="0" inputmode="numeric"></div>
+          <div><label data-label="Perempuan" for="fPerempuan" class="kecil">Murid Perempuan</label><input id="fPerempuan" name="jumPerempuan" type="number" min="0" inputmode="numeric"></div>
         </div>
-        <div class="grid-3">
-          <div><label data-label="Tarikh" for="fTarikh">Tarikh</label><input id="fTarikh" name="tarikhProgram" type="date"></div>
-          <div><label data-label="Masa" for="fMasa">Masa</label><input id="fMasa" name="masa" type="time"></div>
-          <div><label data-label="Tempat" for="fTempat">Tempat</label><input id="fTempat" name="tempat" type="text" maxlength="200"></div>
-        </div>
-        <div class="grid-2">
-          <div><label data-label="Lelaki" for="fLelaki">Murid Lelaki</label><input id="fLelaki" name="jumLelaki" type="number" min="0" inputmode="numeric"></div>
-          <div><label data-label="Perempuan" for="fPerempuan">Murid Perempuan</label><input id="fPerempuan" name="jumPerempuan" type="number" min="0" inputmode="numeric"></div>
-        </div>
-
-        <label data-label="Objektif" for="fObjektif">Objektif</label>
+        <div class="medan-kepala"><label data-label="Objektif" for="fObjektif">Objektif</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tObjektif" checked><span>Sertakan</span></label></div>
         <textarea id="fObjektif" name="objektif" rows="3" maxlength="4000"></textarea>
-        <label data-label="Ucapan" for="fUcapan">Ucapan / Nota Tambahan</label>
+        <div class="medan-kepala"><label data-label="Ucapan" for="fUcapan">Ucapan / Nota Tambahan</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tUcapan" checked><span>Sertakan</span></label></div>
         <textarea id="fUcapan" name="ucapanBertema" rows="2" maxlength="300"></textarea>
-        <label data-label="Kaedah" for="fKaedah">Kaedah Pelaksanaan</label>
+        <div class="medan-kepala"><label data-label="Kaedah" for="fKaedah">Kaedah Pelaksanaan</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tKaedah" checked><span>Sertakan</span></label></div>
         <select id="fKaedah" name="kaedah"></select>
-        <label data-label="Kekuatan" for="fKekuatan">Kekuatan Program</label>
+        <div class="medan-kepala"><label data-label="Kekuatan" for="fKekuatan">Kekuatan Program</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tKekuatan" checked><span>Sertakan</span></label></div>
         <textarea id="fKekuatan" name="kekuatan" rows="2" maxlength="4000"></textarea>
-        <label data-label="Improve" for="fImprove">Penambahbaikan</label>
+        <div class="medan-kepala"><label data-label="Improve" for="fImprove">Penambahbaikan</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tImprove" checked><span>Sertakan</span></label></div>
         <textarea id="fImprove" name="penambahbaikan" rows="2" maxlength="4000"></textarea>
-        <label data-label="Rumusan" for="fRumusan">Rumusan</label>
+        <div class="medan-kepala"><label data-label="Rumusan" for="fRumusan">Rumusan</label><label class="chk-sertakan" title="Sertakan dalam laporan"><input type="checkbox" id="tRumusan" checked><span>Sertakan</span></label></div>
         <textarea id="fRumusan" name="rumusan" rows="2" maxlength="4000"></textarea>
 
         <fieldset class="kumpulan">
           <legend>Pegawai pelapor dan pengesahan</legend>
-          <p class="redup kecil">Tanda ruang tandatangan yang laporan ini perlukan.</p>
-          <div id="slotTtd"></div>
+          <p class="redup kecil">Tanda ruang tandatangan yang laporan ini perlukan. Yang tidak ditanda tidak muncul dalam PDF.</p>
+          <div class="slot"><input type="checkbox" id="tSedia" checked><label for="tSedia">Disediakan Oleh</label><span></span><input id="fNama" name="nama" type="text" maxlength="200" placeholder="Nama guru penyedia"></div>
+          <div class="slot"><input type="checkbox" id="tSemak" checked><label for="tSemak">Disemak Oleh</label><span></span><input id="fPenyemak" name="penyemak" type="text" maxlength="200" placeholder="Jawatan / nama penyemak"></div>
+          <div class="slot"><input type="checkbox" id="tSah"><label for="tSah">Disahkan Oleh</label><span></span><input id="fPengesah" name="pengesah" type="text" maxlength="200" placeholder="Jawatan / nama pengesah"></div>
         </fieldset>
+      </form>
+      </div>
 
+      <div class="kad">
+        <h2>Gambar / PDF aktiviti</h2>
+        <p class="redup kecil">Gambar disimpan dalam Drive sekolah. PDF yang dilampirkan dijadikan muka lampiran dalam laporan.</p>
+        <input type="file" id="failInput" accept="image/*,application/pdf">
+        <input id="failKeterangan" type="text" maxlength="120" placeholder="Keterangan gambar (pilihan)" class="ruang-kecil">
+        <p><button type="button" id="butangTambahFail" class="butang sekunder penuh">Tambah ke laporan</button></p>
+        <div id="senaraiLampiran"></div>
+      </div>
+
+      <div class="kad">
+        <h2>Rupa dokumen</h2>
+        <label for="fGayaLaporan">Gaya laporan</label>
+        <select id="fGayaLaporan"></select>
+        <p id="notaGaya" class="redup kecil"></p>
+        <label>Warna kertas</label>
+        <div id="swatchKertas" class="swatch-baris"></div>
+        <div class="baris-butang"><input type="color" id="fWarnaKertas" class="warna"><span class="redup kecil">Atau pilih warna sendiri</span></div>
+        <label for="fSusunGambar">Susun atur gambar</label>
+        <select id="fSusunGambar"></select>
+        <p id="notaSusun" class="redup kecil"></p>
+        <div id="blokLogoFooter" class="hidden"><label>Logo tambahan (kaki PDF)</label><div id="senaraiLogoFooter" class="baris-butang"></div></div>
+        <label class="semak-kotak"><input type="checkbox" id="tJanaPdf" checked> <span><b>Jana PDF semasa menyimpan</b><br><span id="notaPdf"></span></span></label>
+      </div>
+
+      <div class="kad">
         <label class="semak-kotak" id="blokConsent"><input type="checkbox" id="fConsent"> <span id="teksConsent"></span></label>
-
         <div class="grid-2 ruang-atas">
           <button type="button" class="butang sekunder" data-hantar="SIMPAN">Simpan draf</button>
           <button type="button" class="butang" data-hantar="HANTAR">Hantar</button>
         </div>
         <p><button type="button" id="resetBorang" class="pautan-butang">Kosongkan borang</button></p>
-        <p class="redup kecil">Pratonton A4, jana PDF dan gambar aktiviti akan ditambah dalam kemas kini seterusnya.</p>
-      </form>
+      </div>
+      </div>
+
+      <div class="lajur-pratonton">
+        <div class="baris-antara"><h2>Pratonton laporan</h2><span class="redup kecil">Format A4. Inilah yang dijana sebagai PDF.</span></div>
+        <div class="pratonton-bekas">
+        <div id="pdfContent">
+          <!-- HALAMAN 1 -->
+          <div class="a4-page" id="pageOne">
+            <div class="pv-isi-satu">
+              <div class="pv-kepala">
+                <div class="pv-logo-set">
+                  <img id="pvLogo1" class="pv-logo hidden" alt="">
+                  <img id="pvLogo2" class="pv-logo hidden" alt="">
+                </div>
+                <div class="pv-kepala-teks">
+                  <h1 id="pvTajukDokumen" class="pv-tajuk-dok"></h1>
+                  <p id="pvSekolah" class="pv-sekolah"></p>
+                  <p id="pvAlamat" class="pv-alamat"></p>
+                  <p id="pvTelefon" class="pv-alamat"></p>
+                  <p id="pvMoto" class="pv-moto"></p>
+                </div>
+              </div>
+
+              <div class="pv-jenis" id="pvJenis">Laporan Aktiviti Kokurikulum</div>
+
+              <div class="kotak pv-sela">
+                <div class="lbl" id="pvLblTajuk">Nama Program / Pertandingan</div>
+                <div class="val pv-besar" id="pvTajuk">-</div>
+              </div>
+
+              <div class="pv-grid pv-3 pv-sela">
+                <div class="kotak indigo" id="pvKotakUnit"><div class="lbl" id="pvLblUnit">Unit Kokurikulum</div><div class="val pv-kecil" id="pvUnit">-</div></div>
+                <div class="kotak indigo" id="pvKotakAnjuran"><div class="lbl" id="pvLblAnjuran">Anjuran</div><div class="val pv-kecil" id="pvAnjuran">-</div></div>
+                <div class="kotak indigo" id="pvKotakPeringkat"><div class="lbl" id="pvLblPeringkat">Peringkat</div><div class="val pv-kecil" id="pvPeringkat">-</div></div>
+              </div>
+
+              <div class="pv-grid pv-2 pv-sela">
+                <div class="kotak indigo" id="pvKotakMasa"><div class="lbl" id="pvLblMasa">Masa</div><div class="val pv-kecil" id="pvMasa">-</div></div>
+                <div class="kotak indigo" id="pvKotakTempat"><div class="lbl" id="pvLblTempat">Tempat</div><div class="val pv-kecil" id="pvTempat">-</div></div>
+              </div>
+
+              <div class="pv-grid pv-4 pv-sela">
+                <div class="kotak emerald" id="pvKotakTarikh"><div class="lbl" id="pvLblTarikh">Tarikh</div><div class="val pv-kecil" id="pvTarikh">-</div></div>
+                <div class="kotak emerald" id="pvKotakLelaki"><div class="lbl" id="pvLblLelaki">Murid Lelaki</div><div class="val pv-kecil" id="pvLelaki">0</div></div>
+                <div class="kotak emerald" id="pvKotakPerempuan"><div class="lbl" id="pvLblPerempuan">Murid Perempuan</div><div class="val pv-kecil" id="pvPerempuan">0</div></div>
+                <div class="kotak emerald" id="pvKotakJumlah"><div class="lbl">Jumlah</div><div class="val pv-kecil pv-tebal" id="pvJumlah">0</div></div>
+              </div>
+
+              <div class="kotak pv-sela" id="pvKotakObjektif"><div class="lbl" id="pvLblObjektif">Objektif</div><div class="val" id="pvObjektif">-</div></div>
+              <div class="kotak sky pv-sela" id="pvKotakUcapan"><div class="lbl" id="pvLblUcapan">Ucapan / Nota Tambahan</div><div class="val" id="pvUcapan">-</div></div>
+              <div class="kotak rose pv-sela" id="pvKotakKaedah"><div class="lbl" id="pvLblKaedah">Kaedah Pelaksanaan</div><div class="val" id="pvKaedah">-</div></div>
+              <div class="kotak teal pv-sela" id="pvKotakKekuatan"><div class="lbl" id="pvLblKekuatan">Kekuatan Program</div><div class="val" id="pvKekuatan">-</div></div>
+              <div class="kotak emerald pv-sela" id="pvKotakImprove"><div class="lbl" id="pvLblImprove">Penambahbaikan</div><div class="val" id="pvImprove">-</div></div>
+              <div class="kotak amber pv-sela" id="pvKotakRumusan"><div class="lbl" id="pvLblRumusan">Rumusan</div><div class="val" id="pvRumusan">-</div></div>
+
+              <!-- Jalur gambar satu-muka (gaya Kotak, 1-5 gambar sahaja).
+                   Diisi/disembunyikan oleh kemaskiniLayoutGambar(); kosong
+                   & tersembunyi secara lalai. -->
+              <div id="pvStripSatuMuka" class="hidden"></div>
+            </div>
+
+            <div class="pv-kaki" id="kakiSatu">
+              <!-- Ruang tandatangan dibina secara dinamik: hanya slot yang
+                   ditanda oleh guru akan muncul, dan bilangan lajur mengikutnya. -->
+              <div class="pv-grid pv-tandatangan" id="pvTandatangan"></div>
+              <!-- Logo tambahan (kaki PDF, v2.12) — dikonfigur admin dalam
+                   Tetapan Sistem, guru pilih yang mana disertakan untuk
+                   laporan ini. Diisi/disembunyikan oleh lukisLogoFooterPdf().
+                   v2.12.1 — sengaja DI BAWAH ruang tandatangan (Pegawai
+                   Pelapor & Pengesahan), bukan di atasnya. -->
+              <div id="pvLogoFooter" class="pv-logo-footer hidden"></div>
+              <div class="pv-baris-kaki">
+                <div id="pvFooter"></div>
+                <div id="pvTarikhCetak"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- HALAMAN 2: GAMBAR (disembunyikan sepenuhnya jika tiada gambar) -->
+          <div class="a4-page" id="pageTwo">
+            <div class="pv-lajur">
+              <div class="pv-kepala-ringkas merah">
+                <div>
+                  <h2 class="pv-tajuk-muka">Gambar Aktiviti</h2>
+                  <p class="pv-sub-muka">Dokumentasi Bergambar</p>
+                  <p id="pvTajuk2" class="pv-alamat" style="font-weight:500;margin-top:2px"></p>
+                </div>
+                <div class="pv-logo-set" id="logoMukaDua"></div>
+              </div>
+              <!-- grid mengisi tinggi baki halaman supaya tiada ruang putih tergantung -->
+              <div id="pvGridGambar" class="pv-grid pv-isi"></div>
+            </div>
+            <div class="pv-kaki-muka">
+              <div>
+                <div class="lbl" style="margin-bottom:1px">Disediakan Oleh</div>
+                <div id="pvNama2" style="font-weight:700;color:#0f172a;font-size:11px">-</div>
+              </div>
+              <div id="pvFooter2"></div>
+            </div>
+          </div>
+
+          <!-- GAYA POSTER: templat alternatif satu-muka (dipilih guru melalui
+               "Gaya Laporan" — lihat kad Rupa Dokumen). Tersembunyi secara
+               lalai; kemaskiniLayoutGambar() menukar antara ini dengan
+               #pageOne/#pageTwo. Diisi oleh lukisPoster(). -->
+          <div class="a4-page poster" id="posterPage" style="display:none">
+            <div class="poster-isi">
+              <div class="pv-kepala poster-kepala">
+                <div class="pv-logo-set">
+                  <img id="psLogo1" class="pv-logo hidden" alt="">
+                  <img id="psLogo2" class="pv-logo hidden" alt="">
+                </div>
+                <div class="pv-kepala-teks">
+                  <div class="pv-jenis" id="psJenis">Laporan</div>
+                  <h1 class="poster-tajuk" id="psTajuk">-</h1>
+                  <div class="poster-sekolah" id="psSekolah"></div>
+                </div>
+              </div>
+
+              <div class="pv-grid pv-3 pv-sela">
+                <div class="kotak indigo" id="psBlokUnit"><div class="lbl" id="psLblUnit">Unit Kokurikulum</div><div class="val pv-kecil" id="psUnit">-</div></div>
+                <div class="kotak indigo" id="psBlokAnjuran"><div class="lbl" id="psLblAnjuran">Anjuran</div><div class="val pv-kecil" id="psAnjuran">-</div></div>
+                <div class="kotak indigo" id="psBlokPeringkat"><div class="lbl" id="psLblPeringkat">Peringkat</div><div class="val pv-kecil" id="psPeringkat">-</div></div>
+              </div>
+
+              <div class="pv-grid pv-3 pv-sela">
+                <div class="kotak emerald" id="psBlokTarikh"><div class="lbl">Tarikh</div><div class="val pv-kecil" id="psTarikh">-</div></div>
+                <div class="kotak emerald" id="psBlokMasa"><div class="lbl">Masa</div><div class="val pv-kecil" id="psMasa">-</div></div>
+                <div class="kotak emerald" id="psBlokTempat"><div class="lbl">Tempat</div><div class="val pv-kecil" id="psTempat">-</div></div>
+              </div>
+
+              <div class="pv-grid pv-2 pv-sela">
+                <div class="kotak rose" id="psBlokKaedah"><div class="lbl" id="psLblKaedah">Kaedah Pelaksanaan</div><div class="val pv-kecil" id="psKaedah">-</div></div>
+                <div class="kotak sky" id="psBlokKehadiran"><div class="lbl">Sasaran / Kehadiran</div><div class="val pv-kecil" id="psKehadiran">-</div></div>
+              </div>
+
+              <div class="kotak pv-sela" id="psBlokObjektif"><div class="lbl" id="psLblObjektif">Objektif</div><div class="val pv-kecil" id="psObjektif">-</div></div>
+
+              <div class="poster-rumusan-blok pv-sela" id="psBlokRumusan">
+                <div class="lbl" id="psLblRumusan">Rumusan</div>
+                <div class="poster-rumusan-teks" id="psRumusan">-</div>
+              </div>
+
+              <div class="poster-chip-baris pv-sela">
+                <div class="poster-chip" id="psChipUcapan">
+                  <div class="poster-chip-lbl" id="psLblUcapan">Ucapan / Nota Tambahan</div>
+                  <div class="poster-chip-val" id="psUcapan">-</div>
+                </div>
+                <div class="poster-chip" id="psChipKekuatan">
+                  <div class="poster-chip-lbl" id="psLblKekuatan">Kekuatan Program</div>
+                  <div class="poster-chip-val" id="psKekuatan">-</div>
+                </div>
+                <div class="poster-chip" id="psChipImprove">
+                  <div class="poster-chip-lbl" id="psLblImprove">Penambahbaikan</div>
+                  <div class="poster-chip-val" id="psImprove">-</div>
+                </div>
+              </div>
+
+              <!-- Jalur gambar landskap (sama teknik seperti #pvStripSatuMuka
+                   gaya Kotak) diletak di bawah SEMUA maklumat — bukan lajur
+                   potret di sisi seperti reka bentuk asal. Diisi/disembunyikan
+                   oleh lukisPosterGambar(). -->
+              <div id="psGridGambar" class="hidden"></div>
+            </div>
+
+            <div class="poster-bawah">
+              <div class="poster-bawah-baris">
+                <div class="poster-ttd" id="psTandatangan"></div>
+                <div class="poster-baki">
+                  <div id="psFooter"></div>
+                  <div id="psTarikhCetak"></div>
+                </div>
+              </div>
+              <!-- Logo tambahan (kaki PDF, v2.12) — sama fungsi seperti
+                   #pvLogoFooter gaya Kotak. v2.12.1 — sengaja DI BAWAH
+                   baris tandatangan/footer, bukan di atasnya. -->
+              <div id="psLogoFooter" class="poster-logo-footer hidden"></div>
+            </div>
+          </div>
+
+          <!-- HALAMAN 3+: PDF DILAMPIR -->
+          <div id="pvLampiranPdf"></div>
+        </div>
+        </div>
+      </div>
     </section>
 
     <!-- LAPORAN -->

@@ -126,20 +126,53 @@ try {
   semak((await ali.inputValue('input[name=nama]')) === 'Cikgu Ujian', 'nama penyedia diisi automatik dari akaun Google');
   await ali.fill('#fTajuk', 'Kejohanan Bola Sepak MSSD');
   await ali.selectOption('#fUnit', 'Bola Sepak');
+  await ali.fill('#fObjektif', 'Memupuk semangat kesukanan dalam kalangan murid.');
+  semak((await ali.textContent('#pvTajuk')) === 'Kejohanan Bola Sepak MSSD', 'pratonton A4 dikemas kini semasa menaip');
+  await ali.uncheck('#tObjektif');
+  semak(await ali.$eval('#pvKotakObjektif', n => getComputedStyle(n).display === 'none'), '"Sertakan" dinyahtanda menyembunyikan kotak dalam pratonton');
+  await ali.check('#tObjektif');
+
+  // Tambah gambar (PNG 64x48 dijana dalam browser)
+  const png = await ali.evaluate(() => { const c = document.createElement('canvas'); c.width = 64; c.height = 48;
+    const x = c.getContext('2d'); x.fillStyle = '#0f766e'; x.fillRect(0, 0, 64, 48); return c.toDataURL('image/png').split(',')[1]; });
+  await ali.setInputFiles('#failInput', { name: 'aktiviti.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  await ali.fill('#failKeterangan', 'Sesi latihan');
+  await ali.click('#butangTambahFail');
+  await ali.waitForFunction(() => document.querySelectorAll('#senaraiLampiran img').length === 1);
+  semak(await ali.isVisible('#pvStripSatuMuka .strip-kad'), 'gambar muncul dalam jalur satu muka (gaya Kotak)');
+  await ali.screenshot({ path: OUT + '3-borang-pratonton.png', fullPage: true });
+
   await ali.check('#fConsent');
+  const bilFailAwal = g.fail.size;
   await ali.click('[data-hantar=SIMPAN]');
-  await ali.waitForFunction(() => document.getElementById('mesej').textContent.includes('Draf disimpan'));
+  await ali.waitForFunction(() => document.getElementById('mesej').textContent.includes('Draf disimpan'), null, { timeout: 60000 });
+  const sekA = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const failBaru = [...g.fail.entries()].slice(-2);
+  const pdfFail = failBaru.find(([, f]) => f.mimeType === 'application/pdf');
+  const gbrFail = failBaru.find(([, f]) => f.mimeType.startsWith('image/'));
+  semak(g.fail.size === bilFailAwal + 2 && pdfFail && gbrFail, 'PDF dan gambar dimuat naik ke Drive');
+  semak(new TextDecoder().decode(pdfFail[1].data.slice(0, 5)) === '%PDF-', 'fail PDF sah (dijana oleh html2pdf)');
+  semak(pdfFail[1].parents[0] === sekA.subfolder.PDF && gbrFail[1].parents[0] === sekA.subfolder.LAMPIRAN, 'PDF dalam "Laporan PDF", gambar dalam "Lampiran"');
   await ali.click('#tab button[data-tab=Laporan]');
   await ali.waitForSelector('#senaraiLaporan .item');
   semak((await ali.$$('#senaraiLaporan .item')).length === 1, 'guru hanya nampak laporan sendiri (1, bukan 2)');
   semak((await ali.textContent('#senaraiLaporan .pil')) === 'DRAF', 'status DRAF dipaparkan');
 
+  // Butang PDF memuat turun fail sebenar
+  const [muatTurun] = await Promise.all([ali.waitForEvent('download'), ali.click('#senaraiLaporan button:text("PDF")')]);
+  const laluanPdf = await muatTurun.path();
+  semak(readFileSync(laluanPdf).subarray(0, 5).toString() === '%PDF-', 'butang PDF memuat turun PDF yang sah');
+
   await ali.click('#senaraiLaporan button:text("Edit")');
   await ali.waitForFunction(() => document.getElementById('fTajuk').value === 'Kejohanan Bola Sepak MSSD');
   semak(await ali.isVisible('#lencanaEdit'), 'mod edit memuatkan laporan ke borang');
+  semak((await ali.$$('#senaraiLampiran img')).length === 1, 'gambar sedia ada dimuat semula dari Drive');
+  const bilSebelumEdit = g.fail.size;
+  await ali.uncheck('#tJanaPdf');
   await ali.fill('#fTajuk', 'Kejohanan Bola Sepak MSSD 2026');
   await ali.click('[data-hantar=HANTAR]');
   await ali.waitForFunction(() => document.getElementById('mesej').textContent.includes('dihantar'));
+  semak(g.fail.size === bilSebelumEdit, 'edit tanpa jana PDF: gambar sedia ada tidak dimuat naik semula');
   await ali.click('#tab button[data-tab=Laporan]');
   await ali.waitForFunction(() => document.querySelector('#senaraiLaporan .tajuk')?.textContent === 'Kejohanan Bola Sepak MSSD 2026');
   semak((await ali.$$('#senaraiLaporan .item')).length === 1, 'edit mengemas kini laporan sama (tiada pendua)');

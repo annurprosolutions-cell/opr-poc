@@ -133,3 +133,13 @@ export async function bacaJadual(g, sheetId, tab) {
   });
   return { tajuk, baris };
 }
+
+// Muat turun kandungan fail (Response asal dari Google, untuk distrim terus).
+export async function muatTurun(g, fileId) {
+  const res = await g.f(DRIVE + '/files/' + fileId + '?alt=media', { headers: { Authorization: 'Bearer ' + g.at } });
+  if (!res.ok) {
+    let data = null; try { data = await res.json(); } catch (e) { /* bukan JSON */ }
+    throw new RalatGoogle(res.status, data, 'Muat turun fail');
+  }
+  return res;
+}

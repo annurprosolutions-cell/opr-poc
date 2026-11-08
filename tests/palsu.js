@@ -75,6 +75,23 @@ export function googlePalsu(senario = {}) {
     if (senario.refreshMati && /googleapis\.com\/(drive|upload|v4\/spreadsheets)|sheets\.googleapis\.com/.test(u)) {
       return Response.json({ error: { code: 401, message: 'Invalid Credentials' } }, { status: 401 });
     }
+    // ---- Drive: muat naik multipart (metadata JSON + kandungan)
+    if (u.startsWith('https://www.googleapis.com/upload/drive/v3/files')) {
+      const raw = new Uint8Array(await opt.body.arrayBuffer());
+      // Tukar bait->aksara satu-satu (TextDecoder 'latin1' ialah windows-1252; ia merosakkan 0x80-0x9F)
+      let teksPenuh = '';
+      for (let i = 0; i < raw.length; i++) teksPenuh += String.fromCharCode(raw[i]);
+      const sempadan = (opt.headers['content-type'].match(/boundary=(.+)$/) || [])[1];
+      const bhg = teksPenuh.split('--' + sempadan);
+      const meta = JSON.parse(bhg[1].split('\r\n\r\n')[1].trim());
+      const [kepala, ...isi] = bhg[2].split('\r\n\r\n');
+      const mime = kepala.match(/Content-Type: ([^\r\n]+)/)[1];
+      const kandungan = isi.join('\r\n\r\n').replace(/\r\n$/, '');
+      const data = Uint8Array.from(kandungan, c => c.charCodeAt(0));
+      const nid = 'upl' + String(++kiraan).padStart(8, '0');
+      fail.set(nid, { name: meta.name, mimeType: mime, parents: meta.parents || ['root'], trashed: false, data });
+      return Response.json({ id: nid, name: meta.name, size: String(data.length) });
+    }
     // ---- Drive
     const mDrive = u.match(/^https:\/\/www\.googleapis\.com\/drive\/v3\/files(?:\/([^?]+))?(?:\?(.*))?$/);
     if (mDrive) {
@@ -87,6 +104,7 @@ export function googlePalsu(senario = {}) {
       }
       const rec = fail.get(id);
       if (!rec) return Response.json({ error: { code: 404, message: 'File not found: ' + id } }, { status: 404 });
+      if (kaedah === 'GET' && q.get('alt') === 'media') return new Response(rec.data || new Uint8Array(), { headers: { 'content-type': rec.mimeType } });
       if (kaedah === 'GET') return Response.json({ id, name: rec.name, parents: rec.parents, trashed: rec.trashed });
       if (kaedah === 'PATCH') {
         const tambah = q.get('addParents'), buang = q.get('removeParents');
