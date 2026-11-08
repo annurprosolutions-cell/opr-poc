@@ -1,0 +1,85 @@
+/* Sale page (/). Token warna dari app.css. */
+.laman-dalam{max-width:1140px;margin:0 auto;padding:0 16px}
+.laman-kepala{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--garis)}
+.laman-kepala .laman-dalam{display:flex;align-items:center;gap:16px;min-height:60px}
+.laman-kepala .jenama{margin-right:auto}
+.laman-nav{display:flex;gap:18px}
+.laman-nav a{color:var(--teks);text-decoration:none;font-weight:500;font-size:.95rem}
+.laman-nav a:hover{color:var(--utama)}
+@media (max-width:720px){.laman-nav{display:none}}
+.butang.kecil-butang{min-height:38px;padding:6px 14px;font-size:.9rem}
+.butang.besar{min-height:50px;padding:12px 22px;font-size:1.02rem}
+
+.hero{display:grid;gap:28px;align-items:center;padding-top:32px;padding-bottom:24px}
+@media (min-width:960px){.hero{grid-template-columns:minmax(0,5fr) minmax(0,7fr);padding-top:56px}}
+.label-atas{color:var(--aksen);font-weight:700;font-size:.85rem;letter-spacing:.04em;text-transform:uppercase;margin:0 0 8px}
+.hero h1{font-size:clamp(1.8rem,4.2vw,2.7rem);line-height:1.12;letter-spacing:-.01em;margin:0 0 14px}
+.hero-sub{font-size:1.08rem;color:var(--redup);margin:0 0 20px}
+.hero .baris-butang{margin-bottom:10px}
+.hero-gambar{margin:0}
+.hero-gambar img,.ciri-gambar img{display:block;width:100%;height:auto;border-radius:14px;border:1px solid var(--garis);
+  box-shadow:0 20px 40px -18px rgba(15,23,42,.35)}
+
+.seksyen{padding-top:48px;padding-bottom:16px}
+.seksyen > h2{font-size:clamp(1.4rem,3vw,1.9rem);margin:0 0 18px}
+.grid-tiga{display:grid;gap:14px}
+@media (min-width:800px){.grid-tiga{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.grid-tiga .kad{margin:0}
+.grid-dua{display:grid;gap:14px}
+@media (min-width:800px){.grid-dua{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.grid-dua .kad{margin:0}
+
+.ciri{display:grid;gap:24px;align-items:center;padding:28px 0;border-bottom:1px solid var(--garis)}
+.ciri:last-child{border-bottom:0}
+@media (min-width:900px){
+  .ciri{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:48px}
+  .ciri.terbalik .ciri-teks{order:2}
+}
+.ciri h3{font-size:1.3rem;margin:0 0 10px}
+.ciri-gambar{margin:0}
+.ciri-gambar.a4{max-width:440px;justify-self:center;width:100%}
+.telefon-dua{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:440px;justify-self:center;width:100%}
+.telefon-dua img{border-radius:22px;width:100%;height:auto;border:1px solid var(--garis);box-shadow:0 20px 40px -18px rgba(15,23,42,.35)}
+.senarai-semak{list-style:none;padding:0;margin:12px 0 0}
+.senarai-semak li{position:relative;padding-left:26px;margin:6px 0}
+.senarai-semak li::before{content:'';position:absolute;left:4px;top:.45em;width:10px;height:6px;border-left:2px solid var(--ok);
+  border-bottom:2px solid var(--ok);transform:rotate(-45deg)}
+
+.kad.sorot{border-left:5px solid var(--aksen)}
+.langkah-tiga{list-style:none;padding:0;margin:0;display:grid;gap:14px;counter-reset:l}
+@media (min-width:800px){.langkah-tiga{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.langkah-tiga li{counter-increment:l;background:var(--kad);border:1px solid var(--garis);border-radius:var(--jejari);padding:18px 18px 18px 64px;position:relative}
+.langkah-tiga li::before{content:counter(l);position:absolute;left:18px;top:18px;width:32px;height:32px;border-radius:50%;
+  background:var(--utama);color:var(--utama-teks);display:flex;align-items:center;justify-content:center;font-weight:700}
+.langkah-tiga b{display:block;margin-bottom:4px}
+.langkah-tiga span{color:var(--redup);font-size:.95rem}
+
+.grid-harga{display:grid;gap:14px;max-width:760px}
+@media (min-width:700px){.grid-harga{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kad.harga{margin:0;position:relative}
+.kad.harga.utama{border:2px solid var(--utama)}
+.angka-harga{font-size:2.3rem;font-weight:700;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.angka-harga span{font-size:1rem;font-weight:500;color:var(--redup)}
+.lencana-harga{position:absolute;top:-12px;right:16px;margin:0;background:var(--aksen);color:#fff;font-size:.78rem;font-weight:700;
+  padding:3px 10px;border-radius:99px}
+.kad.harga .butang{margin-top:16px}
+
+.soalan{background:var(--kad);border:1px solid var(--garis);border-radius:12px;padding:0 16px;margin:10px 0}
+.soalan summary{cursor:pointer;font-weight:600;padding:14px 0;list-style-position:inside}
+.soalan p{margin:0 0 14px;color:var(--redup)}
+
+.akhir{text-align:center;padding-bottom:40px}
+.baris-butang.tengah{justify-content:center}
+.laman-kaki{border-top:1px solid var(--garis);padding:24px 0 96px;font-size:.88rem;color:var(--redup)}
+@media (min-width:720px){.laman-kaki{padding-bottom:28px}}
+
+/* CTA melekat di telefon */
+.cta-melekat{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 16px;
+  background:var(--kad);border-top:1px solid var(--garis);box-shadow:0 -6px 18px rgba(0,0,0,.08)}
+@media (min-width:720px){.cta-melekat{display:none}}
+
+/* Muncul semasa skrol */
+.muncul{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+.muncul.nampak{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.muncul{opacity:1;transform:none;transition:none}}

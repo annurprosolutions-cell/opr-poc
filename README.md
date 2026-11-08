@@ -35,7 +35,8 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | 3b-1 | Pratonton A4 + jana PDF (enjin v2 verbatim, gaya Kotak/Poster), gambar ke Drive, lampiran PDF, "Sertakan", Rupa Dokumen, buka PDF | Siap |
 | 3b-2 | Semakan + PDF bertandatangan, dashboard + eksport CSV, tab Tetapan (identiti, logo, warna, dasar PDF, jenis laporan, senarai), butang pratonton di telefon | Siap |
 | 4 | Lesen ikut sekolah: percubaan 14 hari, BCL (disahkan API, idempoten, kredit sebelum daftar, auto-debit), tempoh ihsan 7 hari, sekatan tulis bila tamat, notis dalam app, halaman /pemilik | Siap |
-| 5 | Sale page, pengesahan Google, manual, video | |
+| 5a | Sale page di `/` (tangkapan skrin sebenar), mod demo `/s/demo` (app sebenar, data dalam browser, `?peranan=guru`), panduan pengesahan Google | Siap |
+| 5b | Manual pengguna (HTML + PDF), video tutorial | |
 
 ## Ujian
 
@@ -49,6 +50,15 @@ Ujian browser hujung-ke-hujung (Worker sebenar dalam proses, Google palsu, semua
 
 ```bash
 npm run e2e
+```
+
+`npm run e2e` juga menjalankan ujian asap mod demo dan sale page (tiada ralat JS, tiada skrol mendatar 390px, semua pautan dalaman hidup).
+
+Mod demo dan gambar sale page:
+
+```bash
+npm run demo-data   # jana semula public/demo-data.json selepas ubah src/skema.js
+npm run skrin       # rakam semula public/img/*.jpg daripada mod demo
 ```
 
 Jalankan setempat dalam runtime Cloudflare:

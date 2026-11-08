@@ -3,38 +3,209 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Annur OPR</title>
-<meta name="description" content="Annur OPR: sistem One Page Report untuk sekolah. Data disimpan dalam Google Drive sekolah sendiri.">
+<title>Annur OPR | One Page Report untuk sekolah</title>
+<meta name="description" content="Sistem One Page Report (OPR) untuk sekolah. Guru isi borang, PDF A4 siap dijana, penyemak sahkan. Data kekal dalam Google Drive sekolah sendiri. Percubaan percuma 14 hari.">
+<link rel="canonical" href="https://opr.annurpro.com/">
+<meta property="og:title" content="Annur OPR: One Page Report untuk sekolah">
+<meta property="og:description" content="Borang, PDF A4, semakan dan dashboard OPR dalam satu sistem. Data dalam Google Drive sekolah sendiri.">
+<meta property="og:image" content="https://opr.annurpro.com/img/borang-pratonton.jpg">
+<meta property="og:url" content="https://opr.annurpro.com/">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#312e81">
 <link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/laman.css">
 </head>
 <body>
-<main class="bekas">
-  <div class="kepala">
+<header class="laman-kepala">
+  <div class="laman-dalam">
     <a class="jenama" href="/">Annur <span>OPR</span></a>
+    <nav class="laman-nav" aria-label="Utama">
+      <a href="#ciri">Ciri</a><a href="#harga">Harga</a><a href="#soalan">Soalan</a><a href="#masuk">Log masuk</a>
+    </nav>
+    <a class="butang kecil-butang" href="/s/demo">Cuba demo</a>
   </div>
+</header>
 
-  <h1>Laporan satu muka untuk sekolah, siap dalam beberapa minit.</h1>
-  <p class="redup">Guru isi borang, sistem jana PDF A4, penyemak sahkan. Semua data disimpan dalam Google Drive admin sekolah anda sendiri.</p>
+<main>
+  <div class="laman-dalam"><div id="ralat"></div></div>
 
-  <div id="ralat"></div>
-
-  <section class="kad">
-    <h2>Saya guru</h2>
-    <p>Buka pautan sekolah anda yang diberi oleh admin, contohnya:</p>
-    <p><code>opr.annurpro.com/s/nama-sekolah</code></p>
+  <!-- HERO -->
+  <section class="hero laman-dalam">
+    <div class="hero-teks">
+      <p class="label-atas">Untuk sekolah menengah dan rendah</p>
+      <h1>One Page Report yang kemas, seragam dan siap dalam beberapa minit.</h1>
+      <p class="hero-sub">Guru isi satu borang dari telefon atau komputer. Sistem menyusun PDF A4 lengkap dengan logo sekolah, gambar aktiviti dan ruang tandatangan. Penyemak tanda disemak, admin nampak semua laporan di satu tempat.</p>
+      <div class="baris-butang">
+        <a class="butang besar" href="/s/demo">Cuba demo sekarang</a>
+        <a class="butang sekunder besar" href="/daftar">Daftar percubaan 14 hari</a>
+      </div>
+      <p class="redup kecil">Demo tidak perlu log masuk. Percubaan tidak perlu kad kredit.</p>
+    </div>
+    <figure class="hero-gambar">
+      <img src="/img/borang-pratonton.jpg" width="2720" height="1720" alt="Borang OPR di sebelah kiri dan pratonton PDF A4 di sebelah kanan" fetchpriority="high">
+    </figure>
   </section>
 
-  <section class="kad">
-    <h2>Saya admin sekolah</h2>
-    <p>Daftar sekolah anda dan dapatkan pautan khas untuk guru.</p>
-    <a class="butang" href="/daftar">Daftar sekolah</a>
+  <!-- MASALAH -->
+  <section class="laman-dalam seksyen">
+    <h2>Masalah yang biasa berlaku</h2>
+    <div class="grid-tiga">
+      <div class="kad muncul"><h3>Format lain-lain</h3><p>Setiap guru guna templat sendiri dalam Word atau Canva. Laporan yang sampai ke meja penyemak tidak seragam.</p></div>
+      <div class="kad muncul"><h3>Berselerak</h3><p>Laporan dihantar melalui WhatsApp, emel dan pemacu pena. Bila perlu untuk audit atau mesyuarat, susah dikumpul.</p></div>
+      <div class="kad muncul"><h3>Kejar-mengejar</h3><p>Penyemak tidak tahu laporan mana sudah siap, mana belum disemak, dan mana yang masih draf.</p></div>
+    </div>
   </section>
 
-  <footer>&copy; AnnurPro Solutions &middot; <a href="/privasi">Polisi Privasi</a></footer>
+  <!-- CIRI -->
+  <section id="ciri" class="laman-dalam seksyen">
+    <h2>Apa yang Annur OPR buat</h2>
+
+    <div class="ciri muncul">
+      <div class="ciri-teks">
+        <h3>Satu borang, PDF A4 terus siap</h3>
+        <p>Guru isi borang dan nampak pratonton A4 berubah semasa menaip. Tandakan "Sertakan" pada medan yang perlu sahaja. Bila disimpan, PDF dijana dan disimpan dalam folder Drive sekolah.</p>
+        <ul class="senarai-semak"><li>Logo sekolah, alamat dan moto di kepala surat</li><li>Sehingga 5 gambar muat dalam satu muka</li><li>Ruang tandatangan: disediakan, disemak, disahkan</li><li>PDF luar boleh dilampirkan sebagai muka tambahan</li></ul>
+      </div>
+      <figure class="ciri-gambar a4"><img src="/img/a4-kotak.jpg" width="1588" height="2248" alt="Contoh PDF One Page Report gaya Kotak dengan dua gambar aktiviti dan ruang tandatangan" loading="lazy"></figure>
+    </div>
+
+    <div class="ciri terbalik muncul">
+      <div class="ciri-teks">
+        <h3>8 jenis laporan, 2 gaya</h3>
+        <p>Kokurikulum, Kelas, Event, Subjek, Akademik, Pentadbiran, HEM dan Guru Bertugas Mingguan. Label dan senarai pilihan berubah ikut jenis. Pilih gaya Kotak atau Poster satu muka.</p>
+        <p class="redup">Admin boleh matikan jenis yang tidak digunakan, tukar tajuk dalam PDF dan ubah senarai pilihan sendiri.</p>
+      </div>
+      <figure class="ciri-gambar a4"><img src="/img/poster.jpg" width="1588" height="2248" alt="Contoh PDF gaya Poster untuk laporan mata pelajaran" loading="lazy"></figure>
+    </div>
+
+    <div class="ciri muncul">
+      <div class="ciri-teks">
+        <h3>Semakan yang tersusun</h3>
+        <p>Setiap laporan ada status: draf, dihantar, telah disemak. Penyemak muat naik salinan PDF yang ditandatangan, dan kedua-dua PDF (asal dan bertandatangan) boleh dibuka bila-bila masa.</p>
+      </div>
+      <figure class="ciri-gambar"><img src="/img/senarai-laporan.jpg" width="2720" height="1720" alt="Senarai laporan dengan status draf, hantar dan disemak" loading="lazy"></figure>
+    </div>
+
+    <div class="ciri terbalik muncul">
+      <div class="ciri-teks">
+        <h3>Dashboard dan eksport</h3>
+        <p>Jumlah laporan, belum disemak, murid terlibat, laporan ikut unit, peringkat dan bulan. Eksport ke CSV untuk dibuka dalam Excel.</p>
+      </div>
+      <figure class="ciri-gambar"><img src="/img/dashboard.jpg" width="2720" height="1720" alt="Dashboard dengan jubin ringkasan dan carta laporan" loading="lazy"></figure>
+    </div>
+
+    <div class="ciri muncul">
+      <div class="ciri-teks">
+        <h3>Tambah guru dengan tampal emel</h3>
+        <p>Salin senarai emel guru dari Excel atau Google Sheet, tampal, siap. Guru log masuk dengan akaun Google sendiri. Tiada kata laluan untuk diurus. Nyahaktif guru yang berpindah dengan satu klik.</p>
+      </div>
+      <figure class="ciri-gambar"><img src="/img/guru.jpg" width="2720" height="1720" alt="Senarai guru dengan butang nyahaktif dan jadikan admin" loading="lazy"></figure>
+    </div>
+
+    <div class="ciri terbalik muncul">
+      <div class="ciri-teks">
+        <h3>Mesra telefon</h3>
+        <p>Kebanyakan guru mengisi laporan dari telefon selepas program. Borang dan pratonton direka untuk skrin kecil, dan PDF yang dijana di telefon sama dengan di komputer.</p>
+      </div>
+      <div class="ciri-gambar telefon-dua">
+        <img src="/img/telefon-borang.jpg" width="1170" height="2532" alt="Borang OPR di skrin telefon" loading="lazy">
+        <img src="/img/telefon-pratonton.jpg" width="1170" height="2532" alt="Pratonton A4 di skrin telefon" loading="lazy">
+      </div>
+    </div>
+  </section>
+
+  <!-- DATA -->
+  <section class="laman-dalam seksyen">
+    <div class="kad sorot muncul">
+      <h2>Data kekal milik sekolah</h2>
+      <p>Laporan, gambar dan PDF disimpan dalam <b>Google Drive akaun admin sekolah</b>, dalam folder dan Google Sheet yang dicipta khas. AnnurPro tidak menyimpan laporan atau gambar murid di pelayan sendiri.</p>
+      <p>Annur OPR hanya boleh membuka fail yang ia cipta sendiri (skop Google <code>drive.file</code>). Fail lain dalam Drive anda tidak boleh dibaca. Jika langganan tamat, data tidak dipadam dan laporan sedia ada masih boleh dibuka.</p>
+      <p><a href="/privasi">Baca polisi privasi</a></p>
+    </div>
+  </section>
+
+  <!-- LANGKAH -->
+  <section class="laman-dalam seksyen">
+    <h2>Mula dalam 3 langkah</h2>
+    <ol class="langkah-tiga">
+      <li class="muncul"><b>Daftar sekolah</b><span>Log masuk dengan akaun Google admin. Sistem cipta folder dan Google Sheet dalam Drive anda.</span></li>
+      <li class="muncul"><b>Tambah guru</b><span>Tampal senarai emel guru. Boleh lantik admin tambahan.</span></li>
+      <li class="muncul"><b>Kongsi pautan</b><span>Guru buka <code>opr.annurpro.com/s/nama-sekolah</code> dan terus mula.</span></li>
+    </ol>
+  </section>
+
+  <!-- HARGA -->
+  <section id="harga" class="laman-dalam seksyen">
+    <h2>Harga</h2>
+    <p class="redup">Satu harga untuk seluruh sekolah. Tiada caj ikut bilangan guru.</p>
+    <div class="grid-harga">
+      <div class="kad harga muncul">
+        <h3>Bulanan</h3>
+        <p class="angka-harga">RM20<span>/bulan</span></p>
+        <ul class="senarai-semak"><li>Semua ciri</li><li>Guru tanpa had</li><li>Berhenti bila-bila masa</li></ul>
+        <a class="butang sekunder penuh" href="/daftar">Mula percubaan</a>
+      </div>
+      <div class="kad harga utama muncul">
+        <p class="lencana-harga">Jimat RM40</p>
+        <h3>Tahunan</h3>
+        <p class="angka-harga">RM200<span>/tahun</span></p>
+        <ul class="senarai-semak"><li>Semua ciri</li><li>Guru tanpa had</li><li>Sesuai untuk peruntukan sekolah atau PIBG</li></ul>
+        <a class="butang penuh" href="/daftar">Mula percubaan</a>
+      </div>
+    </div>
+    <p class="redup kecil">Percubaan percuma 14 hari bermula sebaik sekolah didaftarkan. Bayaran melalui FPX atau kad (BCL), dari dalam aplikasi bila anda bersedia.</p>
+  </section>
+
+  <!-- SOALAN -->
+  <section id="soalan" class="laman-dalam seksyen">
+    <h2>Soalan lazim</h2>
+    <details class="soalan"><summary>Perlukah sekolah pasang Apps Script atau Google Sheet sendiri?</summary><p>Tidak. Daftar, log masuk dengan Google, dan sistem cipta semuanya dalam Drive admin secara automatik.</p></details>
+    <details class="soalan"><summary>Guru perlu kata laluan baharu?</summary><p>Tidak. Guru log masuk dengan akaun Google mereka (Gmail atau DELIMa) yang didaftarkan oleh admin.</p></details>
+    <details class="soalan"><summary>Boleh guna akaun DELIMa (@moe-dl.edu.my)?</summary><p>Boleh. Namun sesetengah pentadbir Workspace KPM menyekat aplikasi luar. Jika anda nampak mesej "Access blocked", guna akaun Gmail untuk admin, atau hubungi kami untuk bantuan.</p></details>
+    <details class="soalan"><summary>Siapa boleh nampak laporan?</summary><p>Guru nampak laporan sendiri sahaja. Admin sekolah nampak semua laporan sekolah itu. AnnurPro tidak nampak laporan sekolah.</p></details>
+    <details class="soalan"><summary>Apa berlaku bila langganan tamat?</summary><p>Laporan sedia ada masih boleh dibuka, PDF masih boleh dimuat turun dan data boleh dieksport. Laporan baharu tidak boleh ditambah sehingga langganan diperbaharui. Data dalam Google Drive sekolah tidak dipadam.</p></details>
+    <details class="soalan"><summary>Sekolah kami pernah guna template OPR AnnurPro. Adakah PDF sama?</summary><p>Ya. Enjin PDF diambil terus daripada OPR versi 2, jadi rupa laporan (gaya Kotak dan Poster, susun atur gambar, logo) kekal sama.</p></details>
+    <details class="soalan"><summary>Boleh tukar logo, warna dan senarai pilihan?</summary><p>Boleh. Admin ubah dalam tab Tetapan: identiti sekolah, 6 slot logo, warna, jenis laporan dan senarai dropdown.</p></details>
+    <details class="soalan"><summary>Bagaimana kalau admin bertukar sekolah?</summary><p>Hubungi kami. Pemilikan folder dalam Drive boleh dipindahkan kepada admin baharu dan sambungan sistem disambung semula.</p></details>
+  </section>
+
+  <!-- LOG MASUK -->
+  <section id="masuk" class="laman-dalam seksyen">
+    <div class="grid-dua">
+      <div class="kad"><h2>Saya guru</h2><p>Buka pautan sekolah anda yang diberi oleh admin, contohnya:</p><p><code>opr.annurpro.com/s/nama-sekolah</code></p></div>
+      <div class="kad"><h2>Saya admin sekolah</h2><p>Daftar sekolah dan dapatkan pautan khas untuk guru, atau buka semula sekolah yang sudah didaftarkan.</p><a class="butang" href="/daftar">Daftar atau buka sekolah</a></div>
+    </div>
+  </section>
+
+  <section class="laman-dalam seksyen akhir">
+    <h2>Lihat sendiri dalam 2 minit</h2>
+    <p>Demo menggunakan aplikasi sebenar dengan data contoh. Cuba isi borang dan jana PDF.</p>
+    <div class="baris-butang tengah"><a class="butang besar" href="/s/demo">Cuba demo</a><a class="butang sekunder besar" href="/daftar">Daftar percubaan</a></div>
+  </section>
 </main>
+
+<footer class="laman-kaki">
+  <div class="laman-dalam">
+    <p><b>AnnurPro Solutions</b> &middot; <a href="/privasi">Polisi privasi</a> &middot; <a href="https://wa.me/601120879149" rel="noopener">WhatsApp</a> &middot; <a href="mailto:annurprosolutions@gmail.com">annurprosolutions@gmail.com</a></p>
+  </div>
+</footer>
+
+<div class="cta-melekat" aria-hidden="false">
+  <a class="butang sekunder" href="/s/demo">Cuba demo</a>
+  <a class="butang" href="/daftar">Daftar</a>
+</div>
+
 <script type="module">
   import { $, mesej, ralatDariUrl } from '/app.js';
   mesej($('ralat'), 'bahaya', ralatDariUrl());
+  // Muncul semasa skrol, kecuali pengguna meminta kurang gerakan
+  const kurang = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const n = document.querySelectorAll('.muncul');
+  if (kurang || !('IntersectionObserver' in window)) n.forEach(x => x.classList.add('nampak'));
+  else {
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('nampak'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+    n.forEach(x => io.observe(x));
+  }
 </script>
 </body>
 </html>

@@ -1,4 +1,7 @@
 // Aplikasi sekolah: /s/<slug>. Peranan ditentukan oleh pelayan (tab Guru dalam Sheet).
+// Mod demo dimuat DAHULU (import statik menunggu await peringkat atas dalam demo.js),
+// supaya pintasan fetch sudah dipasang sebelum aplikasi membuat panggilan pertama.
+import '/demo.js';
 import { $, el, api, mesej, logKeluar } from '/app.js';
 import { PROFIL_JENIS, SENARAI_JENIS, LABEL_SENARAI, STATUS_PAPAR } from '/profil.js';
 import * as D from '/dokumen.js';
