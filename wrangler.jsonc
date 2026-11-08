@@ -15,8 +15,8 @@
   ],
   "vars": {
     "BASE_URL": "https://opr.annurpro.com",
-    // Client ID OAuth (bukan rahsia). Ganti selepas cipta di Google Cloud.
-    "GOOGLE_CLIENT_ID": ""
+    // Client ID OAuth "Annur OPR Web" (bukan rahsia).
+    "GOOGLE_CLIENT_ID": "98079080039-lb3hpj8qrl0mm9c50nu4qo93g1s9ivjh.apps.googleusercontent.com"
   },
   // Secret (isi di dashboard Cloudflare, JANGAN letak di sini):
   //   GOOGLE_CLIENT_SECRET  - dari Google Cloud > Credentials
