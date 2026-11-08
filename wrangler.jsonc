@@ -11,7 +11,7 @@
   },
   "kv_namespaces": [
     // KV namespace "annur-opr-kv" (id bukan rahsia).
-    { "binding": "OPR_KV", "id": "e82359c0154346eeb89f8f3c6c77a148" }
+    { "binding": "OPR_KV", "id": "af1cd4098aa249d48d3dc7345d590e9c" }
   ],
   "vars": {
     "BASE_URL": "https://opr.annurpro.com",
