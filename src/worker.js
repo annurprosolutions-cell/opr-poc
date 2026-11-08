@@ -217,8 +217,6 @@ async function logout(req, env) {
 
 async function api(req, env, url, f, now) {
   const p = url.pathname;
-  if (p === '/api/diag' && req.method === 'GET') return diag(env, url);
-
   const sesi = await sesiSemasa(req, env);
 
   if (p === '/api/me' && req.method === 'GET') {
@@ -266,29 +264,6 @@ async function api(req, env, url, f, now) {
   }
 
   return ralat('Laluan tidak dijumpai.', 404);
-}
-
-// Diagnosis konfigurasi. HANYA bentuk (ada/tiada, panjang, awalan format) dan
-// tidak pernah memulangkan nilai rahsia. Awalan "GOCSPX-" ialah format tetap
-// semua secret Google, bukan sebahagian daripada nilai rahsia.
-function diag(env, url) {
-  const id = String(env.GOOGLE_CLIENT_ID || '');
-  const sec = String(env.GOOGLE_CLIENT_SECRET || '');
-  const app = String(env.APP_SECRET || '');
-  return json({
-    ok: true,
-    redirectUri: asasUrl(env, url) + '/auth/callback',
-    clientId: { ada: !!id, formatBetul: /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(id), nomborProjek: id.split('-')[0] || '' },
-    clientSecret: {
-      ada: !!sec,
-      panjang: sec.length,
-      bermulaGOCSPX: sec.startsWith('GOCSPX-'),
-      adaRuangKosong: /\s/.test(sec),
-      adaPetik: /['"]/.test(sec)
-    },
-    appSecret: { ada: !!app, panjang: app.length, cukupPanjang: app.length >= 32 },
-    kv: !!env.OPR_KV
-  });
 }
 
 async function ciptaSekolah(req, env, sesi, now) {
