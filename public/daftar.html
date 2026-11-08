@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daftar Sekolah</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main class="bekas">
+  <div class="kepala">
+    <a class="jenama" href="/">Annur <span>OPR</span></a>
+    <div id="pengguna" class="pengguna"></div>
+  </div>
+
+  <h1>Daftar sekolah</h1>
+  <div id="ralat"></div>
+
+  <!-- Langkah 1: sambung Google sebagai admin -->
+  <section id="langkahSambung" class="kad tersembunyi">
+    <div class="langkah">
+      <b class="no">1</b>
+      <div>
+        <h2>Sambung akaun Google admin</h2>
+        <p>Data OPR sekolah akan disimpan dalam Google Drive akaun ini. Guna akaun yang akan kekal di sekolah (contohnya akaun admin sekolah atau DELIMa).</p>
+        <p class="redup kecil">Annur OPR hanya boleh membuka fail yang ia sendiri cipta (skop <code>drive.file</code>). Fail lain dalam Drive anda tidak boleh dibaca.</p>
+        <p><a class="butang" href="/auth/login?mode=admin&amp;next=/daftar">Sambung dengan Google</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sudah mentadbir sekolah -->
+  <section id="sudahAda" class="kad tersembunyi">
+    <h2>Anda sudah mendaftarkan sekolah</h2>
+    <p>Akaun ini mentadbir <a id="pautanSedia" href="#"></a>.</p>
+  </section>
+
+  <!-- Langkah 2: maklumat sekolah -->
+  <section id="langkahBorang" class="kad tersembunyi">
+    <div class="langkah">
+      <b class="no">2</b>
+      <div style="flex:1;min-width:0">
+        <h2>Maklumat sekolah</h2>
+        <form id="borang" novalidate>
+          <label for="nama">Nama sekolah</label>
+          <input id="nama" type="text" maxlength="120" placeholder="SMK Wakanda" autocomplete="organization" required>
+
+          <label for="slug">Pautan sekolah</label>
+          <div class="awalan"><span>opr.annurpro.com/s/</span><input id="slug" type="text" maxlength="30" placeholder="smkwakanda" autocapitalize="off" spellcheck="false" required></div>
+          <p id="statusSlug" class="kecil redup">Huruf kecil, nombor dan sengkang sahaja. Pautan tidak boleh ditukar selepas didaftar.</p>
+
+          <p style="margin-top:18px"><button id="hantar" class="butang penuh" type="submit" disabled>Daftar sekolah</button></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer>&copy; AnnurPro Solutions &middot; <a href="/privasi">Polisi Privasi</a></footer>
+</main>
+<script type="module">
+  import { $, el, api, mesej, ralatDariUrl, logKeluar } from '/app.js';
+
+  mesej($('ralat'), 'bahaya', ralatDariUrl());
+  const tunjuk = (id) => $(id).classList.remove('tersembunyi');
+
+  const me = await api('/api/me');
+  if (me.status === 401) {
+    tunjuk('langkahSambung');
+  } else if (me.ok) {
+    $('pengguna').append(
+      me.gambar ? el('img', { src: me.gambar, alt: '', referrerpolicy: 'no-referrer' }) : '',
+      el('span', { text: me.email }),
+      el('button', { class: 'butang sekunder', type: 'button', onclick: logKeluar, text: 'Keluar' })
+    );
+    if (me.sekolahAdmin) {
+      $('pautanSedia').textContent = 'opr.annurpro.com/s/' + me.sekolahAdmin;
+      $('pautanSedia').href = '/s/' + me.sekolahAdmin;
+      tunjuk('sudahAda');
+    } else if (!me.driveDisambung) {
+      tunjuk('langkahSambung');
+    } else {
+      tunjuk('langkahBorang');
+    }
+  } else {
+    mesej($('ralat'), 'bahaya', me.ralat || 'Tidak dapat menghubungi pelayan.');
+  }
+
+  // ---- cadangan slug dari nama + semakan langsung
+  let slugDisentuh = false, pemasa = null, slugSah = false;
+  const cadang = (nama) => nama.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '').slice(0, 30);
+
+  $('nama').addEventListener('input', () => {
+    if (!slugDisentuh) { $('slug').value = cadang($('nama').value); semak(); }
+    kemaskiniButang();
+  });
+  $('slug').addEventListener('input', () => {
+    slugDisentuh = true;
+    $('slug').value = $('slug').value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    semak();
+  });
+
+  function kemaskiniButang() {
+    $('hantar').disabled = !(slugSah && $('nama').value.trim().length >= 3);
+  }
+
+  function semak() {
+    slugSah = false; kemaskiniButang();
+    clearTimeout(pemasa);
+    const s = $('slug').value;
+    if (!s) { $('statusSlug').textContent = 'Huruf kecil, nombor dan sengkang sahaja.'; return; }
+    $('statusSlug').textContent = 'Menyemak...';
+    pemasa = setTimeout(async () => {
+      const r = await api('/api/slug/' + encodeURIComponent(s));
+      if ($('slug').value !== s) return;
+      slugSah = !!r.tersedia;
+      $('statusSlug').textContent = r.tersedia ? 'Tersedia: opr.annurpro.com/s/' + r.slug : (r.sebab || 'Tidak tersedia.');
+      $('statusSlug').style.color = r.tersedia ? 'var(--ok)' : 'var(--bahaya)';
+      kemaskiniButang();
+    }, 350);
+  }
+
+  $('borang').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    $('hantar').disabled = true;
+    const r = await api('/api/schools', { method: 'POST', body: { nama: $('nama').value, slug: $('slug').value } });
+    if (r.ok) { location.href = r.pautan + '?baru=1'; return; }
+    mesej($('ralat'), 'bahaya', r.ralat || 'Pendaftaran gagal.');
+    if (r.perluSambung) { $('langkahBorang').classList.add('tersembunyi'); tunjuk('langkahSambung'); }
+    kemaskiniButang();
+  });
+</script>
+</body>
+</html>

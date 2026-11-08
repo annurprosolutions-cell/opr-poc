@@ -1,0 +1,25 @@
+{
+  // Annur OPR - Worker + aset statik (Cloudflare Workers Builds deploy setiap push ke main)
+  "name": "annur-opr",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-06-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    // Laluan ini diurus oleh Worker; selainnya terus dari aset statik.
+    "run_worker_first": ["/api/*", "/auth/*", "/s/*"]
+  },
+  "kv_namespaces": [
+    // Ganti id selepas cipta KV namespace "annur-opr-kv" di dashboard Cloudflare.
+    { "binding": "OPR_KV", "id": "GANTI_DENGAN_ID_KV" }
+  ],
+  "vars": {
+    "BASE_URL": "https://opr.annurpro.com",
+    // Client ID OAuth (bukan rahsia). Ganti selepas cipta di Google Cloud.
+    "GOOGLE_CLIENT_ID": ""
+  },
+  // Secret (isi di dashboard Cloudflare, JANGAN letak di sini):
+  //   GOOGLE_CLIENT_SECRET  - dari Google Cloud > Credentials
+  //   APP_SECRET            - rentetan rawak min 32 aksara (kunci sulitan token)
+  "observability": { "enabled": true }
+}

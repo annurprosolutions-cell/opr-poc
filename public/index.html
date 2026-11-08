@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Annur OPR</title>
+<meta name="description" content="Annur OPR: sistem One Page Report untuk sekolah. Data disimpan dalam Google Drive sekolah sendiri.">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main class="bekas">
+  <div class="kepala">
+    <a class="jenama" href="/">Annur <span>OPR</span></a>
+  </div>
+
+  <h1>Laporan satu muka untuk sekolah, siap dalam beberapa minit.</h1>
+  <p class="redup">Guru isi borang, sistem jana PDF A4, penyemak sahkan. Semua data disimpan dalam Google Drive admin sekolah anda sendiri.</p>
+
+  <div id="ralat"></div>
+
+  <section class="kad">
+    <h2>Saya guru</h2>
+    <p>Buka pautan sekolah anda yang diberi oleh admin, contohnya:</p>
+    <p><code>opr.annurpro.com/s/nama-sekolah</code></p>
+  </section>
+
+  <section class="kad">
+    <h2>Saya admin sekolah</h2>
+    <p>Daftar sekolah anda dan dapatkan pautan khas untuk guru.</p>
+    <a class="butang" href="/daftar">Daftar sekolah</a>
+  </section>
+
+  <footer>&copy; AnnurPro Solutions &middot; <a href="/privasi">Polisi Privasi</a></footer>
+</main>
+<script type="module">
+  import { $, mesej, ralatDariUrl } from '/app.js';
+  mesej($('ralat'), 'bahaya', ralatDariUrl());
+</script>
+</body>
+</html>

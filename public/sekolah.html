@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Annur OPR</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main class="bekas">
+  <div class="kepala">
+    <a class="jenama" href="/">Annur <span>OPR</span></a>
+    <div id="pengguna" class="pengguna"></div>
+  </div>
+
+  <p class="redup kecil" id="pautan"></p>
+  <h1 id="namaSekolah">Memuatkan...</h1>
+  <div id="mesej"></div>
+
+  <section id="perluLogin" class="kad tersembunyi">
+    <h2>Log masuk</h2>
+    <p>Gunakan akaun Google yang didaftarkan oleh admin sekolah anda.</p>
+    <p><a id="butangLogin" class="butang" href="#">Log masuk dengan Google</a></p>
+  </section>
+
+  <section id="panelAdmin" class="kad tersembunyi">
+    <h2>Panel admin</h2>
+    <p>Anda admin sekolah ini. Pautan untuk guru:</p>
+    <p><code id="pautanGuru"></code></p>
+    <p style="margin-top:16px"><button id="ujiDrive" class="butang sekunder" type="button">Uji sambungan Google Drive</button></p>
+    <div id="hasilUji"></div>
+    <p class="redup kecil">Borang laporan, senarai guru dan dashboard akan muncul di sini dalam fasa seterusnya.</p>
+  </section>
+
+  <section id="bukanAhli" class="kad tersembunyi">
+    <h2>Akaun belum didaftarkan</h2>
+    <p>Akaun <b id="emelBukan"></b> belum didaftarkan dalam sekolah ini. Sila minta admin sekolah menambah emel anda, atau log keluar dan cuba akaun lain.</p>
+  </section>
+
+  <footer>&copy; AnnurPro Solutions &middot; <a href="/privasi">Polisi Privasi</a></footer>
+</main>
+<script type="module">
+  import { $, el, api, mesej, logKeluar } from '/app.js';
+  const tunjuk = (id) => $(id).classList.remove('tersembunyi');
+  const slug = decodeURIComponent(location.pathname.split('/')[2] || '');
+
+  const sek = await api('/api/s/' + encodeURIComponent(slug));
+  if (!sek.ok) {
+    $('namaSekolah').textContent = 'Sekolah tidak dijumpai';
+    mesej($('mesej'), 'amaran', 'Semak semula pautan yang diberi oleh admin sekolah anda.');
+  } else {
+    document.title = sek.nama + ' | Annur OPR';
+    $('namaSekolah').textContent = sek.nama;
+    $('pautan').textContent = 'opr.annurpro.com/s/' + sek.slug;
+
+    const q = new URLSearchParams(location.search);
+    if (q.get('baru')) mesej($('mesej'), 'ok', 'Sekolah berjaya didaftarkan. Kongsi pautan di bawah dengan guru.');
+    if (q.get('disambung')) mesej($('mesej'), 'ok', 'Google Drive berjaya disambung semula.');
+
+    const me = await api('/api/s/' + encodeURIComponent(sek.slug) + '/me');
+    if (me.status === 401) {
+      $('butangLogin').href = '/auth/login?mode=guru&s=' + encodeURIComponent(sek.slug);
+      tunjuk('perluLogin');
+    } else if (me.ok) {
+      $('pengguna').append(
+        el('span', { text: me.email }),
+        el('button', { class: 'butang sekunder', type: 'button', onclick: logKeluar, text: 'Keluar' })
+      );
+      if (me.peranan === 'admin') {
+        $('pautanGuru').textContent = location.origin + '/s/' + sek.slug;
+        tunjuk('panelAdmin');
+        if (me.statusToken === 'perlu_sambung') paparSambungSemula();
+      } else {
+        $('emelBukan').textContent = me.email;
+        tunjuk('bukanAhli');
+      }
+    }
+  }
+
+  function paparSambungSemula() {
+    $('hasilUji').textContent = '';
+    $('hasilUji').append(
+      el('div', { class: 'mesej amaran', text: 'Sambungan Google Drive admin telah tamat atau dibatalkan.' }),
+      el('a', { class: 'butang', href: '/auth/login?mode=admin&s=' + encodeURIComponent(slug), text: 'Sambung semula Google Drive' })
+    );
+  }
+
+  $('ujiDrive').addEventListener('click', async () => {
+    $('ujiDrive').disabled = true;
+    mesej($('hasilUji'), 'amaran', 'Menguji...');
+    const r = await api('/api/s/' + encodeURIComponent(slug) + '/health', { method: 'POST' });
+    $('ujiDrive').disabled = false;
+    if (r.ok && r.drive) mesej($('hasilUji'), 'ok', 'Berjaya. Annur OPR boleh menyimpan fail dalam Google Drive anda.');
+    else if (r.perluSambung) paparSambungSemula();
+    else mesej($('hasilUji'), 'bahaya', r.ralat || 'Sambungan berjaya tetapi kebenaran Drive tiada. Sila sambung semula.');
+  });
+</script>
+</body>
+</html>
