@@ -89,7 +89,7 @@ try {
   await admin.waitForURL(/\/s\/smkwakanda/);
   await admin.waitForSelector('#tab button');
   const tabAdmin = await admin.$$eval('#tab button', b => b.map(x => x.textContent));
-  semak(JSON.stringify(tabAdmin) === JSON.stringify(['Borang OPR', 'Laporan', 'Guru', 'Drive']), 'admin nampak tab Borang, Laporan, Guru, Drive');
+  semak(JSON.stringify(tabAdmin) === JSON.stringify(['Borang OPR', 'Laporan', 'Dashboard', 'Guru', 'Tetapan', 'Drive']), 'admin utama nampak 6 tab');
 
   // ---------------------------------------------------------- tambah guru
   await admin.click('#tab button[data-tab=Guru]');
@@ -124,6 +124,11 @@ try {
   const tabGuru = await ali.$$eval('#tab button', b => b.map(x => x.textContent));
   semak(JSON.stringify(tabGuru) === JSON.stringify(['Borang OPR', 'Laporan']), 'guru hanya nampak tab Borang dan Laporan');
   semak((await ali.inputValue('input[name=nama]')) === 'Cikgu Ujian', 'nama penyedia diisi automatik dari akaun Google');
+  semak(await ali.isVisible('#butangPratonton'), 'butang "Lihat pratonton" terapung di telefon');
+  await ali.click('#butangPratonton');
+  await ali.waitForFunction(() => document.getElementById('butangPratonton').classList.contains('tersembunyi'));
+  semak(true, 'butang terapung menatal ke pratonton dan hilang bila pratonton kelihatan');
+  await ali.click('#kembaliBorang');
   await ali.fill('#fTajuk', 'Kejohanan Bola Sepak MSSD');
   await ali.selectOption('#fUnit', 'Bola Sepak');
   await ali.fill('#fObjektif', 'Memupuk semangat kesukanan dalam kalangan murid.');
@@ -182,6 +187,62 @@ try {
   await admin.click('#tab button[data-tab=Laporan]');
   await admin.waitForFunction(() => document.querySelectorAll('#senaraiLaporan .item').length === 2);
   semak(true, 'admin nampak semua laporan (2)');
+
+  // ---------------------------------------------------------- semakan dengan PDF bertandatangan
+  const kadLap = admin.locator('#senaraiLaporan .item', { hasText: 'Kejohanan Bola Sepak MSSD 2026' });
+  await kadLap.locator('button:text-is("Semak")').click();
+  await kadLap.locator('input[type=file]').setInputFiles({ name: 'ditandatangan.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 ditandatangan') });
+  await kadLap.locator('button:text("Muat naik & tanda disemak")').click();
+  await admin.waitForFunction(() => [...document.querySelectorAll('#senaraiLaporan .item')].some(x => x.textContent.includes('MSSD 2026') && x.textContent.includes('DISEMAK') && x.textContent.includes('PDF bertandatangan')));
+  semak(true, 'admin tanda disemak dengan PDF bertandatangan');
+
+  // ---------------------------------------------------------- dashboard
+  await admin.click('#tab button[data-tab=Dashboard]');
+  await admin.waitForSelector('#jubin .jubin-item');
+  const jubin = await admin.$$eval('#jubin .jubin-item', n => n.map(x => x.textContent));
+  semak(jubin[0].startsWith('2') && jubin[2].startsWith('1'), 'dashboard: 2 laporan, 1 telah disemak');
+  semak((await admin.$$('#cartaUnit .bar-baris')).length === 2 && (await admin.$$('#cartaBulan .lajur')).length === 12, 'carta unit dan carta 12 bulan dilukis');
+  await admin.screenshot({ path: OUT + '4-dashboard.png', fullPage: true });
+
+  // ---------------------------------------------------------- tetapan
+  await admin.click('#tab button[data-tab=Tetapan]');
+  await admin.waitForFunction(() => document.getElementById('tNAMA_SEKOLAH').value === 'SMK Wakanda');
+  await admin.fill('#tALAMAT_SEKOLAH', 'Jalan Vibranium, 10000 Wakanda');
+  await admin.click('[data-simpan-tetapan=setIdentiti]');
+  await admin.waitForFunction(() => document.getElementById('hasilTetapan').textContent.includes('disimpan'));
+  semak((await admin.textContent('#pvAlamat')) === 'Jalan Vibranium, 10000 Wakanda', 'alamat baharu terus muncul dalam kepala PDF');
+
+  await admin.click('#subTetapan button[data-sub=setLogo]');
+  const logo = await admin.evaluate(() => { const c = document.createElement('canvas'); c.width = 120; c.height = 120;
+    const x = c.getContext('2d'); x.fillStyle = '#b45309'; x.beginPath(); x.arc(60, 60, 50, 0, 7); x.fill(); return c.toDataURL('image/png').split(',')[1]; });
+  await admin.locator('#slotLogo .logo-slot').first().locator('input[type=file]').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: Buffer.from(logo, 'base64') });
+  await admin.locator('#slotLogo .logo-slot').first().locator('button:text("Muat naik")').click();
+  await admin.waitForFunction(() => document.getElementById('hasilTetapan').textContent.includes('Logo 1 disimpan'));
+  semak(await admin.$eval('#pvLogo1', n => !n.classList.contains('hidden') && n.src.includes('/logo/1?v=')), 'logo sekolah dimuat naik dan dipapar dalam kepala PDF');
+  const sekT = await e.OPR_KV.get('school:smkwakanda', 'json');
+  semak([...g.fail.values()].some(f => f.name.startsWith('logo-1-') && f.parents[0] === sekT.subfolder.ASET), 'logo disimpan dalam folder Aset');
+
+  await admin.click('#subTetapan button[data-sub=setJenis]');
+  await admin.uncheck('#kotakJenis [data-jenis=KELAS] [data-j=aktif]');
+  await admin.click('#simpanJenis');
+  await admin.waitForFunction(() => document.getElementById('hasilTetapan').textContent.includes('Jenis laporan disimpan'));
+  semak(!(await admin.$$eval('#fJenis option', o => o.map(x => x.value))).includes('KELAS'), 'jenis Kelas dimatikan: hilang dari borang');
+
+  await admin.click('#subTetapan button[data-sub=setSenarai]');
+  const kadSukan = admin.locator('#kotakSenarai .item', { hasText: 'UNIT_SUKAN' });
+  await kadSukan.locator('textarea').fill('Bola Sepak\nRagbi\nHoki');
+  await kadSukan.locator('button:text-is("Simpan")').click();
+  await admin.waitForFunction(() => document.getElementById('hasilTetapan').textContent.includes('3 item'));
+  await admin.click('#tab button[data-tab=Borang]');
+  await admin.selectOption('#fJenis', 'KOKURIKULUM');
+  semak((await admin.$$eval('#fUnit option', o => o.map(x => x.value))).includes('Ragbi'), 'senarai dropdown baharu terus dalam borang');
+
+  // PDF dengan logo dijana tanpa ralat
+  await admin.fill('#fTajuk', 'Program dengan logo');
+  await admin.check('#fConsent');
+  await admin.click('[data-hantar=HANTAR]');
+  await admin.waitForFunction(() => document.getElementById('mesej').textContent.includes('dihantar'), null, { timeout: 60000 });
+  semak(true, 'PDF dengan logo sekolah dijana dan disimpan');
   await admin.click('#tab button[data-tab=Guru]');
   await admin.waitForSelector('#senaraiGuru .item');
   const kadAli = admin.locator('#senaraiGuru .item', { hasText: 'ali@gmail.com' });
@@ -196,9 +257,9 @@ try {
   // ---------------------------------------------------------- Sheet dikemas kini
   const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
   const lap = g.sheet.get(sek.sheetId).tabs.get('Laporan');
-  semak(lap.length === 3, 'Google Sheet: 2 baris laporan + tajuk');
+  semak(lap.length === 4, 'Google Sheet: 3 baris laporan + tajuk');
   const audit = g.sheet.get(sek.sheetId).tabs.get('AuditLog').map(r => r[3]);
-  semak(['TAMBAH_GURU', 'SIMPAN_LAPORAN', 'KEMASKINI_GURU'].every(x => audit.includes(x)), 'AuditLog merekod tindakan');
+  semak(['TAMBAH_GURU', 'SIMPAN_LAPORAN', 'KEMASKINI_GURU', 'TANDA_DISEMAK', 'SIMPAN_TETAPAN', 'MUAT_NAIK_LOGO', 'SIMPAN_SENARAI'].every(x => audit.includes(x)), 'AuditLog merekod semua tindakan');
 
   semak(ralatJs.length === 0, 'tiada ralat JavaScript' + (ralatJs.length ? ': ' + ralatJs.join(' | ') : ''));
   const lebar = await admin.evaluate(() => document.documentElement.scrollWidth > innerWidth);

@@ -13,6 +13,7 @@ Cloudflare Worker "annur-opr"  (repo ini, deploy automatik setiap push ke main)
  ├─ src/skema.js       tab, kolum dan data asal Sheet sekolah
  ├─ src/laporan.js     normalisasi + rekod laporan (dari Code.gs v2)
  ├─ public/dokumen.js  enjin pratonton A4 + PDF (kod v2 verbatim + lapisan sambungan)
+ ├─ public/pentadbiran.js  dashboard, tetapan, logo, jenis, senarai, semakan (admin)
  ├─ public/vendor/     html2pdf 0.10.1, pdf.js 3.11.174 (salinan tempatan, bukan CDN)
  └─ KV OPR_KV          sekolah, sesi, token admin (tersulit)
 
@@ -31,7 +32,7 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | 2 | Folder + subfolder + Google Sheet (5 tab, 8 jenis laporan, 186 item senarai) dicipta automatik dalam Drive admin; penyediaan boleh disambung jika gagal; ujian tulis/baca | Siap |
 | 3a | Peranan dari tab Guru (berkuat kuasa serta-merta), admin tambah guru (tampal senarai), hierarki admin, borang OPR 8 jenis, simpan/edit/padam laporan, cache token | Siap |
 | 3b-1 | Pratonton A4 + jana PDF (enjin v2 verbatim, gaya Kotak/Poster), gambar ke Drive, lampiran PDF, "Sertakan", Rupa Dokumen, buka PDF | Siap |
-| 3b-2 | Semakan + PDF bertandatangan, dashboard, tab Tetapan (logo, warna, jenis, senarai) | |
+| 3b-2 | Semakan + PDF bertandatangan, dashboard + eksport CSV, tab Tetapan (identiti, logo, warna, dasar PDF, jenis laporan, senarai), butang pratonton di telefon | Siap |
 | 4 | Licence, percubaan, BCL | |
 | 5 | Sale page, pengesahan Google, manual, video | |
 

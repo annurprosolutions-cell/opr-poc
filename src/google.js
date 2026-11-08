@@ -143,3 +143,8 @@ export async function muatTurun(g, fileId) {
   }
   return res;
 }
+
+// Kosongkan nilai dalam julat (baris kekal; digunakan sebelum menulis semula satu tab kecil).
+export async function kosongkanJulat(g, sheetId, tab, a1) {
+  return panggil(g, SHEETS + '/' + sheetId + '/values/' + julat(tab, a1) + ':clear', { method: 'POST', ...jsonBadan({}) }, 'Kosongkan julat');
+}

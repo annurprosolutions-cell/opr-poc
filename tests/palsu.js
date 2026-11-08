@@ -139,15 +139,20 @@ export function googlePalsu(senario = {}) {
         return Response.json({ spreadsheetId: sid });
       }
       if (senario.tolak401Sekali) { senario.tolak401Sekali = false; return Response.json({ error: { code: 401, message: 'Invalid Credentials' } }, { status: 401 }); }
-      const m = u.match(/\/spreadsheets\/([^/]+)\/values\/([^?:]+)(:append)?/);
+      const m = u.match(/\/spreadsheets\/([^/]+)\/values\/([^?:]+)(:append|:clear)?/);
       const sh = m && sheet.get(m[1]);
       if (!sh) return Response.json({ error: { code: 404, message: 'Requested entity was not found.' } }, { status: 404 });
       const tab = decodeURIComponent(m[2]).replace(/^'|'(!.*)?$/g, '').replace(/''/g, "'");
       const rows = sh.tabs.get(tab);
+      if (m[3] === ':clear') {
+        const dari = Number(decodeURIComponent(m[2]).match(/!A(\d+):/)[1]);
+        rows.length = Math.min(rows.length, dari - 1);
+        return Response.json({ clearedRange: tab });
+      }
       if (kaedah === 'PUT') {
         assert.match(u, /valueInputOption=RAW/);
         const baris = Number(decodeURIComponent(m[2]).match(/!A(\d+):/)[1]);
-        rows[baris - 1] = JSON.parse(teks).values[0];
+        JSON.parse(teks).values.forEach((v, i) => { rows[baris - 1 + i] = v; });
         return Response.json({ updatedRange: tab });
       }
       if (m[3]) {

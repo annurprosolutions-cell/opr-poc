@@ -2,6 +2,7 @@
 import { $, el, api, mesej, logKeluar } from '/app.js';
 import { PROFIL_JENIS, SENARAI_JENIS, LABEL_SENARAI, STATUS_PAPAR } from '/profil.js';
 import * as D from '/dokumen.js';
+import * as P from '/pentadbiran.js';
 
 const tunjuk = (id, ya = true) => $(id).classList.toggle('tersembunyi', !ya);
 const slug = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -37,8 +38,9 @@ async function mulaSesi() {
 
   CFG = await api(A('/config'));
   if (!CFG.ok) return mesej($('mesej'), 'bahaya', CFG.ralat || 'Tidak dapat memuatkan tetapan sekolah.');
+  P.pasang({ A, getCfg: () => CFG, muatSemulaCfg });
   const tabs = ['Borang', 'Laporan'];
-  if (ME.peranan === 'admin') tabs.push('Guru');
+  if (ME.peranan === 'admin') tabs.push('Dashboard', 'Guru', 'Tetapan');
   if (ME.pemilik) tabs.push('Drive');
   bina(tabs);
   sediaBorang();
@@ -60,6 +62,9 @@ function buka(t) {
   tunjuk('pane' + t);
   if (t === 'Laporan') muatLaporan();
   if (t === 'Guru') muatGuru();
+  if (t === 'Dashboard') P.muatDashboard();
+  if (t === 'Tetapan') P.muatTetapan();
+  kemaskiniTerapung();
   if (t === 'Drive') paparDrive();
 }
 
@@ -116,7 +121,7 @@ function cfgDokumen(t) {
     wajibPdf: String(t.WAJIB_PDF).toUpperCase() === 'YA', logoFooterAlign: t.LOGO_FOOTER_ALIGN || 'TENGAH'
   };
   for (let i = 1; i <= 6; i++) {
-    c['logo' + i] = (CFG.logo && CFG.logo[i]) ? A('/logo/' + i) : '';
+    c['logo' + i] = (CFG.logo && CFG.logo[i]) ? A('/logo/' + i + '?v=' + encodeURIComponent(CFG.logo[i])) : '';
     if (i >= 3) c['logo' + i + 'Label'] = t['LOGO' + i + '_LABEL'] || ('Logo ' + i);
   }
   return c;
@@ -139,28 +144,42 @@ function pasangKepala(c) {
 // imej semasa menjana PDF (penolakan tidak ditangani). Beri imej lutsinar 1x1.
 const IMEJ_KOSONG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
-function sediaBorang() {
-  document.querySelectorAll('#pdfContent img:not([src])').forEach(n => { n.src = IMEJ_KOSONG; });
+// Terapkan konfigurasi sekolah (dipanggil semasa mula dan selepas admin mengubah tetapan).
+function terapCfg() {
+  document.querySelectorAll('#pdfContent img:not([src]), #pdfContent img[src=""]').forEach(n => { n.src = IMEJ_KOSONG; });
   const c = cfgDokumen(CFG.tetapan);
   D.setCfg(c);
+  pasangKepala(c);
+  D.lukisPilihanLogoFooter(c);
+  const sel = $('fJenis'), dipilih = sel.value; sel.textContent = '';
+  jenisAktif().forEach(k => sel.append(el('option', { value: k, text: CFG.jenis[k].nama })));
+  $('teksConsent').textContent = CFG.tetapan.CONSENT_TEXT || 'Saya mengesahkan maklumat ini benar.';
+  const tapis = $('tapisJenis'), tapisLama = tapis.value; tapis.textContent = '';
+  tapis.append(el('option', { value: '', text: 'Semua jenis' }));
+  jenisAktif().forEach(k => tapis.append(el('option', { value: k, text: CFG.jenis[k].nama })));
+  if ([...tapis.options].some(o => o.value === tapisLama)) tapis.value = tapisLama;
+  if (dipilih && jenisAktif().includes(dipilih)) pakaiJenis(dipilih, true);
+}
+
+async function muatSemulaCfg() {
+  const baru = await api(A('/config'));
+  if (!baru.ok) return;
+  CFG = baru;
+  terapCfg();
+  D.lukisPratonton();
+}
+
+function sediaBorang() {
   D.setKait({
     overlay,
     toast: (jenis, teks) => mesej($('mesej'), jenis === 'success' ? 'ok' : 'amaran', teks),
     ralat: (teks) => mesej($('mesej'), 'bahaya', teks)
   });
-  pasangKepala(c);
   D.binaKawalanRupa();
-  D.lukisPilihanLogoFooter(c);
-
-  const sel = $('fJenis'); sel.textContent = '';
-  jenisAktif().forEach(k => sel.append(el('option', { value: k, text: CFG.jenis[k].nama })));
-  sel.onchange = () => pakaiJenis(sel.value, false);
-  $('teksConsent').textContent = CFG.tetapan.CONSENT_TEXT || 'Saya mengesahkan maklumat ini benar.';
-
-  const tapis = $('tapisJenis'); tapis.textContent = '';
-  tapis.append(el('option', { value: '', text: 'Semua jenis' }));
-  jenisAktif().forEach(k => tapis.append(el('option', { value: k, text: CFG.jenis[k].nama })));
-  tapis.onchange = muatLaporan;
+  terapCfg();
+  $('fJenis').onchange = () => pakaiJenis($('fJenis').value, false);
+  $('tapisJenis').onchange = muatLaporan;
+  sediaTerapung();
   let pemasa; $('cari').oninput = () => { clearTimeout(pemasa); pemasa = setTimeout(muatLaporan, 350); };
 
   // Setiap perubahan pada borang melukis semula pratonton
@@ -363,19 +382,36 @@ async function editLaporan(id) {
   } finally { overlay(false); }
 }
 
-async function bukaPdf(x) {
+async function bukaPdf(x, jenis = 'asal') {
   overlay(true, 'Membuka PDF...');
   try {
     const r = await api(A('/laporan/' + encodeURIComponent(x.id)));
-    if (!r.ok || !r.data.pdfFileId) throw new Error(r.ralat || 'Tiada PDF untuk laporan ini.');
-    const res = await fetch(A('/laporan/' + encodeURIComponent(x.id) + '/fail/' + encodeURIComponent(r.data.pdfFileId)), { credentials: 'same-origin' });
+    const fid = jenis === 'disemak' ? r.data && r.data.pdfDisemakId : r.data && r.data.pdfFileId;
+    if (!r.ok || !fid) throw new Error(r.ralat || 'Tiada PDF untuk laporan ini.');
+    const res = await fetch(A('/laporan/' + encodeURIComponent(x.id) + '/fail/' + encodeURIComponent(fid)), { credentials: 'same-origin' });
     if (!res.ok) throw new Error('Tidak dapat membuka PDF.');
     const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: 'application/pdf' }));
-    const a = el('a', { href: url, download: r.data.pdfNama || 'laporan.pdf', target: '_blank', rel: 'noopener' });
+    const a = el('a', { href: url, download: (jenis === 'disemak' ? 'Bertandatangan_' : '') + (r.data.pdfNama || 'laporan.pdf'), target: '_blank', rel: 'noopener' });
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (e) { mesej($('mesej'), 'bahaya', e.message); }
   finally { overlay(false); }
+}
+
+// ---------------------------------------------------------------- butang pratonton (telefon)
+let pratontonNampak = false;
+function kemaskiniTerapung() {
+  const diBorang = !$('paneBorang').classList.contains('tersembunyi');
+  tunjuk('butangPratonton', diBorang && !pratontonNampak);
+}
+function sediaTerapung() {
+  $('butangPratonton').onclick = () => $('lajurPratonton').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('kembaliBorang').onclick = () => $('paneBorang').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver((e) => { pratontonNampak = e.some(x => x.isIntersecting); kemaskiniTerapung(); }, { threshold: 0.05 })
+      .observe($('pdfContent'));
+  }
+  kemaskiniTerapung();
 }
 
 // ====================================================================== senarai laporan
@@ -396,6 +432,15 @@ async function muatLaporan() {
     const boleh = r.admin || x.status !== 'TELAH DISEMAK';
     const aksi = el('div', { class: 'aksi' });
     if (x.adaPdf) aksi.append(el('button', { class: 'butang sekunder', type: 'button', text: 'PDF', onclick: () => bukaPdf(x) }));
+    if (x.adaPdfDisemak) aksi.append(el('button', { class: 'butang sekunder', type: 'button', text: 'PDF bertandatangan', onclick: () => bukaPdf(x, 'disemak') }));
+    if (r.admin && x.status === 'HANTAR') {
+      const bekasSemak = el('div');
+      aksi.append(el('button', { class: 'butang', type: 'button', text: 'Semak', onclick: () => {
+        if (bekasSemak.firstChild) { bekasSemak.textContent = ''; return; }
+        bekasSemak.append(P.panelSemak(x, () => { mesej($('mesej'), 'ok', 'Laporan "' + x.tajuk + '" ditanda telah disemak.'); muatLaporan(); }));
+      } }));
+      aksi._semak = bekasSemak;
+    }
     if (boleh) {
       aksi.append(el('button', { class: 'butang sekunder', type: 'button', text: 'Edit', onclick: () => editLaporan(x.id) }));
       aksi.append(el('button', { class: 'butang bahaya', type: 'button', text: 'Padam', onclick: () => padam(x) }));
@@ -403,7 +448,8 @@ async function muatLaporan() {
     bekas.append(el('div', { class: 'item' },
       el('div', { class: 'atas' }, el('div', { class: 'tajuk', text: x.tajuk || '(tiada tajuk)' }), el('span', { class: 'pil ' + kelas, text: teks })),
       el('div', { class: 'meta', text: [CFG.jenis[x.jenis] ? CFG.jenis[x.jenis].nama : x.jenis, x.unit, tarikh, r.admin ? x.nama : ''].filter(Boolean).join(' · ') }),
-      aksi));
+      x.status === 'TELAH DISEMAK' && x.disemakOleh ? el('div', { class: 'meta', text: 'Disemak oleh ' + x.disemakOleh }) : '',
+      aksi, aksi._semak || ''));
   });
 }
 

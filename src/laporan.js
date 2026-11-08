@@ -100,7 +100,8 @@ export function ringkasan(r) {
     id: String(r.ID), timestamp: String(r.Timestamp || ''), jenis: String(r.Jenis || ''),
     tajuk: String(r.Tajuk || ''), unit: String(r.Unit || ''), peringkat: String(r.Peringkat || ''),
     tarikhProgram: String(r.TarikhProgram || ''), nama: String(r.Nama || ''), pemilik: String(r.PemilikEmail || ''),
-    status: String(r.Status || STATUS.DRAF), adaPdf: !!String(r.PdfFileId || '')
+    status: String(r.Status || STATUS.DRAF), adaPdf: !!String(r.PdfFileId || ''), adaPdfDisemak: !!String(r.PdfDisemakId || ''),
+    disemakOleh: String(r.DisemakOleh || '')
   };
 }
 

@@ -138,7 +138,8 @@
       </div>
       </div>
 
-      <div class="lajur-pratonton">
+      <div class="lajur-pratonton" id="lajurPratonton">
+        <p class="hanya-telefon"><button type="button" id="kembaliBorang" class="pautan-butang">&uarr; Kembali ke borang</button></p>
         <div class="baris-antara"><h2>Pratonton laporan</h2><span class="redup kecil">Format A4. Inilah yang dijana sebagai PDF.</span></div>
         <div class="pratonton-bekas">
         <div id="pdfContent">
@@ -346,6 +347,101 @@
       <div id="senaraiGuru" class="senarai"></div>
     </section>
 
+    <!-- DASHBOARD (admin) -->
+    <section id="paneDashboard" class="pane tersembunyi">
+      <div class="kad">
+        <div class="baris-antara"><h2>Dashboard</h2><button id="butangEksport" class="butang sekunder" type="button">Eksport CSV</button></div>
+        <div id="jubin" class="jubin"></div>
+      </div>
+      <div class="grid-carta">
+        <div class="kad"><h3>Laporan mengikut jenis</h3><div id="cartaJenis" class="carta-bar"></div></div>
+        <div class="kad"><h3>Laporan mengikut peringkat</h3><div id="cartaPeringkat" class="carta-bar"></div></div>
+        <div class="kad"><h3>Laporan mengikut unit (10 teratas)</h3><div id="cartaUnit" class="carta-bar"></div></div>
+        <div class="kad"><h3>Guru paling aktif (10 teratas)</h3><div id="cartaGuru" class="carta-bar"></div></div>
+      </div>
+      <div class="kad"><h3>Laporan mengikut bulan (12 bulan terakhir)</h3><div id="cartaBulan" class="carta-lajur" role="img"></div><div id="jadualBulan" class="redup kecil"></div></div>
+    </section>
+
+    <!-- TETAPAN (admin) -->
+    <section id="paneTetapan" class="pane tersembunyi">
+      <nav id="subTetapan" class="tab tab-kecil"></nav>
+      <div id="hasilTetapan"></div>
+
+      <div id="setIdentiti" class="kad sub-tetapan">
+        <h2>Identiti sekolah dan dokumen</h2>
+        <div class="grid-2">
+          <div><label for="tNAMA_SEKOLAH">Nama sekolah</label><input type="text" id="tNAMA_SEKOLAH" data-kunci="NAMA_SEKOLAH" maxlength="120"></div>
+          <div><label for="tTAJUK_DOKUMEN">Tajuk dokumen (kepala PDF)</label><input type="text" id="tTAJUK_DOKUMEN" data-kunci="TAJUK_DOKUMEN" maxlength="120"></div>
+        </div>
+        <label for="tALAMAT_SEKOLAH">Alamat sekolah</label><input type="text" id="tALAMAT_SEKOLAH" data-kunci="ALAMAT_SEKOLAH" maxlength="300">
+        <div class="grid-3">
+          <div><label for="tTELEFON">Telefon</label><input type="text" id="tTELEFON" data-kunci="TELEFON" maxlength="40"></div>
+          <div><label for="tFAKS">Faks</label><input type="text" id="tFAKS" data-kunci="FAKS" maxlength="40"></div>
+          <div><label for="tTAHUN_SESI">Tahun sesi</label><input type="text" id="tTAHUN_SESI" data-kunci="TAHUN_SESI" maxlength="10"></div>
+        </div>
+        <label for="tMOTO">Moto sekolah (pilihan)</label><input type="text" id="tMOTO" data-kunci="MOTO" maxlength="160">
+        <div class="grid-3">
+          <div><label for="tNAMA_PENGETUA">Nama pengetua</label><input type="text" id="tNAMA_PENGETUA" data-kunci="NAMA_PENGETUA" maxlength="120"></div>
+          <div><label for="tJAWATAN_PENYEMAK">Jawatan penyemak (lalai)</label><input type="text" id="tJAWATAN_PENYEMAK" data-kunci="JAWATAN_PENYEMAK" maxlength="120"></div>
+          <div><label for="tJAWATAN_PENGESAH">Jawatan pengesah (lalai)</label><input type="text" id="tJAWATAN_PENGESAH" data-kunci="JAWATAN_PENGESAH" maxlength="120"></div>
+        </div>
+        <div class="grid-2">
+          <div><label for="tFOOTER_PDF">Teks kaki PDF</label><input type="text" id="tFOOTER_PDF" data-kunci="FOOTER_PDF" maxlength="200"></div>
+          <div><label for="tPREFIX_FAIL">Awalan nama fail PDF</label><input type="text" id="tPREFIX_FAIL" data-kunci="PREFIX_FAIL" maxlength="20"></div>
+        </div>
+        <h3 class="ruang-atas">Warna</h3>
+        <div class="grid-warna">
+          <label>Utama <input type="color" class="warna" data-kunci="WARNA_1"></label>
+          <label>Kedua <input type="color" class="warna" data-kunci="WARNA_2"></label>
+          <label>Aksen <input type="color" class="warna" data-kunci="WARNA_AKSEN"></label>
+          <label>Kertas <input type="color" class="warna" data-kunci="WARNA_KERTAS"></label>
+        </div>
+        <h3 class="ruang-atas">Dasar PDF</h3>
+        <div class="grid-2">
+          <div><label for="tGAYA_LAPORAN">Gaya laporan (lalai)</label><select id="tGAYA_LAPORAN" data-kunci="GAYA_LAPORAN"><option value="KOTAK">Kotak (Standard)</option><option value="POSTER">Poster (Satu Muka)</option></select></div>
+          <div><label for="tSUSUN_GAMBAR">Susun atur gambar (lalai)</label><select id="tSUSUN_GAMBAR" data-kunci="SUSUN_GAMBAR"><option value="AUTO">Auto</option><option value="SATU">Satu lajur</option><option value="DUA">Dua lajur</option><option value="TIGA">Tiga lajur</option><option value="EMPAT">Empat lajur</option><option value="SOROT">Sorotan</option></select></div>
+          <div><label for="tWAJIB_PDF">Jana PDF wajib?</label><select id="tWAJIB_PDF" data-kunci="WAJIB_PDF"><option value="TIDAK">Tidak (guru boleh simpan tanpa PDF)</option><option value="YA">Ya (setiap laporan mesti ada PDF)</option></select></div>
+          <div><label for="tWAJIB_PDF_SEMAK">PDF bertandatangan wajib semasa semakan?</label><select id="tWAJIB_PDF_SEMAK" data-kunci="WAJIB_PDF_SEMAK"><option value="YA">Ya</option><option value="TIDAK">Tidak</option></select></div>
+        </div>
+        <label for="tCONSENT_TEXT">Notis persetujuan PDPA (dipapar kepada guru)</label>
+        <textarea id="tCONSENT_TEXT" data-kunci="CONSENT_TEXT" rows="5" maxlength="2000"></textarea>
+        <p class="ruang-atas"><button type="button" class="butang" data-simpan-tetapan="setIdentiti">Simpan tetapan</button></p>
+      </div>
+
+      <div id="setLogo" class="kad sub-tetapan tersembunyi">
+        <h2>Logo</h2>
+        <p class="redup kecil">Logo 1 dan 2 dipapar di kepala setiap PDF. Logo 3 hingga 6 ialah logo tambahan di kaki PDF; guru tanda sendiri bila perlu. Guna PNG jika logo berlatar lutsinar. Logo dikecilkan automatik sebelum disimpan dalam folder Aset.</p>
+        <div id="slotLogo" class="grid-logo"></div>
+        <div class="grid-2 ruang-atas">
+          <div><label for="tLOGO_FOOTER_ALIGN">Kedudukan logo tambahan</label><select id="tLOGO_FOOTER_ALIGN" data-kunci="LOGO_FOOTER_ALIGN"><option value="KIRI">Kiri</option><option value="TENGAH">Tengah</option><option value="KANAN">Kanan</option></select></div>
+        </div>
+        <p class="ruang-atas"><button type="button" class="butang" data-simpan-tetapan="setLogo">Simpan label dan kedudukan</button></p>
+      </div>
+
+      <div id="setJenis" class="kad sub-tetapan tersembunyi">
+        <h2>Jenis laporan</h2>
+        <p class="redup kecil">Matikan jenis yang sekolah tidak perlukan. Guru hanya nampak jenis yang aktif.</p>
+        <div id="kotakJenis"></div>
+        <label for="tJenisDefault">Jenis lalai bila guru buka borang</label>
+        <select id="tJenisDefault"></select>
+        <p class="ruang-atas"><button type="button" id="simpanJenis" class="butang">Simpan jenis laporan</button></p>
+      </div>
+
+      <div id="setSenarai" class="kad sub-tetapan tersembunyi">
+        <h2>Senarai pilihan (dropdown)</h2>
+        <p class="redup kecil">Satu item satu baris. Susunan di sini ialah susunan yang guru nampak.</p>
+        <div class="kumpulan">
+          <legend>Senarai baharu</legend>
+          <label for="katBaruKod">Kod (huruf besar, nombor, garis bawah)</label>
+          <input id="katBaruKod" type="text" maxlength="40" placeholder="AGENSI_LUAR">
+          <label for="katBaruItem">Item</label>
+          <textarea id="katBaruItem" rows="3" placeholder="Jabatan Kesihatan&#10;Polis Diraja Malaysia"></textarea>
+          <p><button id="ciptaSenarai" type="button" class="butang sekunder">Cipta senarai</button></p>
+        </div>
+        <div id="kotakSenarai" class="grid-senarai"></div>
+      </div>
+    </section>
+
     <!-- DRIVE (pemilik) -->
     <section id="paneDrive" class="kad pane tersembunyi">
       <h2>Google Drive sekolah</h2>
@@ -366,6 +462,8 @@
       <div id="hasilUji"></div>
     </section>
   </div>
+
+  <button type="button" id="butangPratonton" class="terapung tersembunyi" aria-controls="lajurPratonton">Lihat pratonton</button>
 
   <footer>&copy; AnnurPro Solutions &middot; <a href="/privasi">Polisi Privasi</a></footer>
 </main>

@@ -533,3 +533,131 @@ test('WAJIB_PDF = YA: laporan tanpa PDF ditolak', async () => {
   assert.equal(r.status, 400);
   assert.match(r.ralat, /PDF wajib/);
 });
+
+// ======================================================================
+// Fasa 3b-2: semakan, statistik, eksport, tetapan, logo, senarai
+// ======================================================================
+
+async function sekolahDenganLaporan() {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'ali@gmail.com' });
+  const ali = await logMasukSebagai(e, g, 'ali@gmail.com');
+  const s1 = await panggilApi(e, g, ali.sesi, '/laporan', { data: { tajuk: '=CMD()', unit: 'Bola Sepak', peringkat: 'Daerah', jumLelaki: '10', jumPerempuan: '5', tarikhProgram: '2026-03-04' }, status: 'HANTAR', consent: true });
+  const s2 = await panggilApi(e, g, ali.sesi, '/laporan', { data: { tajuk: 'Draf', unit: 'Bola Sepak' }, status: 'SIMPAN', consent: true });
+  return { e, g, sesiAdmin, ali, s1, s2 };
+}
+
+test('semakan: guru ditolak; PDF bertandatangan wajib; status berubah; salinan boleh dimuat turun', async () => {
+  const { e, g, sesiAdmin, ali, s1, s2 } = await sekolahDenganLaporan();
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan/' + s1.id + '/semak', {})).status, 403);
+  assert.equal((await muatNaikFail(e, g, ali.sesi, 'pdfsemak', 'application/pdf', PDFB)).status, 403);
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/laporan/' + s2.id + '/semak', {})).status, 409);   // draf
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/laporan/' + s1.id + '/semak', {})).status, 400);   // wajib PDF
+
+  const sp = (await muatNaikFail(e, g, sesiAdmin, 'pdfsemak', 'application/pdf', PDFB, 'ditandatangan.pdf')).fileId;
+  const r = await panggilApi(e, g, sesiAdmin, '/laporan/' + s1.id + '/semak', { pdfFileId: sp });
+  assert.equal(r.status, 'TELAH DISEMAK');
+  const senarai = await panggilApi(e, g, ali.sesi, '/laporan');
+  const x = senarai.data.find(d => d.id === s1.id);
+  assert.equal(x.status, 'TELAH DISEMAK');
+  assert.equal(x.adaPdfDisemak, true);
+  assert.equal(x.disemakOleh, 'Cikgu Ujian');
+  // Guru boleh muat turun salinan bertandatangan laporannya sendiri
+  assert.equal((await handle(req('/api/s/smkwakanda/laporan/' + s1.id + '/fail/' + sp, { kuki: { opr_sesi: ali.sesi } }), e, deps(g))).status, 200);
+  // Ganti salinan: yang lama dibuang
+  const sp2 = (await muatNaikFail(e, g, sesiAdmin, 'pdfsemak', 'application/pdf', PDFB)).fileId;
+  await panggilApi(e, g, sesiAdmin, '/laporan/' + s1.id + '/semak', { pdfFileId: sp2 });
+  assert.equal(g.fail.get(sp).trashed, true);
+});
+
+test('semakan tanpa PDF dibenarkan bila WAJIB_PDF_SEMAK = TIDAK', async () => {
+  const { e, g, sesiAdmin, s1 } = await sekolahDenganLaporan();
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/tetapan', { tetapan: { WAJIB_PDF_SEMAK: 'TIDAK' } })).ok, true);
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/laporan/' + s1.id + '/semak', {})).status, 'TELAH DISEMAK');
+});
+
+test('statistik dan eksport CSV (formula dinetralkan)', async () => {
+  const { e, g, sesiAdmin, ali } = await sekolahDenganLaporan();
+  const s = await panggilApi(e, g, sesiAdmin, '/statistik');
+  assert.equal(s.jumlah, 2); assert.equal(s.hantar, 1); assert.equal(s.draf, 1);
+  assert.equal(s.muridLelaki + s.muridPerempuan, 15);
+  assert.equal(s.unit['Bola Sepak'], 2);
+  assert.equal(s.bulan['2026-03'], 1);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/statistik')).status, 403);
+
+  const r = await handle(req('/api/s/smkwakanda/eksport', { kuki: { opr_sesi: sesiAdmin } }), e, deps(g));
+  assert.match(r.headers.get('content-disposition'), /attachment; filename="OPR_smkwakanda_/);
+  const bait = new Uint8Array(await r.arrayBuffer());
+  assert.deepEqual([...bait.slice(0, 3)], [0xef, 0xbb, 0xbf]);   // BOM UTF-8 untuk Excel
+  const csv = new TextDecoder().decode(bait);
+  assert.ok(csv.startsWith('"ID"'));
+  assert.ok(csv.includes('"\'=CMD()"'));
+  assert.ok(!csv.includes('"Dipadam"'));
+  assert.equal((await handle(req('/api/s/smkwakanda/eksport', { kuki: { opr_sesi: ali.sesi } }), e, deps(g))).status, 403);
+});
+
+test('tetapan: senarai putih, pengesahan nilai, jenis laporan dibersihkan, guru ditolak', async () => {
+  const { e, g, sesiAdmin, ali } = await sekolahDenganLaporan();
+  const r = await panggilApi(e, g, sesiAdmin, '/tetapan', { tetapan: {
+    NAMA_SEKOLAH: 'SMK Wakanda Baharu', ALAMAT_SEKOLAH: 'Jalan 1', WARNA_1: '#ABCDEF', WARNA_2: 'merah',
+    GAYA_LAPORAN: 'poster', LOGO1_ID: 'cubaan', FOLDER_ID: 'cubaan', JENIS_DEFAULT: 'HEM',
+    JENIS_TETAPAN: { HEM: { aktif: true, nama: 'HEM Sekolah', slot: 'SAH,xx', kategori: 'UNIT_HEM,bukan kod!' }, KELAS: { aktif: false }, LAIN: { aktif: true } }
+  } });
+  assert.equal(r.ok, true);
+  assert.ok(r.ditolak.includes('WARNA_2') && r.ditolak.includes('LOGO1_ID') && r.ditolak.includes('FOLDER_ID'));
+  const t = await panggilApi(e, g, sesiAdmin, '/tetapan');
+  assert.equal(t.tetapan.NAMA_SEKOLAH, 'SMK Wakanda Baharu');
+  assert.equal(t.tetapan.WARNA_1, '#abcdef');
+  assert.equal(t.tetapan.WARNA_2, '#312e81');
+  assert.equal(t.tetapan.GAYA_LAPORAN, 'POSTER');
+  assert.equal(t.tetapan.JENIS_DEFAULT, 'HEM');
+  assert.equal(t.jenis.HEM.nama, 'HEM Sekolah');
+  assert.equal(t.jenis.HEM.slot, 'SAH');
+  assert.equal(t.jenis.HEM.kategori, 'UNIT_HEM');
+  assert.equal(t.jenis.KELAS.aktif, false);
+  assert.equal(t.jenis.LAIN, undefined);
+  // Baris lain dalam tab Tetapan tidak terganggu
+  assert.equal((await panggilApi(e, g, ali.sesi, '/config')).tetapan.CONSENT_TEXT.length > 50, true);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/tetapan', { tetapan: { NAMA_SEKOLAH: 'Godam' } })).status, 403);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/tetapan')).status, 403);
+});
+
+test('logo: admin muat naik ke Aset, ahli boleh muat turun, ganti membuang yang lama', async () => {
+  const { e, g, sesiAdmin, ali } = await sekolahDenganLaporan();
+  const naik = async (sesi, mime, bait) => {
+    const r = await handle(new Request(ASAS + '/api/s/smkwakanda/logo/1', { method: 'POST', body: bait,
+      headers: { Origin: ASAS, 'content-type': mime, Cookie: 'opr_sesi=' + encodeURIComponent(sesi) } }), e, deps(g));
+    return { status: r.status, ...(await r.json()) };
+  };
+  assert.equal((await naik(ali.sesi, 'image/png', PNG)).status, 403);
+  assert.equal((await naik(sesiAdmin, 'image/svg+xml', PNG)).status, 400);
+  assert.equal((await naik(sesiAdmin, 'image/png', new Uint8Array(400001))).status, 413);
+  const l1 = await naik(sesiAdmin, 'image/png', PNG);
+  assert.equal(l1.ok, true);
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  assert.deepEqual(g.fail.get(l1.fileId).parents, [sek.subfolder.ASET]);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/config')).logo[1], l1.fileId);
+  const turun = await handle(req('/api/s/smkwakanda/logo/1', { kuki: { opr_sesi: ali.sesi } }), e, deps(g));
+  assert.equal(turun.status, 200);
+  assert.deepEqual([...new Uint8Array(await turun.arrayBuffer())], [...PNG]);
+  const l2 = await naik(sesiAdmin, 'image/png', PNG);
+  assert.equal(g.fail.get(l1.fileId).trashed, true);
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/logo/1/padam', {})).ok, true);
+  assert.equal(g.fail.get(l2.fileId).trashed, true);
+  assert.equal((await handle(req('/api/s/smkwakanda/logo/1', { kuki: { opr_sesi: ali.sesi } }), e, deps(g))).status, 404);
+});
+
+test('senarai dropdown: ganti isi, cipta baharu, padam ditolak jika masih digunakan', async () => {
+  const { e, g, sesiAdmin, ali } = await sekolahDenganLaporan();
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/senarai', { kategori: 'UNIT_SUKAN', item: 'Bola Sepak\nRagbi\nRagbi\n\nHoki' })).bilangan, 3);
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/senarai', { kategori: 'agensi_luar', item: ['JKM', 'PDRM'] })).kategori, 'AGENSI_LUAR');
+  const cfg = await panggilApi(e, g, ali.sesi, '/config');
+  assert.deepEqual(cfg.senarai.UNIT_SUKAN, ['Bola Sepak', 'Ragbi', 'Hoki']);
+  assert.deepEqual(cfg.senarai.AGENSI_LUAR, ['JKM', 'PDRM']);
+  assert.ok(cfg.senarai.UNIT_UNIFORM.length > 5);   // senarai lain utuh
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/senarai/padam', { kategori: 'UNIT_SUKAN' })).status, 409);
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/senarai/padam', { kategori: 'ANJURAN' })).status, 409);
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/senarai/padam', { kategori: 'AGENSI_LUAR' })).ok, true);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/config')).senarai.AGENSI_LUAR, undefined);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/senarai', { kategori: 'X1', item: ['a'] })).status, 403);
+});

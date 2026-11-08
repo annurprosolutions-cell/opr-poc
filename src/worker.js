@@ -20,7 +20,7 @@ import {
 } from './lib.js';
 import {
   RalatGoogle, ciptaFolder, ciptaSpreadsheet, pindahKeFolder, infoFail,
-  tambahBaris, bacaObjek, bacaJadual, kemaskiniJulat, pautanSheet, pautanFolder, muatNaik, muatTurun, buangKeTong
+  tambahBaris, bacaObjek, bacaJadual, kemaskiniJulat, pautanSheet, pautanFolder, muatNaik, muatTurun, buangKeTong, kosongkanJulat
 } from './google.js';
 import { VERSI_SKEMA, TAB, KOLUM, SUBFOLDER, tetapanAsal, barisSenaraiAsal, jenisLalai, JENIS_SAH } from './skema.js';
 import { binaRekod, barisIkutTajuk, ringkasan, butiran, hurufLajur, STATUS } from './laporan.js';
@@ -550,7 +550,7 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
   }
 
   let badan = {}, bait = null;
-  if (req.method === 'POST' && sub === '/fail') {
+  if (req.method === 'POST' && (sub === '/fail' || /^\/logo\/[1-6]$/.test(sub))) {
     const panjang = Number(req.headers.get('content-length') || 0);
     if (panjang > HAD_FAIL.pdf) return ralat('Fail terlalu besar.', 413);
     bait = new Uint8Array(await req.arrayBuffer());
@@ -573,7 +573,9 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
 
       if (sub === '/config' && req.method === 'GET') {
         const c = await bacaConfig(g, sek);
-        return json({ ok: true, tetapan: c.tetapan, jenis: c.jenis, senarai: c.senarai });
+        const logo = {};
+        for (let i = 1; i <= 6; i++) logo[i] = String(c.mentah['LOGO' + i + '_ID'] || '');
+        return json({ ok: true, tetapan: c.tetapan, jenis: c.jenis, senarai: c.senarai, logo });
       }
       if (sub === '/guru' && req.method === 'GET') return admin ? senaraiGuru(ctx) : ralat('Hanya admin.', 403);
       if (sub === '/guru' && req.method === 'POST') return admin ? await tambahGuru(ctx) : ralat('Hanya admin.', 403);
@@ -581,6 +583,19 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
       if (sub === '/laporan' && req.method === 'GET') return await senaraiLaporan(ctx);
       if (sub === '/laporan' && req.method === 'POST') return await simpanLaporan(ctx);
       if (sub === '/fail' && req.method === 'POST') return await terimaFail(ctx);
+      const mLogo = sub.match(/^\/logo\/([1-6])$/);
+      if (mLogo && req.method === 'GET') return await hantarLogo(ctx, mLogo[1]);
+      if (mLogo && req.method === 'POST') return admin ? await simpanLogo(ctx, mLogo[1]) : ralat('Hanya admin.', 403);
+      const mLogoPadam = sub.match(/^\/logo\/([1-6])\/padam$/);
+      if (mLogoPadam && req.method === 'POST') return admin ? await padamLogo(ctx, mLogoPadam[1]) : ralat('Hanya admin.', 403);
+      if (sub === '/statistik' && req.method === 'GET') return admin ? await statistik(ctx) : ralat('Hanya admin.', 403);
+      if (sub === '/eksport' && req.method === 'GET') return admin ? await eksportCsv(ctx) : ralat('Hanya admin.', 403);
+      if (sub === '/tetapan' && req.method === 'GET') return admin ? await bacaTetapanPenuh(ctx) : ralat('Hanya admin.', 403);
+      if (sub === '/tetapan' && req.method === 'POST') return admin ? await simpanTetapan(ctx) : ralat('Hanya admin.', 403);
+      if (sub === '/senarai' && req.method === 'POST') return admin ? await simpanSenarai(ctx) : ralat('Hanya admin.', 403);
+      if (sub === '/senarai/padam' && req.method === 'POST') return admin ? await padamSenarai(ctx) : ralat('Hanya admin.', 403);
+      const ms = sub.match(/^\/laporan\/([A-Za-z0-9-]{8,64})\/semak$/);
+      if (ms && req.method === 'POST') return admin ? await semakLaporan(ctx, ms[1]) : ralat('Hanya admin boleh menyemak laporan.', 403);
       const mf = sub.match(/^\/laporan\/([A-Za-z0-9-]{8,64})\/fail\/([A-Za-z0-9_-]{10,128})$/);
       if (mf && req.method === 'GET') return await hantarFail(ctx, mf[1], mf[2]);
       const ml = sub.match(/^\/laporan\/([A-Za-z0-9-]{8,64})(\/padam)?$/);
@@ -745,8 +760,9 @@ async function padamLaporan({ g, sek, sesi, admin, kenal, now }, id) {
 
 
 // ---------------------------------------------------------------- fail (PDF + gambar)
-const HAD_FAIL = { lampiran: 10 * 1024 * 1024, pdf: 25 * 1024 * 1024 };
-const MIME_FAIL = { lampiran: ['image/jpeg', 'image/png', 'image/webp'], pdf: ['application/pdf'] };
+const HAD_FAIL = { lampiran: 10 * 1024 * 1024, pdf: 25 * 1024 * 1024, pdfsemak: 20 * 1024 * 1024, logo: 400 * 1000 };
+const MIME_FAIL = { lampiran: ['image/jpeg', 'image/png', 'image/webp'], pdf: ['application/pdf'],
+  pdfsemak: ['application/pdf'], logo: ['image/png', 'image/jpeg', 'image/webp'] };
 const MAKS_LAMPIRAN = 20;
 
 function namaFailSelamat(n, lalai) {
@@ -757,15 +773,17 @@ function namaFailSelamat(n, lalai) {
 // Terima satu fail (badan binari). Fail disimpan terus ke subfolder Drive
 // sekolah dan direkod sebagai "muat naik tergantung" milik pengguna ini
 // sehingga ia dilampirkan pada laporan (atau luput selepas 1 hari).
-async function terimaFail({ env, g, sek, sesi, url, bait, req }) {
-  const jenis = url.searchParams.get('jenis') === 'pdf' ? 'pdf' : 'lampiran';
+async function terimaFail({ env, g, sek, sesi, url, bait, req, admin }) {
+  const jenisMinta = url.searchParams.get('jenis');
+  const jenis = ['pdf', 'pdfsemak'].includes(jenisMinta) ? jenisMinta : 'lampiran';
+  if (jenis === 'pdfsemak' && !admin) return ralat('Hanya admin.', 403);
   const mime = String(req.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-  if (!MIME_FAIL[jenis].includes(mime)) return ralat(jenis === 'pdf' ? 'Hanya fail PDF dibenarkan.' : 'Hanya gambar JPG, PNG atau WEBP dibenarkan.', 400);
+  if (!MIME_FAIL[jenis].includes(mime)) return ralat(jenis === 'lampiran' ? 'Hanya gambar JPG, PNG atau WEBP dibenarkan.' : 'Hanya fail PDF dibenarkan.', 400);
   if (!bait || !bait.length) return ralat('Fail kosong.', 400);
   if (bait.length > HAD_FAIL[jenis]) return ralat('Fail melebihi had ' + Math.round(HAD_FAIL[jenis] / 1048576) + 'MB.', 413);
   const sub = sek.subfolder || {};
-  const folder = (jenis === 'pdf' ? sub.PDF : sub.LAMPIRAN) || sek.folderId;
-  const nama = namaFailSelamat(url.searchParams.get('nama'), jenis === 'pdf' ? 'laporan.pdf' : 'gambar.jpg');
+  const folder = (jenis === 'lampiran' ? sub.LAMPIRAN : sub.PDF) || sek.folderId;
+  const nama = namaFailSelamat(url.searchParams.get('nama'), jenis === 'lampiran' ? 'gambar.jpg' : 'laporan.pdf');
   const id = await muatNaik(g, folder, nama, mime, bait);
   await env.OPR_KV.put('upload:' + sek.slug + ':' + id, JSON.stringify({ email: sesi.email, jenis }), { expirationTtl: 86400 });
   return json({ ok: true, fileId: id });
@@ -819,6 +837,238 @@ async function hantarFail({ g, sek, sesi, admin }, id, fileId) {
     'cache-control': 'private, no-store',
     'x-content-type-options': 'nosniff'
   } });
+}
+
+// ---------------------------------------------------------------- semakan (admin)
+// Tanda laporan "TELAH DISEMAK". Salinan PDF bertandatangan wajib jika
+// WAJIB_PDF_SEMAK = YA (lalai, seperti v2). PDF asal tidak disentuh.
+async function semakLaporan({ env, g, sek, sesi, kenal, badan, now }, id) {
+  const { jadual, rekod } = await cariLaporan(g, sek, id);
+  if (!rekod) return ralat('Laporan tidak dijumpai.', 404);
+  const status = String(rekod.Status).toUpperCase();
+  if (status !== STATUS.HANTAR && status !== STATUS.DISEMAK) return ralat('Hanya laporan yang telah dihantar boleh disemak.', 409);
+
+  const tetapan = await bacaTetapan(g, sek);
+  const wajib = String(tetapan.WAJIB_PDF_SEMAK || 'YA').toUpperCase() !== 'TIDAK';
+  const lama = String(rekod.PdfDisemakId || '');
+  const baru = String(badan.pdfFileId || '');
+  if (wajib && !baru && !lama) {
+    return ralat('Sekolah anda menetapkan salinan PDF bertandatangan wajib dimuat naik sebelum laporan ditanda disemak.', 400);
+  }
+  if (baru && baru !== lama) {
+    const rek = await env.OPR_KV.get('upload:' + sek.slug + ':' + baru, 'json');
+    if (!rek || rek.email !== sesi.email || rek.jenis !== 'pdfsemak') return ralat('Fail tidak sah atau sudah luput. Sila muat naik semula.', 400);
+  }
+  const kemas = { ...rekod, Status: STATUS.DISEMAK, DisemakOleh: String(sesi.nama || sesi.email).slice(0, 200),
+    DisemakPada: new Date(now()).toISOString(), PdfDisemakId: baru || lama, DikemaskiniPada: new Date(now()).toISOString() };
+  await kemaskiniJulat(g, sek.sheetId, TAB.LAPORAN, 'A' + rekod._baris + ':' + hurufLajur(jadual.tajuk.length) + rekod._baris,
+    [barisIkutTajuk(jadual.tajuk, kemas)]);
+  if (baru) await env.OPR_KV.delete('upload:' + sek.slug + ':' + baru);
+  if (baru && lama && baru !== lama) { try { await buangKeTong(g, lama); } catch (e) { console.error('Buang salinan lama gagal', e && e.message); } }
+  await audit(g, sek, sesi, kenal.peranan, 'TANDA_DISEMAK', id, 'BERJAYA', baru || lama ? 'dengan PDF bertandatangan' : 'tanpa PDF');
+  return json({ ok: true, status: STATUS.DISEMAK });
+}
+
+// ---------------------------------------------------------------- statistik (admin)
+async function statistik({ g, sek }) {
+  const { baris } = await bacaJadual(g, sek.sheetId, TAB.LAPORAN);
+  const kira = (o, k) => { o[k] = (o[k] || 0) + 1; };
+  const s = { jumlah: 0, draf: 0, hantar: 0, disemak: 0, muridLelaki: 0, muridPerempuan: 0,
+    unit: {}, peringkat: {}, jenis: {}, bulan: {}, guru: {} };
+  for (const r of baris) {
+    if (!r.ID || String(r.Dipadam).toUpperCase() === 'YA') continue;
+    s.jumlah++;
+    const st = String(r.Status || '').toUpperCase();
+    if (st === STATUS.HANTAR) s.hantar++; else if (st === STATUS.DISEMAK) s.disemak++; else s.draf++;
+    kira(s.unit, String(r.Unit || '').trim() || 'Tidak dinyatakan');
+    kira(s.peringkat, String(r.Peringkat || '').trim() || 'Tidak dinyatakan');
+    kira(s.jenis, String(r.Jenis || 'KOKURIKULUM'));
+    kira(s.guru, String(r.Nama || r.PemilikEmail || '').trim() || 'Tidak dinyatakan');
+    s.muridLelaki += Number(r.JumLelaki) || 0;
+    s.muridPerempuan += Number(r.JumPerempuan) || 0;
+    // Bulan ikut tarikh program jika ada, jika tidak tarikh laporan dicipta
+    const t = /^\d{4}-\d{2}/.test(String(r.TarikhProgram)) ? String(r.TarikhProgram) : String(r.Timestamp || '');
+    if (/^\d{4}-\d{2}/.test(t)) kira(s.bulan, t.slice(0, 7));
+  }
+  return json({ ok: true, ...s });
+}
+
+// ---------------------------------------------------------------- eksport CSV (admin)
+// Sel yang bermula = + - @ diberi awalan ' supaya tidak dibaca sebagai formula
+// bila dibuka dalam Excel (CSV injection).
+export function selCsv(v) {
+  let t = String(v == null ? '' : v);
+  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+  return '"' + t.replace(/"/g, '""') + '"';
+}
+
+async function eksportCsv({ g, sek, now }) {
+  const { tajuk, baris } = await bacaJadual(g, sek.sheetId, TAB.LAPORAN);
+  const kolum = tajuk.filter(h => h !== 'Dipadam');
+  const garis = [kolum.map(selCsv).join(',')];
+  baris.filter(r => r.ID && String(r.Dipadam).toUpperCase() !== 'YA')
+    .forEach(r => garis.push(kolum.map(k => selCsv(r[k])).join(',')));
+  const nama = 'OPR_' + sek.slug + '_' + new Date(now()).toISOString().slice(0, 10) + '.csv';
+  return new Response('﻿' + garis.join('\r\n'), { headers: {
+    'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="' + nama + '"', 'cache-control': 'no-store'
+  } });
+}
+
+// ---------------------------------------------------------------- tetapan (admin)
+const TETAPAN_TEKS = { NAMA_SEKOLAH: 120, ALAMAT_SEKOLAH: 300, NAMA_SISTEM: 80, TAJUK_DOKUMEN: 120, SINGKATAN: 12,
+  TELEFON: 40, FAKS: 40, MOTO: 160, FOOTER_PDF: 200, PREFIX_FAIL: 20, TAHUN_SESI: 10, NAMA_PENGETUA: 120,
+  JAWATAN_PENYEMAK: 120, JAWATAN_PENGESAH: 120, CONSENT_TEXT: 2000,
+  LOGO3_LABEL: 40, LOGO4_LABEL: 40, LOGO5_LABEL: 40, LOGO6_LABEL: 40 };
+const TETAPAN_WARNA = ['WARNA_1', 'WARNA_2', 'WARNA_AKSEN', 'WARNA_KERTAS'];
+const TETAPAN_PILIHAN = { WAJIB_PDF: ['YA', 'TIDAK'], WAJIB_PDF_SEMAK: ['YA', 'TIDAK'], GAYA_LAPORAN: ['KOTAK', 'POSTER'],
+  SUSUN_GAMBAR: ['AUTO', 'SATU', 'DUA', 'TIGA', 'EMPAT', 'SOROT'], LOGO_FOOTER_ALIGN: ['KIRI', 'TENGAH', 'KANAN'],
+  JENIS_DEFAULT: JENIS_SAH };
+
+// Bersihkan JSON JENIS_TETAPAN daripada admin: hanya kunci dikenali disimpan.
+export function bersihJenisTetapan(masuk) {
+  const asas = jenisLalai();
+  const m0 = (masuk && typeof masuk === 'object') ? masuk : {};
+  const keluar = {};
+  for (const k of JENIS_SAH) {
+    const m = m0[k] || {};
+    const teks = (v, lalai, had) => String(v === undefined ? lalai : v).replace(/[\u0000-\u001f]/g, '').trim().slice(0, had);
+    const slot = String(m.slot === undefined ? asas[k].slot : m.slot).toUpperCase().split(',').map(x => x.trim())
+      .filter(x => ['SEDIA', 'SEMAK', 'SAH'].includes(x));
+    const kat = String(m.kategori === undefined ? asas[k].kategori : m.kategori).toUpperCase().split(',').map(x => x.trim())
+      .filter(x => /^[A-Z0-9_]{2,40}$/.test(x));
+    keluar[k] = {
+      aktif: m.aktif === undefined ? asas[k].aktif : (m.aktif === true || String(m.aktif).toUpperCase() === 'YA'),
+      nama: teks(m.nama, asas[k].nama, 60) || asas[k].nama,
+      tajuk: teks(m.tajuk, asas[k].tajuk, 160),
+      penyemak: teks(m.penyemak, asas[k].penyemak, 120),
+      pengesah: teks(m.pengesah, asas[k].pengesah, 120),
+      slot: [...new Set(slot)].join(','),
+      kategori: [...new Set(kat)].join(',') || asas[k].kategori
+    };
+  }
+  if (!JENIS_SAH.some(k => keluar[k].aktif)) keluar.KOKURIKULUM.aktif = true;
+  return keluar;
+}
+
+async function bacaTetapanPenuh({ g, sek }) {
+  const c = await bacaConfig(g, sek);
+  const tetapan = {};
+  [...Object.keys(TETAPAN_TEKS), ...TETAPAN_WARNA, ...Object.keys(TETAPAN_PILIHAN)].forEach(k => { tetapan[k] = c.mentah[k] || ''; });
+  const logo = {};
+  for (let i = 1; i <= 6; i++) logo[i] = String(c.mentah['LOGO' + i + '_ID'] || '');
+  return json({ ok: true, tetapan, jenis: c.jenis, senarai: c.senarai, logo });
+}
+
+// Tulis semula tab Tetapan (kecil) dalam satu panggilan, kekalkan susunan baris.
+async function tulisTetapan(g, sek, ubah) {
+  const jadual = await bacaJadual(g, sek.sheetId, TAB.TETAPAN);
+  const baris = jadual.baris.map(r => [String(r.Kunci), String(r.Nilai ?? '')]);
+  for (const [k, v] of Object.entries(ubah)) {
+    const ada = baris.find(r => r[0] === k);
+    if (ada) ada[1] = v; else baris.push([k, v]);
+  }
+  await kemaskiniJulat(g, sek.sheetId, TAB.TETAPAN, 'A2:B' + (baris.length + 1), baris);
+}
+
+async function simpanTetapan({ g, sek, sesi, kenal, badan }) {
+  const masuk = (badan && typeof badan.tetapan === 'object' && badan.tetapan) || {};
+  const ubah = {}, ditolak = [];
+  for (const [k, v0] of Object.entries(masuk)) {
+    const v = String(v0 == null ? '' : v0);
+    if (TETAPAN_TEKS[k] !== undefined) ubah[k] = v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, TETAPAN_TEKS[k]);
+    else if (TETAPAN_WARNA.includes(k)) { if (/^#[0-9a-fA-F]{6}$/.test(v)) ubah[k] = v.toLowerCase(); else ditolak.push(k); }
+    else if (TETAPAN_PILIHAN[k]) { const u = v.toUpperCase(); if (TETAPAN_PILIHAN[k].includes(u)) ubah[k] = u; else ditolak.push(k); }
+    else if (k === 'JENIS_TETAPAN') ubah[k] = JSON.stringify(bersihJenisTetapan(typeof v0 === 'string' ? JSON.parse(v0 || '{}') : v0));
+    else ditolak.push(k);
+  }
+  if (ubah.NAMA_SEKOLAH !== undefined && ubah.NAMA_SEKOLAH.length < 3) return ralat('Nama sekolah terlalu pendek.');
+  // Jenis lalai mesti salah satu jenis yang aktif
+  if (ubah.JENIS_TETAPAN && ubah.JENIS_DEFAULT) {
+    const j = JSON.parse(ubah.JENIS_TETAPAN);
+    if (!j[ubah.JENIS_DEFAULT] || !j[ubah.JENIS_DEFAULT].aktif) ubah.JENIS_DEFAULT = JENIS_SAH.find(k => j[k].aktif);
+  }
+  if (!Object.keys(ubah).length) return ralat('Tiada tetapan yang sah untuk disimpan.');
+  await tulisTetapan(g, sek, ubah);
+  await audit(g, sek, sesi, kenal.peranan, 'SIMPAN_TETAPAN', Object.keys(ubah).join(',').slice(0, 200), 'BERJAYA', '');
+  return json({ ok: true, disimpan: Object.keys(ubah), ditolak });
+}
+
+// ---------------------------------------------------------------- logo
+async function simpanLogo({ g, sek, sesi, kenal, bait, req }, n) {
+  const mime = String(req.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (!MIME_FAIL.logo.includes(mime)) return ralat('Format logo mesti PNG, JPG atau WEBP.', 400);
+  if (!bait || !bait.length) return ralat('Fail kosong.', 400);
+  if (bait.length > HAD_FAIL.logo) return ralat('Saiz logo melebihi 400KB. Sila kecilkan imej.', 413);
+  const sambungan = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[mime];
+  const folder = (sek.subfolder && sek.subfolder.ASET) || sek.folderId;
+  const id = await muatNaik(g, folder, 'logo-' + n + '-' + Date.now() + '.' + sambungan, mime, bait);
+  const t = await bacaTetapan(g, sek);
+  const lama = String(t['LOGO' + n + '_ID'] || '');
+  await tulisTetapan(g, sek, { ['LOGO' + n + '_ID']: id });
+  if (lama && lama !== id) { try { await buangKeTong(g, lama); } catch (e) { console.error('Buang logo lama gagal', e && e.message); } }
+  await audit(g, sek, sesi, kenal.peranan, 'MUAT_NAIK_LOGO', 'LOGO' + n, 'BERJAYA', id);
+  return json({ ok: true, fileId: id });
+}
+
+async function padamLogo(ctx, n) {
+  const { g, sek, sesi, kenal } = ctx;
+  const t = await bacaTetapan(g, sek);
+  const lama = String(t['LOGO' + n + '_ID'] || '');
+  await tulisTetapan(g, sek, { ['LOGO' + n + '_ID']: '' });
+  if (lama) { try { await buangKeTong(g, lama); } catch (e) { /* abaikan */ } }
+  await audit(g, sek, sesi, kenal.peranan, 'PADAM_LOGO', 'LOGO' + n, 'BERJAYA', '');
+  return json({ ok: true });
+}
+
+async function hantarLogo({ g, sek }, n) {
+  const t = await bacaTetapan(g, sek);
+  const id = String(t['LOGO' + n + '_ID'] || '');
+  if (!id) return ralat('Tiada logo.', 404);
+  const res = await muatTurun(g, id);
+  return new Response(res.body, { headers: {
+    'content-type': res.headers.get('content-type') || 'image/png',
+    // URL logo membawa ?v=<fileId>, jadi cache panjang selamat; logo baharu = URL baharu.
+    'cache-control': 'private, max-age=86400',
+    'x-content-type-options': 'nosniff'
+  } });
+}
+
+// ---------------------------------------------------------------- senarai dropdown (admin)
+// Tab Senarai kecil: baca semua, ubah dalam memori, tulis semula.
+async function tulisSemulaSenarai(g, sek, baris) {
+  await kosongkanJulat(g, sek.sheetId, TAB.SENARAI, 'A2:D');
+  if (baris.length) await kemaskiniJulat(g, sek.sheetId, TAB.SENARAI, 'A2:D' + (baris.length + 1), baris);
+}
+
+async function simpanSenarai({ g, sek, sesi, kenal, badan }) {
+  const kat = String(badan.kategori || '').trim().toUpperCase();
+  if (!/^[A-Z0-9_]{2,40}$/.test(kat)) return ralat('Kod senarai mesti 2-40 aksara: huruf besar, nombor atau garis bawah.');
+  const item = [...new Set((Array.isArray(badan.item) ? badan.item : String(badan.item || '').split('\n'))
+    .map(x => String(x).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 200)).filter(Boolean))];
+  if (!item.length) return ralat('Senarai mesti ada sekurang-kurangnya satu item.');
+  if (item.length > 300) return ralat('Maksimum 300 item setiap senarai.');
+  const { baris } = await bacaJadual(g, sek.sheetId, TAB.SENARAI);
+  const lain = baris.filter(r => String(r.Kategori).trim().toUpperCase() !== kat)
+    .map(r => [String(r.Kategori), String(r.Nilai), String(r.Susunan), String(r.Aktif || 'YA')]);
+  await tulisSemulaSenarai(g, sek, [...lain, ...item.map((v, i) => [kat, v, String(i + 1), 'YA'])]);
+  await audit(g, sek, sesi, kenal.peranan, 'SIMPAN_SENARAI', kat, 'BERJAYA', item.length + ' item');
+  return json({ ok: true, kategori: kat, bilangan: item.length });
+}
+
+async function padamSenarai({ g, sek, sesi, kenal, badan }) {
+  const kat = String(badan.kategori || '').trim().toUpperCase();
+  const t = await bacaTetapan(g, sek);
+  const jenis = jenisTetapan(t);
+  const guna = JENIS_SAH.filter(k => String(jenis[k].kategori).split(',').includes(kat));
+  if (['ANJURAN', 'PERINGKAT', 'KAEDAH', 'TINGKATAN'].includes(kat)) return ralat('Senarai ini digunakan oleh borang dan tidak boleh dipadam. Anda boleh mengubah isinya.', 409);
+  if (guna.length) return ralat('Senarai ini masih digunakan oleh: ' + guna.map(k => jenis[k].nama).join(', ') + '. Buang dahulu daripada jenis laporan berkenaan.', 409);
+  const { baris } = await bacaJadual(g, sek.sheetId, TAB.SENARAI);
+  const tinggal = baris.filter(r => String(r.Kategori).trim().toUpperCase() !== kat)
+    .map(r => [String(r.Kategori), String(r.Nilai), String(r.Susunan), String(r.Aktif || 'YA')]);
+  if (tinggal.length === baris.length) return ralat('Senarai tidak dijumpai.', 404);
+  await tulisSemulaSenarai(g, sek, tinggal);
+  await audit(g, sek, sesi, kenal.peranan, 'PADAM_SENARAI', kat, 'BERJAYA', '');
+  return json({ ok: true });
 }
 
 // ======================================================================
