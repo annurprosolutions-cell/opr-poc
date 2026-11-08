@@ -836,3 +836,13 @@ test('tambah 1 bulan kepada pelan tahunan aktif: pelan kekal tahunan', async () 
   await e.OPR_KV.put('lesen:y', JSON.stringify({ plan: 'tahunan', expires: '2026-01-01' }));   // sudah tamat
   assert.equal((await lanjutLesen(e, 'y', 1, T0)).plan, 'bulanan');
 });
+
+test('BCL: kunci webhook gaya base64 (mengandungi + dan =) diterima; kunci hampir sama ditolak', async () => {
+  const kunci = 'abcDEF123+xyz456/uvw789==';
+  const { e, g } = await sekolahSiapBcl({ BCL_WEBHOOK_KEY: kunci.replace('/', '-') });
+  const k = kunci.replace('/', '-');
+  g.senario.bclPesanan = { 'K-1': pesanan('K-1', 'Langganan Bulanan', '20.00') };
+  assert.equal((await webhook(e, g, jualan('K-1', 'Langganan Bulanan', '20.00'), T0, k)).months, 1);
+  assert.equal((await webhook(e, g, {}, T0, k.slice(0, -1))).status, 404);
+  assert.equal((await webhook(e, g, {}, T0, k + 'x')).status, 404);
+});

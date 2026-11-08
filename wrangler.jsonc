@@ -24,10 +24,10 @@
     "PRICE_YEAR": "200",
     "YEARLY_MIN_AMOUNT": "150",
     // Borang BCL Annur OPR: pautan (butang Langgan) dan ID borang (hanya borang ini diterima)
-    "BUY_URL": "",
-    "BCL_FORM_ID": "",
+    "BUY_URL": "https://annurprosolutions1.bcl.my/form/annur-opr",
+    "BCL_FORM_ID": "21187",
     // E-mel Google pemilik yang boleh membuka /pemilik (dipisah koma)
-    "OWNER_EMAILS": "annurprosolutions@gmail.com"
+    "OWNER_EMAILS": "annurprosolutions@gmail.com,ruzbihanbakhtiar94@gmail.com"
   },
   // Secret (isi di dashboard Cloudflare, JANGAN letak di sini):
   //   GOOGLE_CLIENT_SECRET  - dari Google Cloud > Credentials
