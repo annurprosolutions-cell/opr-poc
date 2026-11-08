@@ -24,114 +24,128 @@
     <p><a id="butangLogin" class="butang" href="#">Log masuk dengan Google</a></p>
   </section>
 
-  <section id="panelAdmin" class="kad tersembunyi">
-    <h2>Panel admin</h2>
-    <p>Anda admin sekolah ini. Pautan untuk guru:</p>
-    <p><code id="pautanGuru"></code></p>
-
-    <div id="belumSedia" class="tersembunyi">
-      <div class="mesej amaran">Folder dan pangkalan data (Google Sheet) sekolah belum disediakan dalam Google Drive anda.</div>
-      <p><button id="butangSedia" class="butang" type="button">Sediakan Google Drive</button></p>
-    </div>
-    <div id="sudahSedia" class="tersembunyi">
-      <p>Data sekolah disimpan dalam Google Drive anda:</p>
-      <p class="baris-butang">
-        <a id="pautanSheet" class="butang sekunder" href="#" target="_blank" rel="noopener">Buka Google Sheet</a>
-        <a id="pautanFolder" class="butang sekunder" href="#" target="_blank" rel="noopener">Buka folder Drive</a>
-      </p>
-      <p class="redup kecil">Jangan tukar nama tab atau baris pertama (tajuk kolum) dalam Sheet. Sistem bergantung padanya.</p>
-      <p style="margin-top:16px"><button id="ujiDrive" class="butang sekunder" type="button">Uji sambungan Google Drive</button></p>
-    </div>
-    <div id="hasilUji"></div>
-    <p class="redup kecil">Borang laporan, senarai guru dan dashboard akan muncul di sini dalam fasa seterusnya.</p>
-  </section>
-
   <section id="bukanAhli" class="kad tersembunyi">
-    <h2>Akaun belum didaftarkan</h2>
-    <p>Akaun <b id="emelBukan"></b> belum didaftarkan dalam sekolah ini. Sila minta admin sekolah menambah emel anda, atau log keluar dan cuba akaun lain.</p>
+    <h2 id="tajukBukan">Akaun belum didaftarkan</h2>
+    <p id="teksBukan"></p>
   </section>
+
+  <section id="belumSediaGuru" class="kad tersembunyi">
+    <h2>Sistem belum sedia</h2>
+    <p>Admin sekolah belum melengkapkan penyediaan sistem. Sila cuba lagi kemudian.</p>
+  </section>
+
+  <!-- ============ APLIKASI ============ -->
+  <div id="aplikasi" class="tersembunyi">
+    <nav id="tab" class="tab" role="tablist"></nav>
+
+    <!-- BORANG -->
+    <section id="paneBorang" class="kad pane tersembunyi">
+      <div class="baris-antara">
+        <h2 id="tajukBorang">Laporan baharu</h2>
+        <span id="lencanaEdit" class="pil hantar tersembunyi">MOD EDIT</span>
+      </div>
+      <form id="borang" novalidate>
+        <input type="hidden" name="id">
+        <label for="fJenis">Jenis laporan</label>
+        <select id="fJenis" name="jenis"></select>
+        <p id="notaJenis" class="redup kecil"></p>
+
+        <label data-label="Tajuk" for="fTajuk">Nama Program</label>
+        <input id="fTajuk" name="tajuk" type="text" maxlength="300">
+
+        <label data-label="Unit" for="fUnit">Unit</label>
+        <select id="fUnit" name="unit"></select>
+
+        <div class="grid-2">
+          <div><label data-label="Anjuran" for="fAnjuran">Anjuran</label><select id="fAnjuran" name="anjuran"></select></div>
+          <div><label data-label="Peringkat" for="fPeringkat">Peringkat</label><select id="fPeringkat" name="peringkat"></select></div>
+        </div>
+        <div class="grid-3">
+          <div><label data-label="Tarikh" for="fTarikh">Tarikh</label><input id="fTarikh" name="tarikhProgram" type="date"></div>
+          <div><label data-label="Masa" for="fMasa">Masa</label><input id="fMasa" name="masa" type="time"></div>
+          <div><label data-label="Tempat" for="fTempat">Tempat</label><input id="fTempat" name="tempat" type="text" maxlength="200"></div>
+        </div>
+        <div class="grid-2">
+          <div><label data-label="Lelaki" for="fLelaki">Murid Lelaki</label><input id="fLelaki" name="jumLelaki" type="number" min="0" inputmode="numeric"></div>
+          <div><label data-label="Perempuan" for="fPerempuan">Murid Perempuan</label><input id="fPerempuan" name="jumPerempuan" type="number" min="0" inputmode="numeric"></div>
+        </div>
+
+        <label data-label="Objektif" for="fObjektif">Objektif</label>
+        <textarea id="fObjektif" name="objektif" rows="3" maxlength="4000"></textarea>
+        <label data-label="Ucapan" for="fUcapan">Ucapan / Nota Tambahan</label>
+        <textarea id="fUcapan" name="ucapanBertema" rows="2" maxlength="300"></textarea>
+        <label data-label="Kaedah" for="fKaedah">Kaedah Pelaksanaan</label>
+        <select id="fKaedah" name="kaedah"></select>
+        <label data-label="Kekuatan" for="fKekuatan">Kekuatan Program</label>
+        <textarea id="fKekuatan" name="kekuatan" rows="2" maxlength="4000"></textarea>
+        <label data-label="Improve" for="fImprove">Penambahbaikan</label>
+        <textarea id="fImprove" name="penambahbaikan" rows="2" maxlength="4000"></textarea>
+        <label data-label="Rumusan" for="fRumusan">Rumusan</label>
+        <textarea id="fRumusan" name="rumusan" rows="2" maxlength="4000"></textarea>
+
+        <fieldset class="kumpulan">
+          <legend>Pegawai pelapor dan pengesahan</legend>
+          <p class="redup kecil">Tanda ruang tandatangan yang laporan ini perlukan.</p>
+          <div id="slotTtd"></div>
+        </fieldset>
+
+        <label class="semak-kotak" id="blokConsent"><input type="checkbox" id="fConsent"> <span id="teksConsent"></span></label>
+
+        <div class="grid-2 ruang-atas">
+          <button type="button" class="butang sekunder" data-hantar="SIMPAN">Simpan draf</button>
+          <button type="button" class="butang" data-hantar="HANTAR">Hantar</button>
+        </div>
+        <p><button type="button" id="resetBorang" class="pautan-butang">Kosongkan borang</button></p>
+        <p class="redup kecil">Pratonton A4, jana PDF dan gambar aktiviti akan ditambah dalam kemas kini seterusnya.</p>
+      </form>
+    </section>
+
+    <!-- LAPORAN -->
+    <section id="paneLaporan" class="kad pane tersembunyi">
+      <h2 id="tajukSenarai">Laporan saya</h2>
+      <div class="grid-2">
+        <select id="tapisJenis" aria-label="Tapis jenis"></select>
+        <input id="cari" type="text" placeholder="Cari tajuk, unit atau guru" aria-label="Cari">
+      </div>
+      <div id="senaraiLaporan" class="senarai"></div>
+    </section>
+
+    <!-- GURU (admin) -->
+    <section id="paneGuru" class="kad pane tersembunyi">
+      <h2>Guru</h2>
+      <p class="redup kecil">Tampal emel guru, satu baris seorang. Boleh tambah nama selepas koma, contohnya <code>ali@gmail.com, Cikgu Ali</code>. Boleh salin terus dari Excel atau Google Sheet.</p>
+      <textarea id="teksGuru" rows="5" placeholder="aminah@moe-dl.edu.my, Cikgu Aminah&#10;ali@gmail.com, Cikgu Ali"></textarea>
+      <div class="baris-butang ruang-atas">
+        <select id="perananBaru" aria-label="Peranan"><option value="guru">Sebagai guru</option><option value="admin">Sebagai admin</option></select>
+        <button id="tambahGuru" class="butang" type="button">Tambah</button>
+      </div>
+      <div id="hasilGuru"></div>
+      <div id="senaraiGuru" class="senarai"></div>
+    </section>
+
+    <!-- DRIVE (pemilik) -->
+    <section id="paneDrive" class="kad pane tersembunyi">
+      <h2>Google Drive sekolah</h2>
+      <p>Pautan untuk guru:</p>
+      <p><code id="pautanGuru"></code></p>
+      <div id="belumSedia" class="tersembunyi">
+        <div class="mesej amaran">Folder dan pangkalan data (Google Sheet) sekolah belum disediakan dalam Google Drive anda.</div>
+        <p><button id="butangSedia" class="butang" type="button">Sediakan Google Drive</button></p>
+      </div>
+      <div id="sudahSedia" class="tersembunyi">
+        <p class="baris-butang">
+          <a id="pautanSheet" class="butang sekunder" href="#" target="_blank" rel="noopener">Buka Google Sheet</a>
+          <a id="pautanFolder" class="butang sekunder" href="#" target="_blank" rel="noopener">Buka folder Drive</a>
+        </p>
+        <p class="redup kecil">Jangan tukar nama tab atau baris pertama (tajuk kolum) dalam Sheet. Sistem bergantung padanya.</p>
+        <p class="ruang-atas"><button id="ujiDrive" class="butang sekunder" type="button">Uji sambungan Google Drive</button></p>
+      </div>
+      <div id="hasilUji"></div>
+    </section>
+  </div>
 
   <footer>&copy; AnnurPro Solutions &middot; <a href="/privasi">Polisi Privasi</a></footer>
 </main>
-<script type="module">
-  import { $, el, api, mesej, logKeluar } from '/app.js';
-  const tunjuk = (id) => $(id).classList.remove('tersembunyi');
-  const slug = decodeURIComponent(location.pathname.split('/')[2] || '');
-
-  const sek = await api('/api/s/' + encodeURIComponent(slug));
-  if (!sek.ok) {
-    $('namaSekolah').textContent = 'Sekolah tidak dijumpai';
-    mesej($('mesej'), 'amaran', 'Semak semula pautan yang diberi oleh admin sekolah anda.');
-  } else {
-    document.title = sek.nama + ' | Annur OPR';
-    $('namaSekolah').textContent = sek.nama;
-    $('pautan').textContent = 'opr.annurpro.com/s/' + sek.slug;
-
-    const q = new URLSearchParams(location.search);
-    if (q.get('baru')) mesej($('mesej'), q.get('sedia') === '0' ? 'amaran' : 'ok', q.get('sedia') === '0'
-      ? 'Sekolah berjaya didaftarkan, tetapi Google Drive belum siap disediakan. Tekan "Sediakan Google Drive" di bawah.'
-      : 'Sekolah berjaya didaftarkan. Folder dan Google Sheet telah dicipta dalam Drive anda. Kongsi pautan di bawah dengan guru.');
-    if (q.get('disambung')) mesej($('mesej'), 'ok', 'Google Drive berjaya disambung semula.');
-
-    const me = await api('/api/s/' + encodeURIComponent(sek.slug) + '/me');
-    if (me.status === 401) {
-      $('butangLogin').href = '/auth/login?mode=guru&s=' + encodeURIComponent(sek.slug);
-      tunjuk('perluLogin');
-    } else if (me.ok) {
-      $('pengguna').append(
-        el('span', { text: me.email }),
-        el('button', { class: 'butang sekunder', type: 'button', onclick: logKeluar, text: 'Keluar' })
-      );
-      if (me.peranan === 'admin') {
-        $('pautanGuru').textContent = location.origin + '/s/' + sek.slug;
-        tunjuk('panelAdmin');
-        paparStatusSedia(me);
-        if (me.statusToken === 'perlu_sambung') paparSambungSemula();
-      } else {
-        $('emelBukan').textContent = me.email;
-        tunjuk('bukanAhli');
-      }
-    }
-  }
-
-  function paparStatusSedia(info) {
-    const sedia = !!info.sedia;
-    $('belumSedia').classList.toggle('tersembunyi', sedia);
-    $('sudahSedia').classList.toggle('tersembunyi', !sedia);
-    if (sedia) { $('pautanSheet').href = info.pautanSheet; $('pautanFolder').href = info.pautanFolder; }
-  }
-
-  $('butangSedia').addEventListener('click', async () => {
-    $('butangSedia').disabled = true;
-    mesej($('hasilUji'), 'amaran', 'Mencipta folder dan Google Sheet dalam Drive anda...');
-    const r = await api('/api/s/' + encodeURIComponent(slug) + '/setup', { method: 'POST' });
-    $('butangSedia').disabled = false;
-    if (r.ok) {
-      paparStatusSedia({ sedia: true, pautanSheet: r.pautanSheet, pautanFolder: r.pautanFolder });
-      mesej($('mesej'), 'ok', '');
-      mesej($('hasilUji'), 'ok', 'Siap. Folder "Annur OPR" dan Google Sheet sekolah telah dicipta dalam Drive anda.');
-    } else if (r.perluSambung) paparSambungSemula();
-    else mesej($('hasilUji'), 'bahaya', r.ralat || 'Penyediaan gagal. Cuba lagi.');
-  });
-
-  function paparSambungSemula() {
-    $('hasilUji').textContent = '';
-    $('hasilUji').append(
-      el('div', { class: 'mesej amaran', text: 'Sambungan Google Drive admin telah tamat atau dibatalkan.' }),
-      el('a', { class: 'butang', href: '/auth/login?mode=admin&s=' + encodeURIComponent(slug), text: 'Sambung semula Google Drive' })
-    );
-  }
-
-  $('ujiDrive').addEventListener('click', async () => {
-    $('ujiDrive').disabled = true;
-    mesej($('hasilUji'), 'amaran', 'Menguji...');
-    const r = await api('/api/s/' + encodeURIComponent(slug) + '/health', { method: 'POST' });
-    $('ujiDrive').disabled = false;
-    if (r.ok && r.tulis) mesej($('hasilUji'), 'ok', 'Berjaya. Annur OPR boleh menulis dan membaca Google Sheet sekolah ("' + r.namaDalamSheet + '").');
-    else if (r.perluSedia) paparStatusSedia({ sedia: false });
-    else if (r.perluSambung) paparSambungSemula();
-    else mesej($('hasilUji'), 'bahaya', r.ralat || 'Sambungan berjaya tetapi kebenaran Drive tiada. Sila sambung semula.');
-  });
-</script>
+<script type="module" src="/sekolah.js"></script>
 </body>
 </html>

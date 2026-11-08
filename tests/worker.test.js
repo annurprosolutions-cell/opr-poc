@@ -1,137 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handle } from '../src/worker.js';
-import { sulit, nyahsulit, semakSlug, b64url } from '../src/lib.js';
+import { sulit, nyahsulit, semakSlug } from '../src/lib.js';
 
-const ASAS = 'https://opr.annurpro.com';
-const CLIENT_ID = 'ujian.apps.googleusercontent.com';
-const DRIVE = 'https://www.googleapis.com/auth/drive.file';
-const T0 = Date.UTC(2026, 10, 8, 2, 0, 0);
-
-// ---------------------------------------------------------------- palsu
-function kvPalsu() {
-  const m = new Map();
-  return {
-    m,
-    async get(k, jenis) { const v = m.has(k) ? m.get(k) : null; return v !== null && jenis === 'json' ? JSON.parse(v) : v; },
-    async put(k, v) { m.set(k, String(v)); },
-    async delete(k) { m.delete(k); }
-  };
-}
-
-function env(lebih = {}) {
-  return {
-    BASE_URL: ASAS,
-    GOOGLE_CLIENT_ID: CLIENT_ID,
-    GOOGLE_CLIENT_SECRET: 'rahsia-ujian',
-    APP_SECRET: 'a'.repeat(48),
-    OPR_KV: kvPalsu(),
-    ASSETS: { fetch: async (r) => new Response('ASET ' + new URL(r.url).pathname, { headers: { 'content-type': 'text/html' } }) },
-    ...lebih
-  };
-}
-
-function idToken(tuntutan) {
-  const bhg = (o) => b64url(new TextEncoder().encode(JSON.stringify(o)));
-  return bhg({ alg: 'RS256' }) + '.' + bhg(tuntutan) + '.sig';
-}
-
-// Google palsu: OAuth + Drive + Sheets dalam memori. Rekod setiap panggilan.
-function googlePalsu(senario = {}) {
-  const panggilan = [];
-  const fail = new Map();      // id -> { name, mimeType, parents, trashed }
-  const sheet = new Map();     // id -> { title, tabs: Map(nama -> rows[][]) }
-  let kiraan = 0;
-  const gagalSheetKali = { n: senario.gagalSheetKali || 0 };
-
-  const f = async (url, opt = {}) => {
-    const u = String(url);
-    const kaedah = (opt.method || 'GET').toUpperCase();
-    const teks = opt.body instanceof Blob ? '' : (opt.body ? String(opt.body) : '');
-    const badanForm = u.startsWith('https://oauth2.googleapis.com/token') ? new URLSearchParams(teks) : null;
-    panggilan.push({ url: u, kaedah, badan: badanForm });
-
-    if (u === 'https://oauth2.googleapis.com/token' && badanForm.get('grant_type') === 'authorization_code') {
-      const email = senario.email || 'admin@sekolah.edu.my';
-      return Response.json({
-        access_token: 'akses-1',
-        refresh_token: senario.tiadaRefresh ? undefined : 'refresh-' + email,
-        scope: senario.skop || ('openid https://www.googleapis.com/auth/userinfo.email ' + DRIVE),
-        id_token: idToken({
-          iss: 'https://accounts.google.com', aud: senario.aud || CLIENT_ID,
-          exp: Math.floor(T0 / 1000) + 3600, email, email_verified: true, name: 'Cikgu Ujian'
-        })
-      });
-    }
-    if (u === 'https://oauth2.googleapis.com/token' && badanForm.get('grant_type') === 'refresh_token') {
-      if (senario.refreshMati) return Response.json({ error: 'invalid_grant' }, { status: 400 });
-      return Response.json({ access_token: 'akses-2', scope: DRIVE });
-    }
-    if (u.startsWith('https://oauth2.googleapis.com/tokeninfo')) {
-      return Response.json({ scope: DRIVE, email: senario.email || 'admin@sekolah.edu.my' });
-    }
-
-    // ---- Drive
-    const mDrive = u.match(/^https:\/\/www\.googleapis\.com\/drive\/v3\/files(?:\/([^?]+))?(?:\?(.*))?$/);
-    if (mDrive) {
-      const [, id, qs] = mDrive; const q = new URLSearchParams(qs || '');
-      if (!id && kaedah === 'POST') {
-        const meta = JSON.parse(teks);
-        const nid = 'fold-' + (++kiraan);
-        fail.set(nid, { name: meta.name, mimeType: meta.mimeType, parents: meta.parents || ['root'], trashed: false });
-        return Response.json({ id: nid, name: meta.name });
-      }
-      const rec = fail.get(id);
-      if (!rec) return Response.json({ error: { code: 404, message: 'File not found: ' + id } }, { status: 404 });
-      if (kaedah === 'GET') return Response.json({ id, name: rec.name, parents: rec.parents, trashed: rec.trashed });
-      if (kaedah === 'PATCH') {
-        const tambah = q.get('addParents'), buang = q.get('removeParents');
-        if (buang) rec.parents = rec.parents.filter(x => !buang.split(',').includes(x));
-        if (tambah) rec.parents.push(...tambah.split(','));
-        const meta = teks ? JSON.parse(teks) : {};
-        if (meta.trashed) rec.trashed = true;
-        return Response.json({ id, parents: rec.parents });
-      }
-    }
-
-    // ---- Sheets
-    if (u.startsWith('https://sheets.googleapis.com/v4/spreadsheets')) {
-      if (kaedah === 'POST' && /\/spreadsheets\?/.test(u)) {
-        if (gagalSheetKali.n > 0) {
-          gagalSheetKali.n--;
-          return Response.json({ error: { code: 403, status: 'PERMISSION_DENIED',
-            message: 'Google Sheets API has not been used in project 98079080039 before or it is disabled.' } }, { status: 403 });
-        }
-        const badan = JSON.parse(teks);
-        const sid = 'sheet-' + (++kiraan);
-        const tabs = new Map();
-        badan.sheets.forEach(sh => {
-          const rows = (sh.data[0].rowData || []).map(r => r.values.map(c => {
-            assert.ok('stringValue' in c.userEnteredValue, 'semua sel mesti stringValue');
-            return c.userEnteredValue.stringValue;
-          }));
-          tabs.set(sh.properties.title, rows);
-        });
-        sheet.set(sid, { title: badan.properties.title, tabs });
-        fail.set(sid, { name: badan.properties.title, mimeType: 'sheet', parents: ['root'], trashed: false });
-        return Response.json({ spreadsheetId: sid });
-      }
-      const m = u.match(/\/spreadsheets\/([^/]+)\/values\/([^?:]+)(:append)?/);
-      const sh = m && sheet.get(m[1]);
-      if (!sh) return Response.json({ error: { code: 404, message: 'Requested entity was not found.' } }, { status: 404 });
-      const tab = decodeURIComponent(m[2]).replace(/^'|'(!.*)?$/g, '').replace(/''/g, "'");
-      const rows = sh.tabs.get(tab);
-      if (m[3]) {
-        assert.match(u, /valueInputOption=RAW/);
-        rows.push(...JSON.parse(teks).values);
-        return Response.json({ updates: { updatedRange: tab + '!A' + rows.length } });
-      }
-      return Response.json({ values: rows });
-    }
-    return new Response('tidak dijangka: ' + u, { status: 599 });
-  };
-  return { f, panggilan, fail, sheet };
-}
+import { ASAS, CLIENT_ID, DRIVE, T0, kvPalsu, env, idToken, googlePalsu } from './palsu.js';
 
 function deps(g) { return { fetch: g.f, now: () => T0 }; }
 
@@ -157,6 +29,27 @@ async function logMasuk(e, g, mode, lebih = '') {
   const k1 = kukiDari(r1);
   const r2 = await handle(req('/auth/callback?code=kod&state=' + state, { kuki: k1 }), e, deps(g));
   return { r1, r2, lokasi, sesi: kukiDari(r2).opr_sesi };
+}
+
+// Sekolah siap (admin daftar + Drive disediakan) untuk ujian Fasa 3.
+async function sekolahSiap() {
+  const e = env(); const g = googlePalsu();
+  const { sesi } = await logMasuk(e, g, 'admin');
+  const c = await (await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: sesi }, body: { nama: 'SMK Wakanda', slug: 'smkwakanda' } }), e, deps(g))).json();
+  assert.equal(c.sedia, true);
+  return { e, g, sesiAdmin: sesi };
+}
+
+async function logMasukSebagai(e, g, email, mode = 'guru') {
+  g.senario.email = email;
+  const r = await logMasuk(e, g, mode, mode === 'guru' ? '&s=smkwakanda' : '');
+  g.senario.email = 'admin@sekolah.edu.my';
+  return r;
+}
+
+async function panggilApi(e, g, sesi, laluan, body) {
+  const r = await handle(req('/api/s/smkwakanda' + laluan, body === undefined ? { kuki: { opr_sesi: sesi } } : { method: 'POST', kuki: { opr_sesi: sesi }, body }), e, deps(g));
+  return { status: r.status, ...(await r.json()) };
 }
 
 // ---------------------------------------------------------------- ujian
@@ -296,18 +189,14 @@ test('admin kedua tidak boleh daftar sekolah kedua; slug sama ditolak', async ()
   assert.equal(sama.status, 409);
 });
 
-test('guru log masuk: peranan "tiada" sehingga didaftarkan (Fasa 3)', async () => {
-  const e = env(); const g = googlePalsu();
-  const a = await logMasuk(e, g, 'admin');
-  await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: a.sesi }, body: { nama: 'SMK Wakanda', slug: 'smkwakanda' } }), e, deps(g));
-
-  const gg = googlePalsu({ email: 'guru@gmail.com', skop: 'openid email' });
-  const { r2, sesi } = await logMasuk(e, gg, 'guru', '&s=smkwakanda');
-  assert.equal(r2.headers.get('location'), '/s/smkwakanda');
-  const me = await (await handle(req('/api/s/smkwakanda/me', { kuki: { opr_sesi: sesi } }), e, deps(gg))).json();
+test('guru belum didaftarkan: peranan "tiada" dan tidak boleh guna API sekolah', async () => {
+  const { e, g } = await sekolahSiap();
+  const b = await logMasukSebagai(e, g, 'guru@gmail.com', 'guru');
+  assert.equal(b.r2.headers.get('location'), '/s/smkwakanda');
+  const me = await (await handle(req('/api/s/smkwakanda/me', { kuki: { opr_sesi: b.sesi } }), e, deps(g))).json();
   assert.equal(me.peranan, 'tiada');
-  const uji = await handle(req('/api/s/smkwakanda/health', { method: 'POST', kuki: { opr_sesi: sesi } }), e, deps(gg));
-  assert.equal(uji.status, 403);
+  assert.equal((await handle(req('/api/s/smkwakanda/config', { kuki: { opr_sesi: b.sesi } }), e, deps(g))).status, 403);
+  assert.equal((await handle(req('/api/s/smkwakanda/health', { method: 'POST', kuki: { opr_sesi: b.sesi } }), e, deps(g))).status, 403);
 });
 
 test('admin tolak kebenaran Drive: tiada token disimpan', async () => {
@@ -409,4 +298,129 @@ test('tukar token gagal: kod ralat Google dipaparkan dalam URL, tanpa rahsia', a
   assert.match(lok, /d=invalid_client/);
   assert.match(lok, /m=Unauthorized/);
   assert.ok(!lok.includes('rahsia-ujian'));
+});
+
+// ======================================================================
+// Fasa 3a
+// ======================================================================
+
+test('admin tambah guru (tampal senarai), guru dikenali, nyahaktif berkuat kuasa serta-merta', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  const t = await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'aminah@moe-dl.edu.my, Cikgu Aminah\nali@gmail.com\tCikgu Ali\nbukan-emel\nADMIN@sekolah.edu.my\nali@gmail.com' });
+  assert.deepEqual(t.ditambah, ['aminah@moe-dl.edu.my', 'ali@gmail.com']);
+  assert.equal(t.diabaikan.length, 3);
+
+  const senarai = await panggilApi(e, g, sesiAdmin, '/guru');
+  assert.equal(senarai.guru.length, 3);
+  assert.equal(senarai.guru.find(x => x.email === 'admin@sekolah.edu.my').pemilik, true);
+
+  const ali = await logMasukSebagai(e, g, 'ali@gmail.com');
+  assert.equal((await panggilApi(e, g, ali.sesi, '/me')).peranan, 'guru');
+  const cfg = await panggilApi(e, g, ali.sesi, '/config');
+  assert.equal(Object.keys(cfg.jenis).length, 8);
+  assert.ok(cfg.senarai.UNIT_UNIFORM.length > 5);
+  assert.equal(cfg.tetapan.NAMA_SEKOLAH, 'SMK Wakanda');
+  assert.equal((await panggilApi(e, g, ali.sesi, '/guru')).status, 403);
+
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/guru/kemaskini', { email: 'ali@gmail.com', aktif: false })).ok, true);
+  const me = await panggilApi(e, g, ali.sesi, '/me');
+  assert.equal(me.peranan, 'tidak_aktif');
+  const tolak = await panggilApi(e, g, ali.sesi, '/config');
+  assert.equal(tolak.status, 403);
+  assert.match(tolak.ralat, /dinyahaktifkan/);
+});
+
+test('hierarki admin: hanya pemilik boleh melantik/mengubah admin; pemilik tidak boleh diubah', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'pk@sekolah.edu.my\nguru@gmail.com' });
+  const naik = await panggilApi(e, g, sesiAdmin, '/guru/kemaskini', { email: 'pk@sekolah.edu.my', peranan: 'admin' });
+  assert.equal(naik.ok, true);
+
+  const pk = await logMasukSebagai(e, g, 'pk@sekolah.edu.my');
+  assert.equal((await panggilApi(e, g, pk.sesi, '/me')).peranan, 'admin');
+  // Admin biasa: boleh tambah guru, tidak boleh lantik admin, tidak boleh ubah pemilik
+  assert.equal((await panggilApi(e, g, pk.sesi, '/guru', { teks: 'baru@gmail.com' })).ok, true);
+  assert.equal((await panggilApi(e, g, pk.sesi, '/guru', { teks: 'x@gmail.com', peranan: 'admin' })).status, 403);
+  assert.equal((await panggilApi(e, g, pk.sesi, '/guru/kemaskini', { email: 'guru@gmail.com', peranan: 'admin' })).status, 403);
+  assert.equal((await panggilApi(e, g, pk.sesi, '/guru/kemaskini', { email: 'admin@sekolah.edu.my', aktif: false })).status, 403);
+  // Pemilik sendiri pun tidak boleh diubah melalui API
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/guru/kemaskini', { email: 'admin@sekolah.edu.my', peranan: 'guru' })).status, 403);
+  // Penurunan pangkat oleh pemilik berkuat kuasa serta-merta
+  await panggilApi(e, g, sesiAdmin, '/guru/kemaskini', { email: 'pk@sekolah.edu.my', peranan: 'guru' });
+  assert.equal((await panggilApi(e, g, pk.sesi, '/me')).peranan, 'guru');
+  assert.equal((await panggilApi(e, g, pk.sesi, '/guru')).status, 403);
+});
+
+test('laporan: guru simpan, edit baris sama, tidak nampak laporan guru lain; admin nampak semua', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'ali@gmail.com\nabu@gmail.com' });
+  const ali = await logMasukSebagai(e, g, 'ali@gmail.com');
+  const abu = await logMasukSebagai(e, g, 'abu@gmail.com');
+
+  const data = { jenis: 'KOKURIKULUM', tajuk: 'Kejohanan Bola Sepak MSSD', unit: 'Bola Sepak', jumLelaki: '22', tarikhProgram: '2026-11-08', objektif: '=HYPERLINK("http://jahat")' };
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan', { data, status: 'SIMPAN' })).status, 400); // tiada consent
+  const s1 = await panggilApi(e, g, ali.sesi, '/laporan', { data, status: 'SIMPAN', consent: true });
+  assert.equal(s1.ok, true);
+
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const rows = g.sheet.get(sek.sheetId).tabs.get('Laporan');
+  assert.equal(rows.length, 2);
+  const tajuk = rows[0];
+  const baris = Object.fromEntries(tajuk.map((h, i) => [h, rows[1][i]]));
+  assert.equal(baris.PemilikEmail, 'ali@gmail.com');
+  assert.equal(baris.Objektif, '=HYPERLINK("http://jahat")'); // disimpan RAW sebagai teks
+
+  // Edit: baris sama dikemas kini, tiada baris baharu
+  const s2 = await panggilApi(e, g, ali.sesi, '/laporan', { id: s1.id, data: { ...data, tajuk: 'Kejohanan (dikemas kini)' }, status: 'HANTAR' });
+  assert.equal(s2.status, 'HANTAR');
+  assert.equal(rows.length, 2);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan/' + s1.id)).data.tajuk, 'Kejohanan (dikemas kini)');
+
+  // Guru lain: tidak nampak, tidak boleh baca/edit/padam
+  assert.equal((await panggilApi(e, g, abu.sesi, '/laporan')).jumlah, 0);
+  assert.equal((await panggilApi(e, g, abu.sesi, '/laporan/' + s1.id)).status, 403);
+  assert.equal((await panggilApi(e, g, abu.sesi, '/laporan', { id: s1.id, data, status: 'SIMPAN' })).status, 403);
+  assert.equal((await panggilApi(e, g, abu.sesi, '/laporan/' + s1.id + '/padam', {})).status, 403);
+
+  // Admin nampak semua
+  const semua = await panggilApi(e, g, sesiAdmin, '/laporan');
+  assert.equal(semua.jumlah, 1);
+  assert.equal(semua.data[0].nama, 'Cikgu Ujian');
+
+  // Padam lembut
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan/' + s1.id + '/padam', {})).ok, true);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan')).jumlah, 0);
+  assert.equal(rows.length, 2);
+  assert.ok(g.sheet.get(sek.sheetId).tabs.get('AuditLog').some(r => r[3] === 'PADAM_LAPORAN'));
+});
+
+test('laporan telah disemak: guru tidak boleh ubah; admin edit tidak menjatuhkan status semakan', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'ali@gmail.com' });
+  const ali = await logMasukSebagai(e, g, 'ali@gmail.com');
+  const s1 = await panggilApi(e, g, ali.sesi, '/laporan', { data: { tajuk: 'Program X' }, status: 'HANTAR', consent: true });
+
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const rows = g.sheet.get(sek.sheetId).tabs.get('Laporan');
+  rows[1][rows[0].indexOf('Status')] = 'TELAH DISEMAK';
+
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan', { id: s1.id, data: { tajuk: 'Ubah' }, status: 'HANTAR' })).status, 403);
+  assert.equal((await panggilApi(e, g, ali.sesi, '/laporan/' + s1.id + '/padam', {})).status, 403);
+  const adm = await panggilApi(e, g, sesiAdmin, '/laporan', { id: s1.id, data: { tajuk: 'Dibetulkan admin' }, status: 'SIMPAN' });
+  assert.equal(adm.status, 'TELAH DISEMAK');
+});
+
+test('access token di-cache; 401 daripada Google mencetuskan token baharu dan cuba semula', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  const bilRefresh = () => g.panggilan.filter(p => p.badan && p.badan.get('grant_type') === 'refresh_token').length;
+  const awal = bilRefresh();
+  await panggilApi(e, g, sesiAdmin, '/config');
+  await panggilApi(e, g, sesiAdmin, '/laporan');
+  assert.equal(bilRefresh(), awal);           // guna cache
+  assert.ok(e.OPR_KV.m.get('at:smkwakanda') && !e.OPR_KV.m.get('at:smkwakanda').includes('akses-2'));
+
+  g.senario.tolak401Sekali = true;
+  const r = await panggilApi(e, g, sesiAdmin, '/config');
+  assert.equal(r.ok, true);
+  assert.equal(bilRefresh(), awal + 1);       // token baharu diambil sekali
 });

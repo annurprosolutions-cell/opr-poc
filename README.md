@@ -26,7 +26,8 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 |---|---|---|
 | 1 | Worker, log masuk Google (PKCE), sesi, pendaftaran sekolah `/s/<slug>`, ujian sambungan Drive | Siap |
 | 2 | Folder + subfolder + Google Sheet (5 tab, 8 jenis laporan, 186 item senarai) dicipta automatik dalam Drive admin; penyediaan boleh disambung jika gagal; ujian tulis/baca | Siap |
-| 3 | Senarai guru, borang OPR + PDF (dari v2), senarai laporan, semakan | |
+| 3a | Peranan dari tab Guru (berkuat kuasa serta-merta), admin tambah guru (tampal senarai), hierarki admin, borang OPR 8 jenis, simpan/edit/padam laporan, cache token | Siap |
+| 3b | Pratonton A4 + jana PDF (dari v2), gambar/lampiran, semakan + PDF bertandatangan, dashboard, tetapan sekolah | |
 | 4 | Licence, percubaan, BCL | |
 | 5 | Sale page, pengesahan Google, manual, video | |
 
@@ -37,6 +38,12 @@ npm test
 ```
 
 Google, KV dan aset dipalsukan sepenuhnya; tiada akaun sebenar disentuh.
+
+Ujian browser hujung-ke-hujung (Worker sebenar dalam proses, Google palsu, semua hos luar disekat):
+
+```bash
+npm run e2e
+```
 
 Jalankan setempat dalam runtime Cloudflare:
 

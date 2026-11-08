@@ -121,3 +121,15 @@ export async function bacaObjek(g, sheetId, tab) {
 
 export const pautanSheet = (id) => 'https://docs.google.com/spreadsheets/d/' + id + '/edit';
 export const pautanFolder = (id) => 'https://drive.google.com/drive/folders/' + id;
+
+// Baca tab dengan susunan tajuk asal (untuk menulis semula satu baris penuh).
+export async function bacaJadual(g, sheetId, tab) {
+  const v = await bacaJulat(g, sheetId, tab);
+  const tajuk = (v[0] || []).map(h => String(h).trim());
+  const baris = v.slice(1).map((r, i) => {
+    const o = { _baris: i + 2 };
+    tajuk.forEach((h, j) => { o[h] = r[j] === undefined ? '' : r[j]; });
+    return o;
+  });
+  return { tajuk, baris };
+}

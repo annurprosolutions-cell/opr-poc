@@ -20,9 +20,10 @@ import {
 } from './lib.js';
 import {
   RalatGoogle, ciptaFolder, ciptaSpreadsheet, pindahKeFolder, infoFail,
-  tambahBaris, bacaObjek, pautanSheet, pautanFolder
+  tambahBaris, bacaObjek, bacaJadual, kemaskiniJulat, pautanSheet, pautanFolder
 } from './google.js';
-import { VERSI_SKEMA, TAB, KOLUM, SUBFOLDER, tetapanAsal, barisSenaraiAsal } from './skema.js';
+import { VERSI_SKEMA, TAB, KOLUM, SUBFOLDER, tetapanAsal, barisSenaraiAsal, jenisLalai, JENIS_SAH } from './skema.js';
+import { binaRekod, barisIkutTajuk, ringkasan, butiran, hurufLajur, STATUS } from './laporan.js';
 
 const SKOP_GURU = 'openid email profile';
 const SKOP_ADMIN = 'openid email profile https://www.googleapis.com/auth/drive.file';
@@ -203,6 +204,7 @@ async function callback(req, env, url, f, now) {
       sek.statusToken = 'ok';
       sek.disambungPada = new Date(now()).toISOString();
       await env.OPR_KV.put('school:' + slugSedia, JSON.stringify(sek));
+      await env.OPR_KV.delete('at:' + slugSedia);
       return lencong('/s/' + slugSedia + '?disambung=1', kukiList);
     }
   }
@@ -245,35 +247,12 @@ async function api(req, env, url, f, now) {
     return await ciptaSekolah(req, env, sesi, now, f);
   }
 
-  m = p.match(/^\/api\/s\/([^/]+)(\/[a-z]+)?$/);
+  m = p.match(/^\/api\/s\/([^/]+)(\/.*)?$/);
   if (m) {
     const s = semakSlug(decodeURIComponent(m[1]));
     const sek = s.ok ? await env.OPR_KV.get('school:' + s.slug, 'json') : null;
     if (!sek) return ralat('Sekolah tidak dijumpai.', 404);
-    const sub = m[2] || '';
-
-    if (sub === '' && req.method === 'GET') {
-      return json({ ok: true, slug: sek.slug, nama: sek.nama });
-    }
-    if (sub === '/me' && req.method === 'GET') {
-      if (!sesi) return ralat('Belum log masuk.', 401);
-      const peranan = sesi.email === sek.adminEmail ? 'admin' : 'tiada';
-      const asas = { ok: true, email: sesi.email, nama: sesi.nama, peranan };
-      if (peranan !== 'admin') return json(asas);
-      return json({ ...asas, statusToken: sek.statusToken, sedia: !!sek.sheetId,
-        pautanSheet: sek.sheetId ? pautanSheet(sek.sheetId) : '',
-        pautanFolder: sek.folderId ? pautanFolder(sek.folderId) : '' });
-    }
-    if (sub === '/setup' && req.method === 'POST') {
-      if (!sesi) return ralat('Belum log masuk.', 401);
-      if (sesi.email !== sek.adminEmail) return ralat('Hanya admin sekolah ini.', 403);
-      return await jalanSediakan(env, sek, sesi, f, now);
-    }
-    if (sub === '/health' && req.method === 'POST') {
-      if (!sesi) return ralat('Belum log masuk.', 401);
-      if (sesi.email !== sek.adminEmail) return ralat('Hanya admin sekolah ini.', 403);
-      return await ujiDrive(env, sek, f, now);
-    }
+    return await apiSekolah(req, env, url, sek, sesi, m[2] || '', f, now);
   }
 
   return ralat('Laluan tidak dijumpai.', 404);
@@ -314,18 +293,26 @@ async function ciptaSekolah(req, env, sesi, now, fGlobal) {
   // admin boleh tekan "Sediakan Google Drive" semula (langkah boleh disambung).
   let sedia = false, ralatSedia = '';
   try {
-    const t = await tokenAdmin(env, rekod, fGlobal, now);
-    if (t.ok) { await sediakanDrive(env, rekod, { at: t.accessToken, f: fGlobal }, sesi, now); sedia = true; }
-    else ralatSedia = t.perluSambung ? 'Sambungan Google tamat.' : (t.ralat || '');
+    const r = await denganAkses(env, rekod, fGlobal, now, (g) => sediakanDrive(env, rekod, g, sesi, now));
+    if (r.gagal) ralatSedia = r.gagal.perluSambung ? 'Sambungan Google tamat.' : (r.gagal.ralat || '');
+    else sedia = true;
   } catch (e) { ralatSedia = mesejRalatGoogle(e); }
   return json({ ok: true, slug: s.slug, pautan: '/s/' + s.slug, sedia, ralatSedia });
 }
 
 // Dapatkan access token admin daripada refresh token tersulit.
-// Dikongsi oleh semua ciri seterusnya (Sheet, Drive).
-export async function tokenAdmin(env, sek, f, now) {
+// Access token di-cache (tersulit) dalam KV supaya tidak perlu tukar token
+// dengan Google pada setiap permintaan guru.
+export async function tokenAdmin(env, sek, f, now, { abaiCache = false } = {}) {
   if (sek.statusToken === 'perlu_sambung') {
     return { ok: false, perluSambung: true };
+  }
+  const kunciCache = 'at:' + sek.slug;
+  if (!abaiCache) {
+    const c = await env.OPR_KV.get(kunciCache);
+    if (c) {
+      try { return { ok: true, accessToken: await nyahsulit(c, env.APP_SECRET), skop: '' }; } catch (e) { /* ambil baharu */ }
+    }
   }
   const refresh = await nyahsulit(sek.tokenEnc, env.APP_SECRET);
   const res = await f('https://oauth2.googleapis.com/token', {
@@ -344,10 +331,13 @@ export async function tokenAdmin(env, sek, f, now) {
       sek.statusToken = 'perlu_sambung';
       sek.tokenGagalPada = new Date(now()).toISOString();
       await env.OPR_KV.put('school:' + sek.slug, JSON.stringify(sek));
+      await env.OPR_KV.delete(kunciCache);
       return { ok: false, perluSambung: true };
     }
     return { ok: false, perluSambung: false, ralat: t.error || ('HTTP ' + res.status) };
   }
+  const umur = Math.max(60, Math.min(3000, (Number(t.expires_in) || 3600) - 300));
+  await env.OPR_KV.put(kunciCache, await sulit(t.access_token, env.APP_SECRET), { expirationTtl: umur });
   return { ok: true, accessToken: t.access_token, skop: String(t.scope || '') };
 }
 
@@ -411,21 +401,10 @@ export async function sediakanDrive(env, sek, g, sesi, now) {
   return sek;
 }
 
-async function aksesAdmin(env, sek, f, now) {
-  const t = await tokenAdmin(env, sek, f, now);
-  if (t.ok) return { g: { at: t.accessToken, f } };
-  return {
-    respons: t.perluSambung
-      ? ralat('Sambungan Google admin telah tamat atau dibatalkan. Sila sambung semula.', 409, { perluSambung: true })
-      : ralat('Google tidak memberi akses buat masa ini (' + t.ralat + '). Cuba lagi sebentar.', 502)
-  };
-}
-
 async function jalanSediakan(env, sek, sesi, f, now) {
-  const a = await aksesAdmin(env, sek, f, now);
-  if (a.respons) return a.respons;
   try {
-    await sediakanDrive(env, sek, a.g, sesi, now);
+    const r = await denganAkses(env, sek, f, now, (g) => sediakanDrive(env, sek, g, sesi, now));
+    if (r.gagal) return responsGagalToken(r.gagal, true);
   } catch (e) {
     console.error('Sediakan Drive gagal', sek.slug, e && e.message);
     return ralat(mesejRalatGoogle(e), 502);
@@ -436,21 +415,316 @@ async function jalanSediakan(env, sek, sesi, f, now) {
 // Ujian sebenar: tulis satu baris ke AuditLog dan baca semula Tetapan.
 async function ujiDrive(env, sek, f, now) {
   if (!sek.sheetId) return ralat('Google Drive sekolah belum disediakan.', 409, { perluSedia: true });
-  const a = await aksesAdmin(env, sek, f, now);
-  if (a.respons) return a.respons;
   try {
-    const folder = await infoFail(a.g, sek.folderId);
-    if (folder.trashed) return ralat('Folder "Annur OPR" sekolah berada dalam Tong Sampah Google Drive. Sila pulihkannya.', 409);
-    await tambahBaris(a.g, sek.sheetId, TAB.AUDIT,
-      [[new Date(now()).toISOString(), sek.adminEmail, 'admin', 'UJI_SAMBUNGAN', sek.slug, 'BERJAYA', '']]);
-    const tetapan = await bacaObjek(a.g, sek.sheetId, TAB.TETAPAN);
-    const nama = (tetapan.find(r => r.Kunci === 'NAMA_SEKOLAH') || {}).Nilai || '';
-    return json({ ok: true, drive: true, tulis: true, baca: !!nama, namaDalamSheet: String(nama),
-      pautanSheet: pautanSheet(sek.sheetId), pautanFolder: pautanFolder(sek.folderId) });
+    const r = await denganAkses(env, sek, f, now, async (g) => {
+      const folder = await infoFail(g, sek.folderId);
+      if (folder.trashed) return ralat('Folder "Annur OPR" sekolah berada dalam Tong Sampah Google Drive. Sila pulihkannya.', 409);
+      await tambahBaris(g, sek.sheetId, TAB.AUDIT,
+        [[new Date(now()).toISOString(), sek.adminEmail, 'admin', 'UJI_SAMBUNGAN', sek.slug, 'BERJAYA', '']]);
+      const tetapan = await bacaTetapan(g, sek);
+      return json({ ok: true, drive: true, tulis: true, baca: !!tetapan.NAMA_SEKOLAH, namaDalamSheet: tetapan.NAMA_SEKOLAH || '',
+        pautanSheet: pautanSheet(sek.sheetId), pautanFolder: pautanFolder(sek.folderId) });
+    });
+    return r.gagal ? responsGagalToken(r.gagal, true) : r.hasil;
   } catch (e) {
     console.error('Uji Drive gagal', sek.slug, e && e.message);
     return ralat(mesejRalatGoogle(e), 502);
   }
+}
+
+// ======================================================================
+// Fasa 3a: peranan, guru, tetapan borang, laporan
+// ======================================================================
+
+const EMEL_RE = /^[^\s@,;<>"']+@[^\s@,;<>"']+\.[^\s@,;<>"']{2,}$/;
+
+// Jalankan operasi Google dengan token admin. Jika Google jawab 401 (token
+// cache sudah dibatalkan), ambil token baharu dan cuba sekali lagi.
+async function denganAkses(env, sek, f, now, fn) {
+  let t = await tokenAdmin(env, sek, f, now);
+  if (!t.ok) return { gagal: t };
+  try {
+    return { hasil: await fn({ at: t.accessToken, f }) };
+  } catch (e) {
+    if (!(e instanceof RalatGoogle) || !e.tiadaAkses) throw e;
+    await env.OPR_KV.delete('at:' + sek.slug);
+    t = await tokenAdmin(env, sek, f, now, { abaiCache: true });
+    if (!t.ok) return { gagal: t };
+    return { hasil: await fn({ at: t.accessToken, f }) };
+  }
+}
+
+function responsGagalToken(t, pemilik) {
+  if (t.perluSambung) {
+    return pemilik
+      ? ralat('Sambungan Google admin telah tamat atau dibatalkan. Sila sambung semula.', 409, { perluSambung: true })
+      : ralat('Sistem sekolah perlu disambung semula oleh admin sekolah. Sila maklumkan admin.', 503);
+  }
+  return ralat('Google tidak memberi akses buat masa ini (' + t.ralat + '). Cuba lagi sebentar.', 502);
+}
+
+// Peranan dibaca daripada tab Guru setiap kali (tiada cache), supaya guru yang
+// dinyahaktif atau diturunkan pangkat terus hilang akses.
+async function kenalPasti(g, sek, email) {
+  const jadual = await bacaJadual(g, sek.sheetId, TAB.GURU);
+  const pemilik = email === sek.adminEmail;
+  const baris = jadual.baris.find(r => String(r.Email).trim().toLowerCase() === email);
+  if (pemilik) return { peranan: 'admin', pemilik: true, baris, jadual };
+  if (!baris) return { peranan: 'tiada', pemilik: false, jadual };
+  if (String(baris.Aktif).toUpperCase() !== 'YA') return { peranan: 'tidak_aktif', pemilik: false, baris, jadual };
+  return { peranan: String(baris.Peranan).toLowerCase() === 'admin' ? 'admin' : 'guru', pemilik: false, baris, jadual };
+}
+
+async function audit(g, sek, sesi, peranan, tindakan, sasaran, status, nota) {
+  try {
+    await tambahBaris(g, sek.sheetId, TAB.AUDIT, [[new Date().toISOString(), sesi.email, peranan, tindakan, sasaran || '', status || 'BERJAYA', nota || '']]);
+  } catch (e) { console.error('Audit gagal', e && e.message); }
+}
+
+async function bacaTetapan(g, sek) {
+  const t = {};
+  (await bacaObjek(g, sek.sheetId, TAB.TETAPAN)).forEach(r => { if (r.Kunci) t[String(r.Kunci).trim()] = String(r.Nilai ?? ''); });
+  return t;
+}
+
+function jenisTetapan(t) {
+  const asas = jenisLalai();
+  let masuk = {};
+  try { masuk = JSON.parse(t.JENIS_TETAPAN || '{}') || {}; } catch (e) { masuk = {}; }
+  for (const k of JENIS_SAH) {
+    const m = masuk[k];
+    if (!m || typeof m !== 'object') continue;
+    for (const kunci of ['nama', 'tajuk', 'penyemak', 'pengesah', 'slot', 'kategori']) {
+      if (m[kunci] !== undefined && String(m[kunci]).trim()) asas[k][kunci] = String(m[kunci]).slice(0, 200);
+    }
+    if (m.aktif !== undefined) asas[k].aktif = m.aktif === true || String(m.aktif).toUpperCase() === 'YA';
+  }
+  if (!JENIS_SAH.some(k => asas[k].aktif)) asas.KOKURIKULUM.aktif = true;
+  return asas;
+}
+
+const KUNCI_CONFIG_AWAM = ['NAMA_SEKOLAH', 'ALAMAT_SEKOLAH', 'NAMA_SISTEM', 'TAJUK_DOKUMEN', 'SINGKATAN',
+  'TELEFON', 'FAKS', 'MOTO', 'WARNA_1', 'WARNA_2', 'WARNA_AKSEN', 'FOOTER_PDF', 'NAMA_PENGETUA',
+  'JAWATAN_PENYEMAK', 'JAWATAN_PENGESAH', 'TAHUN_SESI', 'JENIS_DEFAULT', 'WAJIB_PDF', 'WAJIB_PDF_SEMAK',
+  'WARNA_KERTAS', 'SUSUN_GAMBAR', 'GAYA_LAPORAN', 'CONSENT_TEXT', 'PREFIX_FAIL',
+  'LOGO3_LABEL', 'LOGO4_LABEL', 'LOGO5_LABEL', 'LOGO6_LABEL', 'LOGO_FOOTER_ALIGN'];
+
+async function bacaConfig(g, sek) {
+  const t = await bacaTetapan(g, sek);
+  const tetapan = {};
+  KUNCI_CONFIG_AWAM.forEach(k => { tetapan[k] = t[k] || ''; });
+  const senarai = {};
+  (await bacaObjek(g, sek.sheetId, TAB.SENARAI)).forEach(r => {
+    if (String(r.Aktif).toUpperCase() === 'TIDAK') return;
+    const kat = String(r.Kategori || '').trim(), nilai = String(r.Nilai || '').trim();
+    if (!kat || !nilai) return;
+    (senarai[kat] = senarai[kat] || []).push({ nilai, susunan: Number(r.Susunan) || 999 });
+  });
+  for (const k of Object.keys(senarai)) senarai[k] = senarai[k].sort((a, b) => a.susunan - b.susunan).map(x => x.nilai);
+  return { tetapan, jenis: jenisTetapan(t), senarai, mentah: t };
+}
+
+async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
+  if (sub === '' && req.method === 'GET') return json({ ok: true, slug: sek.slug, nama: sek.nama });
+  if (!sesi) return ralat('Belum log masuk.', 401);
+  const pemilik = sesi.email === sek.adminEmail;
+  const maklumatPemilik = () => ({ statusToken: sek.statusToken, sedia: !!sek.sheetId,
+    pautanSheet: sek.sheetId ? pautanSheet(sek.sheetId) : '', pautanFolder: sek.folderId ? pautanFolder(sek.folderId) : '' });
+
+  // Operasi khusus pemilik (sebelum Sheet wujud)
+  if (sub === '/setup' && req.method === 'POST') {
+    if (!pemilik) return ralat('Hanya admin utama sekolah ini.', 403);
+    return await jalanSediakan(env, sek, sesi, f, now);
+  }
+  if (sub === '/health' && req.method === 'POST') {
+    if (!pemilik) return ralat('Hanya admin utama sekolah ini.', 403);
+    return await ujiDrive(env, sek, f, now);
+  }
+
+  if (!sek.sheetId) {
+    if (sub === '/me' && req.method === 'GET') {
+      return json({ ok: true, email: sesi.email, nama: sesi.nama, peranan: pemilik ? 'admin' : 'tiada', pemilik,
+        belumSedia: true, ...(pemilik ? maklumatPemilik() : {}) });
+    }
+    return ralat('Sistem sekolah ini belum disediakan oleh admin.', 409, { perluSedia: true });
+  }
+
+  let badan = {};
+  if (req.method === 'POST') { try { badan = await req.json(); } catch (e) { badan = {}; } }
+
+  try {
+    const r = await denganAkses(env, sek, f, now, async (g) => {
+      const kenal = await kenalPasti(g, sek, sesi.email);
+      if (sub === '/me' && req.method === 'GET') {
+        return json({ ok: true, email: sesi.email, nama: sesi.nama, peranan: kenal.peranan, pemilik,
+          ...(pemilik ? maklumatPemilik() : {}) });
+      }
+      if (kenal.peranan === 'tiada' || kenal.peranan === 'tidak_aktif') {
+        return ralat(kenal.peranan === 'tidak_aktif' ? 'Akaun anda telah dinyahaktifkan oleh admin sekolah.' : 'Akaun anda belum didaftarkan dalam sekolah ini.', 403);
+      }
+      const admin = kenal.peranan === 'admin';
+      const ctx = { env, sek, sesi, g, kenal, admin, pemilik, badan, url, now };
+
+      if (sub === '/config' && req.method === 'GET') {
+        const c = await bacaConfig(g, sek);
+        return json({ ok: true, tetapan: c.tetapan, jenis: c.jenis, senarai: c.senarai });
+      }
+      if (sub === '/guru' && req.method === 'GET') return admin ? senaraiGuru(ctx) : ralat('Hanya admin.', 403);
+      if (sub === '/guru' && req.method === 'POST') return admin ? await tambahGuru(ctx) : ralat('Hanya admin.', 403);
+      if (sub === '/guru/kemaskini' && req.method === 'POST') return admin ? await kemaskiniGuru(ctx) : ralat('Hanya admin.', 403);
+      if (sub === '/laporan' && req.method === 'GET') return await senaraiLaporan(ctx);
+      if (sub === '/laporan' && req.method === 'POST') return await simpanLaporan(ctx);
+      const ml = sub.match(/^\/laporan\/([A-Za-z0-9-]{8,64})(\/padam)?$/);
+      if (ml && !ml[2] && req.method === 'GET') return await bacaLaporan(ctx, ml[1]);
+      if (ml && ml[2] && req.method === 'POST') return await padamLaporan(ctx, ml[1]);
+      return ralat('Laluan tidak dijumpai.', 404);
+    });
+    if (r.gagal) {
+      if (sub === '/me' && pemilik) return json({ ok: true, email: sesi.email, nama: sesi.nama, peranan: 'admin', pemilik, ...maklumatPemilik() });
+      return responsGagalToken(r.gagal, pemilik);
+    }
+    return r.hasil;
+  } catch (e) {
+    console.error('API sekolah gagal', sek.slug, sub, e && e.message);
+    return ralat(mesejRalatGoogle(e), 502);
+  }
+}
+
+// ---------------------------------------------------------------- guru
+function senaraiGuru({ kenal, sek }) {
+  const guru = kenal.jadual.baris.map(r => ({
+    email: String(r.Email).trim().toLowerCase(), nama: String(r.Nama || ''),
+    peranan: String(r.Peranan || 'guru').toLowerCase() === 'admin' ? 'admin' : 'guru',
+    aktif: String(r.Aktif).toUpperCase() === 'YA', ditambah: String(r.Ditambah || ''),
+    pemilik: String(r.Email).trim().toLowerCase() === sek.adminEmail
+  })).filter(x => x.email);
+  return json({ ok: true, guru });
+}
+
+// Terima teks tampal: satu guru satu baris, "emel" atau "emel, nama" (koma atau tab).
+export function huraiSenaraiGuru(teks) {
+  const keluar = [], salah = [];
+  String(teks || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean).forEach(baris => {
+    const [e, ...n] = baris.split(/[,\t;]/);
+    const email = String(e || '').trim().toLowerCase();
+    const nama = n.join(' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (EMEL_RE.test(email)) keluar.push({ email, nama });
+    else salah.push(baris.slice(0, 80));
+  });
+  return { senarai: keluar, salah };
+}
+
+async function tambahGuru({ g, sek, sesi, kenal, pemilik, badan, now }) {
+  const peranan = badan.peranan === 'admin' ? 'admin' : 'guru';
+  if (peranan === 'admin' && !pemilik) return ralat('Hanya admin utama boleh melantik admin lain.', 403);
+  const { senarai, salah } = huraiSenaraiGuru(badan.teks);
+  if (!senarai.length) return ralat(salah.length ? 'Tiada emel yang sah dijumpai.' : 'Sila masukkan sekurang-kurangnya satu emel.');
+  if (senarai.length > 300) return ralat('Maksimum 300 guru setiap kali.');
+
+  const sedia = new Set(kenal.jadual.baris.map(r => String(r.Email).trim().toLowerCase()));
+  const masa = new Date(now()).toISOString();
+  const baru = [], diabaikan = salah.map(b => ({ teks: b, sebab: 'Format emel tidak sah' }));
+  senarai.forEach(x => {
+    if (sedia.has(x.email)) { diabaikan.push({ teks: x.email, sebab: 'Sudah ada dalam senarai' }); return; }
+    sedia.add(x.email);
+    baru.push(x);
+  });
+  if (baru.length) {
+    await tambahBaris(g, sek.sheetId, TAB.GURU, baru.map(x => [x.email, x.nama, peranan, 'YA', masa, sesi.email]));
+    await audit(g, sek, sesi, 'admin', 'TAMBAH_GURU', baru.length + ' akaun', 'BERJAYA', peranan);
+  }
+  return json({ ok: true, ditambah: baru.map(x => x.email), diabaikan });
+}
+
+async function kemaskiniGuru({ g, sek, sesi, kenal, pemilik, badan }) {
+  const email = String(badan.email || '').trim().toLowerCase();
+  const sasaran = kenal.jadual.baris.find(r => String(r.Email).trim().toLowerCase() === email);
+  if (!sasaran) return ralat('Guru tidak dijumpai.', 404);
+  if (email === sek.adminEmail) return ralat('Admin utama sekolah tidak boleh diubah atau dinyahaktif.', 403);
+  const kiniAdmin = String(sasaran.Peranan).toLowerCase() === 'admin';
+  const perananBaru = badan.peranan === undefined ? (kiniAdmin ? 'admin' : 'guru') : (badan.peranan === 'admin' ? 'admin' : 'guru');
+  // Melantik, menurunkan atau mengubah admin lain: pemilik sahaja.
+  if ((kiniAdmin || perananBaru === 'admin') && !pemilik) return ralat('Hanya admin utama boleh mengubah akaun admin.', 403);
+  if (email === sesi.email && badan.aktif === false) return ralat('Anda tidak boleh menyahaktifkan akaun sendiri.', 400);
+
+  const rekod = { ...sasaran, Peranan: perananBaru };
+  if (badan.aktif !== undefined) rekod.Aktif = badan.aktif ? 'YA' : 'TIDAK';
+  if (badan.nama !== undefined) rekod.Nama = String(badan.nama).replace(/\s+/g, ' ').trim().slice(0, 200);
+  const tajuk = kenal.jadual.tajuk;
+  await kemaskiniJulat(g, sek.sheetId, TAB.GURU, 'A' + sasaran._baris + ':' + hurufLajur(tajuk.length) + sasaran._baris,
+    [barisIkutTajuk(tajuk, rekod)]);
+  await audit(g, sek, sesi, kenal.peranan, 'KEMASKINI_GURU', email, 'BERJAYA', 'peranan=' + perananBaru + ' aktif=' + rekod.Aktif);
+  return json({ ok: true });
+}
+
+// ---------------------------------------------------------------- laporan
+async function senaraiLaporan({ g, sek, sesi, admin, url }) {
+  const { baris } = await bacaJadual(g, sek.sheetId, TAB.LAPORAN);
+  const carian = String(url.searchParams.get('carian') || '').trim().toLowerCase();
+  const jenis = String(url.searchParams.get('jenis') || '').trim().toUpperCase();
+  const hasil = baris.filter(r => r.ID && String(r.Dipadam).toUpperCase() !== 'YA')
+    .filter(r => admin || String(r.PemilikEmail).toLowerCase() === sesi.email)
+    .filter(r => !jenis || String(r.Jenis).toUpperCase() === jenis)
+    .filter(r => !carian || [r.Tajuk, r.Unit, r.Nama, r.Peringkat, r.Anjuran].join(' ').toLowerCase().includes(carian))
+    .map(ringkasan)
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+  return json({ ok: true, jumlah: hasil.length, data: hasil.slice(0, 500), admin });
+}
+
+async function cariLaporan(g, sek, id) {
+  const jadual = await bacaJadual(g, sek.sheetId, TAB.LAPORAN);
+  const rekod = jadual.baris.find(r => String(r.ID) === id && String(r.Dipadam).toUpperCase() !== 'YA');
+  return { jadual, rekod };
+}
+
+async function bacaLaporan({ g, sek, sesi, admin }, id) {
+  const { rekod } = await cariLaporan(g, sek, id);
+  if (!rekod) return ralat('Laporan tidak dijumpai.', 404);
+  if (!admin && String(rekod.PemilikEmail).toLowerCase() !== sesi.email) return ralat('Anda tiada kebenaran untuk laporan ini.', 403);
+  return json({ ok: true, data: butiran(rekod) });
+}
+
+async function simpanLaporan({ g, sek, sesi, admin, kenal, badan, now }) {
+  const d = badan.data || {};
+  if (!String(d.tajuk || '').trim()) return ralat('Sila isi nama program / aktiviti.');
+  const status = String(badan.status || '').toUpperCase() === 'HANTAR' ? STATUS.HANTAR : STATUS.DRAF;
+  const masa = new Date(now()).toISOString();
+  const tetapan = await bacaTetapan(g, sek);
+
+  if (badan.id) {
+    const { jadual, rekod: lama } = await cariLaporan(g, sek, String(badan.id));
+    if (!lama) return ralat('Laporan tidak dijumpai.', 404);
+    if (!admin && String(lama.PemilikEmail).toLowerCase() !== sesi.email) {
+      await audit(g, sek, sesi, kenal.peranan, 'SIMPAN_LAPORAN', lama.ID, 'DITOLAK', 'bukan pemilik');
+      return ralat('Anda hanya boleh mengemas kini laporan sendiri.', 403);
+    }
+    if (String(lama.Status).toUpperCase() === STATUS.DISEMAK && !admin) return ralat('Laporan yang telah disemak tidak boleh diubah. Hubungi admin.', 403);
+    // Admin yang mengedit laporan telah disemak: status semakan dikekalkan (bug v2 diperbaiki).
+    const statusAkhir = String(lama.Status).toUpperCase() === STATUS.DISEMAK ? STATUS.DISEMAK : status;
+    const rekod = binaRekod(d, { lama, sesi, status: statusAkhir, tetapan, masa });
+    const tajuk = jadual.tajuk;
+    await kemaskiniJulat(g, sek.sheetId, TAB.LAPORAN, 'A' + lama._baris + ':' + hurufLajur(tajuk.length) + lama._baris, [barisIkutTajuk(tajuk, rekod)]);
+    await audit(g, sek, sesi, kenal.peranan, 'SIMPAN_LAPORAN', rekod.ID, 'BERJAYA', rekod.Jenis + ' / ' + statusAkhir + ' (kemas kini)');
+    return json({ ok: true, id: rekod.ID, status: statusAkhir });
+  }
+
+  if (!badan.consent) return ralat('Sila tanda persetujuan notis PDPA sebelum menyimpan.');
+  const rekod = binaRekod(d, { lama: null, sesi, status, tetapan, id: crypto.randomUUID(), masa });
+  const { tajuk } = await bacaJadual(g, sek.sheetId, TAB.LAPORAN);
+  await tambahBaris(g, sek.sheetId, TAB.LAPORAN, [barisIkutTajuk(tajuk.length ? tajuk : KOLUM[TAB.LAPORAN], rekod)]);
+  await audit(g, sek, sesi, kenal.peranan, 'SIMPAN_LAPORAN', rekod.ID, 'BERJAYA', rekod.Jenis + ' / ' + status + ' (baharu)');
+  return json({ ok: true, id: rekod.ID, status });
+}
+
+async function padamLaporan({ g, sek, sesi, admin, kenal, now }, id) {
+  const { jadual, rekod } = await cariLaporan(g, sek, id);
+  if (!rekod) return ralat('Laporan tidak dijumpai.', 404);
+  if (!admin && String(rekod.PemilikEmail).toLowerCase() !== sesi.email) return ralat('Anda hanya boleh memadam laporan sendiri.', 403);
+  if (String(rekod.Status).toUpperCase() === STATUS.DISEMAK && !admin) return ralat('Laporan yang telah disemak tidak boleh dipadam.', 403);
+  const baru = { ...rekod, Dipadam: 'YA', DikemaskiniPada: new Date(now()).toISOString() };
+  await kemaskiniJulat(g, sek.sheetId, TAB.LAPORAN, 'A' + rekod._baris + ':' + hurufLajur(jadual.tajuk.length) + rekod._baris, [barisIkutTajuk(jadual.tajuk, baru)]);
+  await audit(g, sek, sesi, kenal.peranan, 'PADAM_LAPORAN', id, 'BERJAYA', 'soft delete');
+  return json({ ok: true });
 }
 
 // ======================================================================
