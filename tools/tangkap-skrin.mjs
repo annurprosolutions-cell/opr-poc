@@ -19,7 +19,7 @@ const JENIS = { html: 'text/html; charset=utf-8', js: 'text/javascript', css: 't
 const g = googlePalsu();
 const e = binaEnv({ ASSETS: { fetch: async (r) => {
   let p = new URL(r.url).pathname;
-  if (p === '/') p = '/index.html'; else if (!/\.[a-z]+$/.test(p)) p += '.html';
+  if (p.endsWith('/')) p += 'index.html'; else if (!/\.[a-z]+$/.test(p)) p += '.html';
   try { return new Response(readFileSync(new URL('.' + p, PUB)), { headers: { 'content-type': JENIS[p.split('.').pop()] || 'application/octet-stream' } }); }
   catch (x) { return new Response('Tiada', { status: 404 }); }
 } } });
@@ -127,7 +127,8 @@ try {
     semak(await s.evaluate(() => [...document.querySelectorAll('.muncul')].every(n => n.classList.contains('nampak'))), `semua seksyen muncul selepas skrol (${label})`);
     if (label === 'desktop') {
       const pautan = await s.$$eval('a[href^="/"]', a => [...new Set(a.map(x => x.getAttribute('href').split('#')[0]))]);
-      for (const h of pautan) { const r = await s.request.get(ASAS + h, { maxRedirects: 0 }); semak(r.status() < 400, `pautan ${h} -> ${r.status()}`); }
+      // Panggil Worker dalam proses terus (page.request TIDAK melalui ctx.route dan akan menyentuh laman sebenar)
+      for (const h of pautan) { const r = await handle(new Request(ASAS + h), e, { fetch: g.f, now: () => T0 }); semak(r.status < 400, `pautan ${h} -> ${r.status}`); }
     }
   }
 

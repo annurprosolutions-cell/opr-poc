@@ -200,6 +200,20 @@ if (DEMO) {
     return asal(input, init);
   };
 
+  // <img src="/api/s/demo/logo/N"> tidak melalui fetch; tukar kepada blob URL
+  const urlLogo = new Map();
+  const tukarImej = (img) => {
+    const m = (img.getAttribute('src') || '').match(/\/api\/s\/demo\/logo\/([1-6])\b/);
+    const b = m && logo[m[1]] && fail.get(logo[m[1]]);
+    if (!b) return;
+    if (!urlLogo.has(logo[m[1]])) urlLogo.set(logo[m[1]], URL.createObjectURL(b));
+    img.src = urlLogo.get(logo[m[1]]);
+  };
+  new MutationObserver(rek => rek.forEach(r => {
+    if (r.type === 'attributes') return r.target.tagName === 'IMG' && tukarImej(r.target);
+    r.addedNodes.forEach(n => { if (n.nodeType !== 1) return; if (n.tagName === 'IMG') tukarImej(n); n.querySelectorAll && n.querySelectorAll('img').forEach(tukarImej); });
+  })).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
+
   // Jalur demo: jelaskan dan benarkan tukar peranan
   const jalur = document.createElement('div');
   jalur.className = 'jalur-demo';

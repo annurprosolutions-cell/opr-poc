@@ -36,7 +36,7 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | 3b-2 | Semakan + PDF bertandatangan, dashboard + eksport CSV, tab Tetapan (identiti, logo, warna, dasar PDF, jenis laporan, senarai), butang pratonton di telefon | Siap |
 | 4 | Lesen ikut sekolah: percubaan 14 hari, BCL (disahkan API, idempoten, kredit sebelum daftar, auto-debit), tempoh ihsan 7 hari, sekatan tulis bila tamat, notis dalam app, halaman /pemilik | Siap |
 | 5a | Sale page di `/` (tangkapan skrin sebenar), mod demo `/s/demo` (app sebenar, data dalam browser, `?peranan=guru`), panduan pengesahan Google | Siap |
-| 5b | Manual pengguna (HTML + PDF), video tutorial | |
+| 5b | Manual pengguna `/panduan/` (HTML + PDF 25 muka) dan 6 video tutorial, semuanya dirakam daripada app sebenar dengan data contoh | Siap |
 
 ## Ujian
 
@@ -59,6 +59,8 @@ Mod demo dan gambar sale page:
 ```bash
 npm run demo-data   # jana semula public/demo-data.json selepas ubah src/skema.js
 npm run skrin       # rakam semula public/img/*.jpg daripada mod demo
+npm run panduan     # gambar manual + PDF (public/panduan/)
+npm run video       # 6 video tutorial -> .video/*.mp4 (perlu ffmpeg), salin ke public/panduan/video/
 ```
 
 Jalankan setempat dalam runtime Cloudflare:

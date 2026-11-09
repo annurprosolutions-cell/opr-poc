@@ -67,7 +67,7 @@ export function googlePalsu(senario = {}) {
         scope: senario.skop || ('openid https://www.googleapis.com/auth/userinfo.email ' + DRIVE),
         id_token: idToken({
           iss: 'https://accounts.google.com', aud: senario.aud || CLIENT_ID,
-          exp: Math.floor(T0 / 1000) + 3600, email, email_verified: true, name: 'Cikgu Ujian'
+          exp: Math.floor(T0 / 1000) + 3600, email, email_verified: true, name: senario.nama || 'Cikgu Ujian'
         })
       });
     }

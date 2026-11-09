@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual Pengguna Annur OPR</title>
+<meta name="description" content="Panduan langkah demi langkah Annur OPR untuk admin sekolah dan guru: daftar sekolah, tambah guru, isi borang OPR, PDF A4, semakan, dashboard, tetapan dan langganan.">
+<style>
+:root{--utama:#312e81;--aksen:#0f766e;--teks:#0f172a;--redup:#475569;--garis:#e2e8f0;--bg:#ffffff;--kad:#f8fafc;
+  --tip:#ecfdf5;--tip-g:#10b981;--awas:#fffbeb;--awas-g:#f59e0b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--teks:#e2e8f0;--redup:#94a3b8;--garis:#334155;--bg:#0f172a;--kad:#1e293b;
+  --tip:#052e2b;--awas:#3b2a06;--utama:#a5b4fc;--aksen:#5eead4}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--teks);font:16px/1.65 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.bekas{max-width:880px;margin:0 auto;padding:24px 16px 64px}
+a{color:var(--utama)}
+h1{font-size:2rem;line-height:1.2;margin:0 0 8px}
+h2{font-size:1.5rem;margin:48px 0 12px;padding-top:12px;border-top:2px solid var(--garis)}
+h3{font-size:1.12rem;margin:28px 0 8px}
+.kulit{padding:28px 0 8px}
+.kulit .jenama{font-weight:700;color:var(--teks);text-decoration:none}.kulit .jenama span{color:var(--aksen)}
+.redup{color:var(--redup)}
+.muat-turun{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.butang{display:inline-block;background:var(--utama);color:#fff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px}
+.butang.sekunder{background:transparent;color:var(--utama);border:1px solid var(--utama)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .butang{color:#0f172a}:root:not([data-theme="light"]) .butang.sekunder{color:var(--utama)}}
+nav.isi{background:var(--kad);border:1px solid var(--garis);border-radius:12px;padding:12px 20px;margin:20px 0}
+nav.isi ol{margin:6px 0;padding-left:22px;columns:2;column-gap:28px}
+@media (max-width:600px){nav.isi ol{columns:1}}
+nav.isi li{margin:3px 0}
+ol.langkah{padding-left:24px}ol.langkah li{margin:6px 0}
+figure{margin:16px 0 22px}
+figure img{display:block;max-width:100%;height:auto;border:1px solid var(--garis);border-radius:10px;margin:0 auto}
+figure.telefon img{max-width:min(300px,100%)}
+figure.kecil img{max-width:min(520px,100%)}
+figure.dua{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+figure.dua figcaption{grid-column:1/-1}
+figcaption{font-size:.88rem;color:var(--redup);text-align:center;margin-top:6px}
+.kotak{border-left:4px solid var(--tip-g);background:var(--tip);padding:10px 14px;border-radius:8px;margin:14px 0}
+.kotak.awas{border-color:var(--awas-g);background:var(--awas)}
+.kotak b:first-child{display:block}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.95rem}
+th,td{border:1px solid var(--garis);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--kad)}
+.jadual-skrol{overflow-x:auto}
+code,kbd{font:.9em ui-monospace,Menlo,Consolas,monospace;background:var(--kad);border:1px solid var(--garis);border-radius:5px;padding:1px 5px}
+.ui{font-weight:600;white-space:nowrap}
+.kaki{margin-top:48px;font-size:.88rem;color:var(--redup)}
+@media print{
+  :root{--teks:#0f172a;--redup:#475569;--garis:#cbd5e1;--bg:#fff;--kad:#f8fafc;--tip:#ecfdf5;--awas:#fffbeb;--utama:#312e81;--aksen:#0f766e}
+  @page{size:A4;margin:16mm 14mm 18mm}
+  body{font-size:10.5pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .bekas{max-width:none;padding:0}
+  .muat-turun,.tanpa-cetak{display:none}
+  h2{break-before:page;border-top:0;margin-top:0}
+  h3{break-after:avoid}
+  figure,.kotak,table,tr{break-inside:avoid}
+  figure img{max-height:120mm;width:auto}
+  figure.telefon img{max-height:110mm}
+  a{color:inherit;text-decoration:none}
+  .kulit{min-height:240mm;display:flex;flex-direction:column;justify-content:center}
+  nav.isi{break-before:page}
+}
+</style>
+</head>
+<body>
+<main class="bekas">
+
+<header class="kulit">
+  <p><a class="jenama" href="/">Annur <span>OPR</span></a></p>
+  <h1>Manual Pengguna</h1>
+  <p class="redup">Sistem One Page Report (OPR) untuk sekolah. Untuk admin sekolah, penyemak dan guru.</p>
+  <p class="redup">Versi November 2026 &middot; opr.annurpro.com</p>
+  <div class="muat-turun">
+    <a class="butang" href="/panduan/manual-annur-opr.pdf" download>Muat turun PDF</a>
+    <a class="butang sekunder" href="/s/demo">Cuba demo</a>
+    <a class="butang sekunder" href="#video">Video tutorial</a>
+  </div>
+</header>
+
+<nav class="isi" aria-label="Kandungan">
+  <b>Kandungan</b>
+  <ol>
+    <li><a href="#kenali">Kenali Annur OPR</a></li>
+    <li><a href="#cepat">Mula cepat</a></li>
+    <li><a href="#daftar">Daftar sekolah</a></li>
+    <li><a href="#guru">Tambah guru dan admin</a></li>
+    <li><a href="#masuk">Log masuk (guru)</a></li>
+    <li><a href="#borang">Isi borang OPR</a></li>
+    <li><a href="#pdf">Pratonton dan PDF</a></li>
+    <li><a href="#laporan">Senarai laporan</a></li>
+    <li><a href="#semak">Semak laporan</a></li>
+    <li><a href="#dashboard">Dashboard dan eksport</a></li>
+    <li><a href="#tetapan">Tetapan sekolah</a></li>
+    <li><a href="#drive">Google Drive sekolah</a></li>
+    <li><a href="#langganan">Langganan dan bayaran</a></li>
+    <li><a href="#masalah">Masalah biasa</a></li>
+    <li><a href="#privasi">Privasi dan data</a></li>
+    <li><a href="#video">Video tutorial</a></li>
+    <li><a href="#hubungi">Hubungi kami</a></li>
+  </ol>
+</nav>
+
+<!-- 1 -->
+<h2 id="kenali">1. Kenali Annur OPR</h2>
+<p>Annur OPR menggantikan templat OPR dalam Word, Canva atau Google Sheet. Guru isi satu borang, sistem menyusun PDF A4 yang seragam, penyemak menanda laporan telah disemak, dan admin nampak semua laporan sekolah di satu tempat.</p>
+
+<h3>Peranan</h3>
+<div class="jadual-skrol"><table>
+  <tr><th>Peranan</th><th>Siapa</th><th>Boleh buat</th></tr>
+  <tr><td><b>Admin utama</b></td><td>Akaun Google yang mendaftarkan sekolah. Data disimpan dalam Drive akaun ini.</td><td>Semua yang admin boleh buat, ditambah melantik admin lain, menyediakan dan menguji sambungan Google Drive.</td></tr>
+  <tr><td><b>Admin</b></td><td>Dilantik oleh admin utama, contohnya Penolong Kanan atau penyelaras.</td><td>Lihat semua laporan, semak, dashboard, eksport, tambah guru, tetapan.</td></tr>
+  <tr><td><b>Guru</b></td><td>Emel yang ditambah oleh admin.</td><td>Isi, simpan, hantar dan edit laporan sendiri. Guru nampak laporan sendiri sahaja.</td></tr>
+</table></div>
+
+<h3>Keperluan</h3>
+<ul>
+  <li>Akaun Google (Gmail atau DELIMa) untuk setiap pengguna. Tiada kata laluan baharu.</li>
+  <li>Pelayar moden: Chrome, Edge, Safari atau Firefox, di komputer atau telefon.</li>
+  <li>Admin utama perlukan ruang storan Google Drive yang mencukupi untuk PDF dan gambar.</li>
+</ul>
+<div class="kotak"><b>Cuba dahulu tanpa mendaftar</b>Buka <a href="/s/demo">opr.annurpro.com/s/demo</a>. Demo menggunakan aplikasi sebenar dengan data contoh. Tiada log masuk dan tiada data disimpan.</div>
+
+<!-- 2 -->
+<h2 id="cepat">2. Mula cepat</h2>
+<ol class="langkah">
+  <li>Admin buka <b>opr.annurpro.com/daftar</b> dan tekan <span class="ui">Sambung dengan Google</span>.</li>
+  <li>Isi <span class="ui">Nama sekolah</span>, semak <span class="ui">Pautan sekolah</span>, tekan <span class="ui">Daftar sekolah</span>. Percubaan 14 hari bermula.</li>
+  <li>Buka tab <span class="ui">Tetapan</span>: semak alamat, muat naik logo sekolah, simpan.</li>
+  <li>Buka tab <span class="ui">Guru</span>: tampal senarai emel guru, tekan <span class="ui">Tambah</span>.</li>
+  <li>Kongsi pautan <code>opr.annurpro.com/s/nama-sekolah</code> dalam group WhatsApp guru.</li>
+  <li>Guru log masuk, isi borang dan tekan <span class="ui">Hantar</span>.</li>
+  <li>Penyemak buka tab <span class="ui">Laporan</span>, tekan <span class="ui">Semak</span> dan muat naik PDF bertandatangan.</li>
+</ol>
+
+<!-- 3 -->
+<h2 id="daftar">3. Daftar sekolah</h2>
+<p>Pendaftaran dibuat sekali sahaja oleh admin utama.</p>
+<ol class="langkah">
+  <li>Buka <b>opr.annurpro.com/daftar</b>.</li>
+  <li>Tekan <span class="ui">Sambung dengan Google</span> dan pilih akaun admin. Google akan meminta kebenaran untuk Annur OPR menyimpan fail dalam Drive anda. Tekan <span class="ui">Continue</span> atau <span class="ui">Teruskan</span>.</li>
+</ol>
+<figure><img src="img/daftar-1-sambung.jpg" width="2560" height="1440" alt="Halaman Daftar sekolah dengan butang Sambung dengan Google" loading="lazy"><figcaption>Langkah 1: sambung akaun Google admin.</figcaption></figure>
+<div class="kotak awas"><b>Pilih akaun dengan teliti</b>Semua laporan, gambar dan PDF akan disimpan dalam Drive akaun ini. Guna akaun yang akan kekal di sekolah, bukan akaun peribadi guru yang mungkin bertukar.</div>
+<ol class="langkah" start="3">
+  <li>Isi <span class="ui">Nama sekolah</span>. Pautan sekolah dicadangkan secara automatik. Anda boleh mengubahnya: huruf kecil, nombor dan sengkang sahaja.</li>
+  <li>Tunggu sehingga status pautan menunjukkan <b>Tersedia</b>, kemudian tekan <span class="ui">Daftar sekolah</span>.</li>
+</ol>
+<figure><img src="img/daftar-2-borang.jpg" width="2560" height="1440" alt="Borang maklumat sekolah dengan nama sekolah dan pautan" loading="lazy"><figcaption>Langkah 2: nama dan pautan sekolah. Pautan tidak boleh ditukar selepas didaftarkan.</figcaption></figure>
+<p>Sistem mencipta folder <b>Annur OPR - nama sekolah</b> dan sebuah Google Sheet dalam Drive anda, kemudian membuka halaman sekolah. Notis hijau di atas menunjukkan baki tempoh percubaan.</p>
+<figure><img src="img/daftar-3-siap.jpg" width="2560" height="1440" alt="Halaman sekolah selepas pendaftaran dengan notis percubaan 14 hari" loading="lazy"><figcaption>Sekolah berjaya didaftarkan. Admin utama nampak 6 tab.</figcaption></figure>
+
+<!-- 4 -->
+<h2 id="guru">4. Tambah guru dan admin</h2>
+<ol class="langkah">
+  <li>Buka tab <span class="ui">Guru</span>.</li>
+  <li>Tampal senarai emel, satu baris seorang. Nama boleh ditulis selepas koma, contohnya <code>aminah@gmail.com, Cikgu Aminah</code>. Anda boleh salin terus dua lajur dari Excel atau Google Sheet.</li>
+  <li>Pilih <span class="ui">Sebagai guru</span> (atau admin, untuk admin utama sahaja) dan tekan <span class="ui">Tambah</span>.</li>
+</ol>
+<figure><img src="img/guru-tambah.jpg" width="2560" height="2712" alt="Tab Guru dengan kotak tampal emel dan senarai tiga akaun" loading="lazy"><figcaption>Baris yang bukan emel sah atau sudah ada dalam senarai akan diabaikan dan dilaporkan.</figcaption></figure>
+<p>Butang di bawah setiap nama:</p>
+<ul>
+  <li><span class="ui">Nyahaktif</span>: guru yang berpindah tidak lagi boleh log masuk. Laporan lama mereka kekal. Tekan <span class="ui">Aktifkan</span> untuk membuka semula.</li>
+  <li><span class="ui">Jadikan admin</span> / <span class="ui">Jadikan guru</span>: hanya admin utama boleh melantik atau menurunkan admin.</li>
+</ul>
+<div class="kotak"><b>Berkuat kuasa serta-merta</b>Perubahan peranan terpakai pada klik seterusnya pengguna itu. Tidak perlu log keluar.</div>
+
+<!-- 5 -->
+<h2 id="masuk">5. Log masuk (guru)</h2>
+<ol class="langkah">
+  <li>Buka pautan sekolah yang dikongsi admin, contohnya <code>opr.annurpro.com/s/smkcontohjaya</code>. Simpan pautan ini di skrin utama telefon untuk akses pantas.</li>
+  <li>Tekan <span class="ui">Log masuk dengan Google</span> dan pilih emel yang didaftarkan oleh admin.</li>
+</ol>
+<figure class="telefon"><img src="img/guru-1-log-masuk.jpg" width="780" height="1688" alt="Skrin log masuk sekolah di telefon" loading="lazy"><figcaption>Guru hanya perlu akaun Google. Tiada kata laluan baharu.</figcaption></figure>
+<p>Jika muncul <b>Akaun belum didaftarkan</b>, emel itu belum ditambah oleh admin, atau anda log masuk dengan akaun Google lain. Lihat <a href="#masalah">Masalah biasa</a>.</p>
+
+<!-- 6 -->
+<h2 id="borang">6. Isi borang OPR</h2>
+<p>Tab <span class="ui">Borang OPR</span> dibuka secara automatik. Di komputer, borang di kiri dan pratonton A4 di kanan.</p>
+<figure><img src="img/borang-1-desktop.jpg" width="2560" height="1440" alt="Borang OPR di kiri dan pratonton A4 di kanan" loading="lazy"><figcaption>Pratonton berubah semasa anda menaip.</figcaption></figure>
+
+<h3>Medan borang</h3>
+<ol class="langkah">
+  <li><span class="ui">Jenis laporan</span>: Kokurikulum, Kelas, Event, Subjek, Akademik, Pentadbiran, HEM atau Guru Bertugas Mingguan. Label dan senarai pilihan berubah ikut jenis. Contohnya untuk Subjek, Unit menjadi <b>Mata Pelajaran</b> dan Peringkat menjadi senarai tingkatan.</li>
+  <li>Isi <span class="ui">Nama Program</span>, unit, anjuran, peringkat, tarikh, masa, tempat dan bilangan murid. Jumlah murid dikira sendiri.</li>
+  <li>Isi objektif, kaedah pelaksanaan, kekuatan, penambahbaikan dan rumusan mengikut keperluan.</li>
+  <li>Di <span class="ui">Pegawai pelapor dan pengesahan</span>, nama anda diisi daripada akaun Google. Isi jawatan penyemak dan pengesah jika perlu.</li>
+</ol>
+
+<h3>Kotak Sertakan</h3>
+<p>Setiap medan ada kotak <span class="ui">Sertakan</span>. Nyahtanda untuk menyembunyikan medan itu daripada PDF, contohnya jika program tiada masa atau tempat tertentu. Ruang tandatangan juga dipilih dengan cara yang sama (Disediakan, Disemak, Disahkan).</p>
+
+<h3>Gambar dan PDF aktiviti</h3>
+<ol class="langkah">
+  <li>Di <span class="ui">Gambar / PDF aktiviti</span>, pilih gambar dari galeri atau kamera, atau sebuah fail PDF.</li>
+  <li>Isi keterangan ringkas (pilihan) dan tekan <span class="ui">Tambah ke laporan</span>.</li>
+  <li>Ulang untuk gambar lain. Tekan <span class="ui">Buang</span> untuk mengeluarkan.</li>
+</ol>
+<figure class="kecil"><img src="img/borang-2-gambar.jpg" width="796" height="250" alt="Dua gambar dalam senarai lampiran dengan butang Buang" loading="lazy"><figcaption>Sehingga 5 gambar dimuatkan dalam satu muka A4. PDF yang dilampirkan menjadi muka tambahan.</figcaption></figure>
+
+<h3>Di telefon</h3>
+<p>Di telefon, pratonton berada di bawah borang. Tekan butang terapung <span class="ui">Lihat pratonton</span> untuk melompat ke sana, dan <span class="ui">Kembali ke borang</span> untuk naik semula.</p>
+<figure class="dua telefon"><img src="img/guru-2-borang-telefon.jpg" width="780" height="1688" alt="Borang OPR di telefon" loading="lazy"><img src="img/guru-4-pratonton.jpg" width="780" height="1688" alt="Pratonton A4 di telefon" loading="lazy"><figcaption>Kiri: borang di telefon. Kanan: pratonton selepas menekan Lihat pratonton.</figcaption></figure>
+
+<h3>Simpan atau hantar</h3>
+<ol class="langkah">
+  <li>Tanda kotak persetujuan notis PDPA (sekali untuk setiap laporan baharu).</li>
+  <li>Tekan <span class="ui">Simpan draf</span> jika belum siap. Laporan berstatus <b>DRAF</b> dan boleh disambung kemudian.</li>
+  <li>Tekan <span class="ui">Hantar</span> bila sedia untuk disemak. Status menjadi <b>HANTAR</b>.</li>
+</ol>
+<figure class="telefon"><img src="img/guru-5-hantar.jpg" width="716" height="866" alt="Kotak persetujuan PDPA dan butang Simpan draf serta Hantar" loading="lazy"><figcaption>Kotak persetujuan dan butang simpan.</figcaption></figure>
+<div class="kotak"><b>Jana PDF semasa menyimpan</b>Pilihan ini ditanda secara lalai, jadi setiap kali disimpan PDF baharu dijana dan disimpan dalam Drive. Nyahtanda jika anda hanya mahu menyimpan maklumat dahulu. Admin boleh mewajibkan PDF dalam Tetapan.</div>
+
+<!-- 7 -->
+<h2 id="pdf">7. Pratonton dan PDF</h2>
+<p>Pratonton ialah rupa sebenar PDF yang akan dijana. Kepala surat (logo, nama sekolah, alamat, telefon, moto) datang daripada Tetapan sekolah.</p>
+<figure class="dua"><img src="img/borang-3-a4-kotak.jpg" width="1536" height="2246" alt="PDF gaya Kotak" loading="lazy"><img src="img/borang-5-a4-poster.jpg" width="1536" height="2246" alt="PDF gaya Poster" loading="lazy"><figcaption>Kiri: gaya Kotak (standard). Kanan: gaya Poster, gambar lebih besar.</figcaption></figure>
+<h3>Rupa dokumen</h3>
+<ul>
+  <li><span class="ui">Gaya laporan</span>: Kotak (standard) atau Poster.</li>
+  <li><span class="ui">Warna kertas</span>: pilih warna sedia ada atau warna sendiri.</li>
+  <li><span class="ui">Susun atur gambar</span>: Auto memilih bilangan lajur paling kemas ikut bilangan gambar.</li>
+  <li><span class="ui">Logo tambahan (kaki PDF)</span>: logo unit atau penaja yang dimuat naik oleh admin.</li>
+</ul>
+<figure class="kecil"><img src="img/borang-4-rupa.jpg" width="880" height="1054" alt="Bahagian Rupa dokumen dengan gaya laporan, warna kertas dan susun atur gambar" loading="lazy"><figcaption>Bahagian Rupa dokumen dalam borang.</figcaption></figure>
+
+<!-- 8 -->
+<h2 id="laporan">8. Senarai laporan</h2>
+<p>Tab <span class="ui">Laporan</span> menyenaraikan laporan, terbaru dahulu. Guru nampak <b>Laporan saya</b>, admin nampak <b>Semua laporan</b>. Tapis ikut jenis atau taip dalam kotak carian (tajuk, unit atau nama guru).</p>
+<figure><img src="img/laporan-guru.jpg" width="2560" height="1440" alt="Senarai laporan guru dengan status dan butang PDF, Edit, Padam" loading="lazy"><figcaption>Status: DRAF, HANTAR atau DISEMAK.</figcaption></figure>
+<div class="jadual-skrol"><table>
+  <tr><th>Butang</th><th>Fungsi</th></tr>
+  <tr><td><span class="ui">PDF</span></td><td>Buka PDF yang dijana.</td></tr>
+  <tr><td><span class="ui">PDF bertandatangan</span></td><td>Buka salinan bertandatangan yang dimuat naik penyemak.</td></tr>
+  <tr><td><span class="ui">Edit</span></td><td>Muatkan laporan ke borang. Gambar sedia ada dimuat semula. Simpan atau Hantar untuk mengemas kini laporan yang sama.</td></tr>
+  <tr><td><span class="ui">Padam</span></td><td>Padam laporan selepas pengesahan.</td></tr>
+  <tr><td><span class="ui">Semak</span></td><td>Admin sahaja. Lihat bab seterusnya.</td></tr>
+</table></div>
+<div class="kotak awas"><b>Laporan yang telah disemak dikunci</b>Guru tidak boleh mengedit atau memadam laporan berstatus DISEMAK. Minta admin jika perlu pembetulan.</div>
+
+<!-- 9 -->
+<h2 id="semak">9. Semak laporan (admin)</h2>
+<ol class="langkah">
+  <li>Buka tab <span class="ui">Laporan</span>. Laporan berstatus HANTAR menunggu semakan.</li>
+  <li>Tekan <span class="ui">PDF</span>, cetak, tandatangan dan imbas (atau tandatangan secara digital).</li>
+  <li>Tekan <span class="ui">Semak</span> pada laporan itu, pilih fail PDF bertandatangan.</li>
+  <li>Tekan <span class="ui">Muat naik &amp; tanda disemak</span>.</li>
+</ol>
+<figure><img src="img/semak-2-panel.jpg" width="2412" height="492" alt="Panel semakan dengan pilihan fail PDF bertandatangan" loading="lazy"><figcaption>Panel semakan dalam kad laporan.</figcaption></figure>
+<figure><img src="img/semak-3-disemak.jpg" width="2412" height="286" alt="Laporan berstatus DISEMAK dengan butang PDF bertandatangan" loading="lazy"><figcaption>Selepas disemak: status DISEMAK, nama penyemak, dan butang PDF bertandatangan.</figcaption></figure>
+<p>Jika sekolah tidak memerlukan salinan bertandatangan, tukar <span class="ui">PDF bertandatangan wajib semasa semakan?</span> kepada <b>Tidak</b> dalam Tetapan. Panel semakan kemudian memaparkan butang <span class="ui">Tanda tanpa PDF</span>.</p>
+
+<!-- 10 -->
+<h2 id="dashboard">10. Dashboard dan eksport (admin)</h2>
+<p>Tab <span class="ui">Dashboard</span> menunjukkan jumlah laporan, belum disemak, telah disemak, draf dan murid terlibat, serta carta laporan mengikut jenis, peringkat, unit, guru paling aktif dan bulan (12 bulan terakhir).</p>
+<figure><img src="img/dashboard.jpg" width="2560" height="2686" alt="Dashboard dengan jubin ringkasan dan carta" loading="lazy"><figcaption>Dashboard admin.</figcaption></figure>
+<p>Tekan <span class="ui">Eksport CSV</span> untuk memuat turun semua laporan. Buka dalam Excel atau Google Sheets untuk mesyuarat, audit atau laporan tahunan.</p>
+
+<!-- 11 -->
+<h2 id="tetapan">11. Tetapan sekolah (admin)</h2>
+<p>Tab <span class="ui">Tetapan</span> ada empat bahagian. Tekan butang simpan di setiap bahagian selepas mengubah.</p>
+<h3>Identiti</h3>
+<ul>
+  <li>Nama sekolah, tajuk dokumen, alamat, telefon, faks, tahun sesi, moto dan nama pengetua: dipaparkan dalam kepala PDF.</li>
+  <li>Jawatan penyemak dan pengesah lalai, teks kaki PDF dan awalan nama fail PDF.</li>
+  <li><span class="ui">Warna</span>: warna utama, kedua, aksen dan kertas.</li>
+  <li><span class="ui">Dasar PDF</span>: gaya dan susun atur lalai, sama ada PDF wajib, dan sama ada PDF bertandatangan wajib semasa semakan.</li>
+  <li><span class="ui">Notis persetujuan PDPA</span>: teks yang mesti dipersetujui guru sebelum menyimpan.</li>
+</ul>
+<figure><img src="img/tetapan-1-identiti.jpg" width="2560" height="3418" alt="Bahagian Identiti sekolah dan dokumen dalam Tetapan" loading="lazy"><figcaption>Identiti sekolah dan dokumen.</figcaption></figure>
+<h3>Logo</h3>
+<p>Slot 1 untuk logo sekolah (kepala PDF). Slot 2 pilihan di kepala. Slot 3 hingga 6 ialah logo tambahan yang guru boleh pilih untuk kaki PDF. Pilih fail, tekan <span class="ui">Muat naik</span>. Logo PNG berlatar telus paling kemas.</p>
+<figure><img src="img/tetapan-2-logo.jpg" width="2560" height="2614" alt="Bahagian Logo dengan enam slot" loading="lazy"><figcaption>Enam slot logo.</figcaption></figure>
+<h3>Jenis laporan</h3>
+<p>Matikan jenis yang tidak digunakan supaya tidak muncul dalam borang, tukar tajuk yang dicetak dalam PDF, dan pilih jenis lalai bila guru membuka borang. Tekan <span class="ui">Simpan jenis laporan</span>.</p>
+<figure><img src="img/tetapan-3-jenis.jpg" width="2560" height="1440" alt="Bahagian Jenis laporan dalam Tetapan" loading="lazy"><figcaption>Jenis laporan.</figcaption></figure>
+<h3>Senarai pilihan</h3>
+<p>Ubah item dropdown seperti unit kokurikulum, peringkat, anjuran dan tempat, satu item sebaris. Anda juga boleh mencipta senarai baharu.</p>
+<figure><img src="img/tetapan-4-senarai.jpg" width="2560" height="1440" alt="Bahagian Senarai pilihan dalam Tetapan" loading="lazy"><figcaption>Senarai pilihan (dropdown).</figcaption></figure>
+
+<!-- 12 -->
+<h2 id="drive">12. Google Drive sekolah</h2>
+<p>Tab <span class="ui">Drive</span> memaparkan pautan untuk guru, butang <span class="ui">Buka Google Sheet</span>, <span class="ui">Buka folder Drive</span> dan <span class="ui">Uji sambungan Google Drive</span> (admin utama).</p>
+<figure><img src="img/drive.jpg" width="2560" height="1440" alt="Tab Drive dengan pautan guru dan butang Google Sheet serta folder" loading="lazy"><figcaption>Tab Drive.</figcaption></figure>
+<p>Struktur dalam Drive admin utama:</p>
+<ul>
+  <li><b>Annur OPR - nama sekolah</b>
+    <ul><li><b>Laporan PDF</b>: PDF yang dijana dan PDF bertandatangan.</li><li><b>Lampiran</b>: gambar aktiviti.</li><li><b>Aset</b>: logo sekolah.</li><li>Google Sheet sekolah: tab Guru, Laporan, Senarai, Tetapan dan AuditLog.</li></ul>
+  </li>
+</ul>
+<div class="kotak awas"><b>Jangan ubah struktur Sheet</b>Jangan padam, tukar nama atau susun semula tab dan lajur dalam Google Sheet, dan jangan padam folder. Anda boleh membaca Sheet dan memindahkan folder ke lokasi lain dalam Drive yang sama.</div>
+<p>Jika muncul mesej <b>Sambungan Google Drive admin telah tamat atau dibatalkan</b> (contohnya kata laluan Google ditukar atau akses dibuang), admin utama tekan <span class="ui">Sambung semula Google Drive</span> dan log masuk dengan akaun yang sama.</p>
+
+<!-- 13 -->
+<h2 id="langganan">13. Langganan dan bayaran</h2>
+<div class="jadual-skrol"><table>
+  <tr><th>Pelan</th><th>Harga</th><th>Catatan</th></tr>
+  <tr><td>Percubaan</td><td>Percuma 14 hari</td><td>Bermula sebaik sekolah didaftarkan. Semua ciri.</td></tr>
+  <tr><td>Bulanan</td><td>RM20 sebulan</td><td>Satu harga seluruh sekolah, guru tanpa had.</td></tr>
+  <tr><td>Tahunan</td><td>RM200 setahun</td><td>Jimat RM40.</td></tr>
+</table></div>
+<h3>Cara membayar</h3>
+<ol class="langkah">
+  <li>Tekan <span class="ui">Langgan sekarang</span> atau <span class="ui">Perbaharui langganan</span> pada notis di halaman sekolah.</li>
+  <li>Dalam borang bayaran BCL, pilih pelan bulanan atau tahunan. Kuantiti 2 bermaksud 2 bulan atau 2 tahun.</li>
+  <li>Di medan <b>E-mel akaun Google untuk log masuk</b>, isi <b>emel admin utama</b>. Emel ini dipaparkan dalam notis.</li>
+  <li>Bayar dengan FPX atau kad. Langganan dikemas kini secara automatik dalam beberapa minit.</li>
+</ol>
+<div class="kotak awas"><b>Guna emel yang betul</b>Bayaran dipadankan dengan sekolah melalui emel admin utama. Jika tersalah emel, hubungi kami dengan nombor pesanan BCL.</div>
+<p>Pembayaran sebelum tamat tempoh menambah masa dari tarikh tamat sedia ada, jadi tiada hari yang hilang.</p>
+<h3>Notis dalam aplikasi</h3>
+<ul>
+  <li>Semasa percubaan: baki hari dan tarikh tamat.</li>
+  <li>14 hari sebelum langganan berbayar tamat: peringatan untuk memperbaharui.</li>
+  <li>Selepas langganan berbayar tamat: tempoh ihsan 7 hari, sistem masih berfungsi penuh.</li>
+</ul>
+<h3>Bila langganan atau percubaan tamat</h3>
+<ul>
+  <li>Laporan baharu tidak boleh disimpan dan tetapan tidak boleh diubah.</li>
+  <li>Laporan sedia ada masih boleh dibuka, PDF boleh dimuat turun, dan data boleh dieksport.</li>
+  <li><b>Tiada data dipadam.</b> Semua fail kekal dalam Google Drive sekolah. Selepas bayaran, semua berfungsi semula.</li>
+</ul>
+
+<!-- 14 -->
+<h2 id="masalah">14. Masalah biasa</h2>
+<div class="jadual-skrol"><table>
+  <tr><th>Masalah</th><th>Penyelesaian</th></tr>
+  <tr><td>"Akaun belum didaftarkan"</td><td>Admin belum menambah emel itu, atau anda log masuk dengan akaun lain. Tekan <span class="ui">Keluar</span> dan log masuk dengan emel yang didaftarkan, atau minta admin menambah emel anda.</td></tr>
+  <tr><td>"Akaun dinyahaktifkan"</td><td>Admin telah menyahaktifkan akaun anda. Hubungi admin sekolah.</td></tr>
+  <tr><td>"Access blocked" semasa log masuk dengan DELIMa</td><td>Sesetengah pentadbir Workspace KPM menyekat aplikasi luar. Guna akaun Gmail, atau minta pentadbir DELIMa membenarkan Annur OPR.</td></tr>
+  <tr><td>"Sistem belum sedia"</td><td>Admin utama belum melengkapkan penyediaan Drive. Admin utama buka tab Drive dan tekan <span class="ui">Sediakan Google Drive</span>.</td></tr>
+  <tr><td>Sambungan Google Drive tamat</td><td>Admin utama tekan <span class="ui">Sambung semula Google Drive</span> (bab 12).</td></tr>
+  <tr><td>Tidak dapat menyimpan, notis langganan merah</td><td>Langganan atau percubaan telah tamat. Admin perlu membayar (bab 13). Data masih selamat.</td></tr>
+  <tr><td>PDF lambat dijana di telefon lama</td><td>Kurangkan bilangan gambar atau guna gambar yang lebih kecil. Pastikan skrin tidak dikunci semasa menyimpan.</td></tr>
+  <tr><td>Medan tidak muncul dalam PDF</td><td>Pastikan kotak <span class="ui">Sertakan</span> medan itu ditanda dan medan tidak kosong.</td></tr>
+  <tr><td>Tidak boleh edit laporan</td><td>Laporan berstatus DISEMAK dikunci untuk guru. Minta admin.</td></tr>
+  <tr><td>Admin utama bertukar sekolah</td><td>Hubungi kami sebelum akaun itu ditutup. Pemilikan folder boleh dipindahkan kepada admin baharu.</td></tr>
+</table></div>
+
+<!-- 15 -->
+<h2 id="privasi">15. Privasi dan data</h2>
+<ul>
+  <li>Laporan, gambar dan PDF disimpan dalam Google Drive admin utama sekolah, bukan di pelayan AnnurPro.</li>
+  <li>Annur OPR menggunakan skop Google <code>drive.file</code>: ia hanya boleh membuka fail yang ia cipta sendiri. Fail lain dalam Drive tidak boleh dibaca.</li>
+  <li>Guru hanya memberi kebenaran emel dan profil asas untuk log masuk.</li>
+  <li>Sekolah bertanggungjawab mendapatkan kebenaran ibu bapa sebelum memuat naik gambar murid, mengikut dasar sekolah.</li>
+</ul>
+<p>Baca polisi penuh di <a href="/privasi">opr.annurpro.com/privasi</a>.</p>
+
+<!-- 16 -->
+<h2 id="video">16. Video tutorial</h2>
+<p>Setiap video kira-kira satu minit. Tonton di <a href="/panduan/#video">opr.annurpro.com/panduan</a>.</p>
+<div class="jadual-skrol"><table>
+  <tr><th>#</th><th>Tajuk</th><th>Untuk</th></tr>
+  <tr><td>1</td><td><a href="video/01-daftar-sekolah.mp4">Daftar sekolah dan tambah guru</a></td><td>Admin</td></tr>
+  <tr><td>2</td><td><a href="video/02-guru-isi-di-telefon.mp4">Isi laporan dari telefon</a></td><td>Guru</td></tr>
+  <tr><td>3</td><td><a href="video/03-borang-dan-pdf.mp4">Borang OPR dan PDF A4</a></td><td>Guru</td></tr>
+  <tr><td>4</td><td><a href="video/04-semak-laporan.mp4">Semak laporan</a></td><td>Admin, penyemak</td></tr>
+  <tr><td>5</td><td><a href="video/05-dashboard-eksport.mp4">Dashboard dan eksport</a></td><td>Admin</td></tr>
+  <tr><td>6</td><td><a href="video/06-tetapan-sekolah.mp4">Tetapan sekolah</a></td><td>Admin</td></tr>
+</table></div>
+
+<!-- 17 -->
+<h2 id="hubungi">17. Hubungi kami</h2>
+<p><b>AnnurPro Solutions</b></p>
+<ul>
+  <li>WhatsApp: <a href="https://wa.me/601120879149">011-2087 9149</a></li>
+  <li>Emel: <a href="mailto:annurprosolutions@gmail.com">annurprosolutions@gmail.com</a></li>
+  <li>Laman: <a href="/">opr.annurpro.com</a></li>
+</ul>
+<p>Bila menghubungi kami, sertakan pautan sekolah, emel yang digunakan dan tangkapan skrin mesej ralat.</p>
+
+<p class="kaki">&copy; AnnurPro Solutions. Gambar dalam manual ini menggunakan data contoh.</p>
+</main>
+</body>
+</html>

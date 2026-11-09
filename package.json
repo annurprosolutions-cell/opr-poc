@@ -6,6 +6,8 @@
     "test": "node --test tests/*.test.js",
     "e2e": "node tests/e2e.mjs && SEMAK=1 node tools/tangkap-skrin.mjs",
     "demo-data": "node tools/bina-demo.mjs",
-    "skrin": "node tools/tangkap-skrin.mjs"
+    "skrin": "node tools/tangkap-skrin.mjs",
+    "panduan": "node tools/rakam.mjs shot && node tools/bina-manual.cjs public/panduan/index.html public/panduan/manual-annur-opr.pdf",
+    "video": "node tools/rakam.mjs video"
   }
 }

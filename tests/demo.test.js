@@ -19,3 +19,14 @@ test('sale page: pautan dalaman wujud dan tiada dakwaan rekaan', () => {
   // Setiap gambar ada width/height (elak anjakan susun atur)
   for (const m of html.matchAll(/<img [^>]+>/g)) assert.match(m[0], /width="\d+" height="\d+"/);
 });
+
+test('manual /panduan/: semua gambar, video dan PDF wujud', () => {
+  const asas = new URL('../public/panduan/', import.meta.url);
+  const html = readFileSync(new URL('index.html', asas), 'utf8');
+  const rujukan = [...html.matchAll(/(?:src|href)="((?:img|video)\/[^"]+)"/g)].map(m => m[1]);
+  assert.ok(rujukan.length >= 25, 'manual sepatutnya ada banyak gambar dan video');
+  for (const r of rujukan) assert.doesNotThrow(() => readFileSync(new URL(r, asas)), r);
+  assert.ok(readFileSync(new URL('manual-annur-opr.pdf', asas)).subarray(0, 5).toString() === '%PDF-');
+  for (const m of html.matchAll(/<img [^>]+>/g)) assert.match(m[0], /width="\d+" height="\d+"/);
+  for (const id of ['daftar', 'guru', 'borang', 'semak', 'langganan', 'masalah', 'video', 'hubungi']) assert.ok(html.includes(`id="${id}"`), id);
+});
