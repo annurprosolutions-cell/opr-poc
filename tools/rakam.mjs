@@ -4,6 +4,7 @@
 // Worker SEBENAR dijalankan dalam proses; Google, Drive dan KV dipalsukan; semua hos luar disekat.
 // Babak 03-06 guna mod demo (/s/demo). Rakam satu babak pada satu masa (rakaman selari = skrin beku).
 import { readFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve as laluanPenuh } from 'node:path';
 import { createRequire } from 'node:module';
 import { execSync, execFileSync } from 'node:child_process';
 import { handle } from '../src/worker.js';
@@ -121,9 +122,9 @@ function pembantu(pg, mod, nama) {
       await pg.waitForTimeout(ms != null ? ms : Math.max(2300, Math.round(teks.length * 52)));
     },
     async senyap() { if (video) await pg.evaluate(() => window.__rec && window.__rec.cap('')); },
-    async tajuk(t, s) {
+    async tajuk(t, s, label) {
       if (!video) return;
-      await pg.evaluate(([t, s]) => window.__rec.title('Annur OPR · Panduan video', t, s), [t, s]);
+      await pg.evaluate(([t, s, k]) => window.__rec.title(k, t, s), [t, s, label || 'Annur OPR · Panduan video']);
       await pg.waitForTimeout(2700);
       await pg.evaluate(() => window.__rec.titleOff()); await pg.waitForTimeout(500);
     },
@@ -420,6 +421,68 @@ const BABAK = [
       await h.sorot('#pvSekolah', 1200);
       await h.tamat('Sekolah anda, gaya anda');
     }
+  },
+  {
+    // TikTok / Reels: 1080x1920, ~60 s, tanpa suara (tambah muzik dalam apl TikTok). Zon selamat: kapsyen di atas UI bawah TikTok.
+    id: '07', fail: 'tiktok-opr-1-minit', url: '/s/demo?peranan=guru', sedia: '#tab button', demo: true, tiktok: true,
+    async run(h) {
+      const pg = h.pg;
+      const gaya = () => { const ap = () => { const st = document.createElement('style'); st.textContent = '#rec-cap{font-size:19px!important;bottom:150px!important;max-width:90%!important}#rec-title .t{font-size:34px!important}#rec-title .s{font-size:18px!important}'; document.documentElement.appendChild(st); };
+        if (document.documentElement) ap(); else document.addEventListener('DOMContentLoaded', ap); };
+      await pg.addInitScript(gaya); await pg.evaluate(gaya);
+      await h.tajuk('Siap OPR dalam 1 minit', 'Dari telefon sahaja, cikgu', 'Annur OPR');
+      await h.kata('Dulu OPR makan masa. Sekarang isi borang, PDF terus siap.', 2400);
+      await h.kata('Pilih jenis laporan.', 1100);
+      await h.pilih('#fJenis', 'KOKURIKULUM');
+      await h.kata('Isi nama program dan maklumat asas.', 1100);
+      await h.taip('#fTajuk', 'Hari Sukan Tahunan 2026', { delay: 38 });
+      await h.pilih('#fUnit', { index: 2 });
+      await h.pilih('#fPeringkat', 'Sekolah');
+      await h.isi('#fTarikh', '2026-10-30');
+      await h.taip('#fLelaki', '120', { delay: 40 }); await h.taip('#fPerempuan', '135', { delay: 40 });
+      await h.kata('Tambah gambar terus dari kamera atau galeri.', 1000);
+      await h.skrol('#failInput', 500);
+      await h.fail('#failInput', 'gambar.jpg', 'image/jpeg', await gambarContoh(pg, ['#0f766e', '#134e4a'], 'Acara 100 Meter'));
+      await h.klik('#butangTambahFail', { lepas: 700, laju: true });
+      await h.fail('#failInput', 'gambar2.jpg', 'image/jpeg', await gambarContoh(pg, ['#b45309', '#78350f'], 'Lompat Jauh'));
+      await h.klik('#butangTambahFail', { lepas: 700, laju: true });
+      await pg.waitForFunction(() => document.querySelectorAll('#senaraiLampiran img').length === 2);
+      await h.W(900);
+      await h.kata('Tekan Lihat pratonton: ini rupa PDF A4 sebenar.', 1200);
+      await h.klik('#butangPratonton', { lepas: 1600 });
+      await h.kata('Logo, tajuk, gambar dan tandatangan disusun sendiri.', 2400);
+      await h.skrol('#pvStripSatuMuka', 1600);
+      await h.klik('#kembaliBorang', { lepas: 800 });
+      await h.kata('Tanda persetujuan, kemudian Hantar.', 1000);
+      await h.skrol('#fConsent', 600);
+      await h.klik('#fConsent', { lepas: 500 });
+      await h.skrol('[data-hantar=HANTAR]', 700);   // tengah skrin, jauh dari butang terapung
+      await h.klik('[data-hantar=HANTAR]', { lepas: 300 });
+      try { await pg.waitForFunction(() => document.getElementById('mesej').textContent.includes('dihantar'), null, { timeout: 60000 }); }
+      catch (x) { throw new Error('hantar gagal; mesej="' + await pg.evaluate(() => document.getElementById('mesej').textContent + ' | overlay=' + document.getElementById('overlayTeks').textContent + ' | consent=' + document.getElementById('fConsent').checked) + '"'); }
+      await h.atas(500);
+      await h.kata('PDF dijana dan disimpan dalam Google Drive sekolah.', 2300);
+      await h.tab('Laporan');
+      await pg.waitForSelector('#senaraiLaporan .item');
+      await h.kata('Semua laporan anda ada di tab Laporan.', 2000);
+      // Sudut admin
+      await pg.goto(ASAS + '/s/demo');
+      await bersihDemo(pg);
+      await pg.waitForSelector('#tab button', { timeout: 20000 });
+      await h.W(500);
+      await h.kata('Admin nampak semua laporan sekolah.', 1200);
+      await h.tab('Laporan');
+      await pg.waitForSelector('#senaraiLaporan .item');
+      await h.sorot('#senaraiLaporan', 1300);
+      await h.kata('Penyemak muat naik PDF bertandatangan, status jadi DISEMAK.', 2600);
+      await h.tab('Dashboard');
+      await pg.waitForSelector('#cartaBulan .lajur');
+      await h.kata('Dashboard dan eksport CSV, siap untuk mesyuarat.', 1000);
+      await h.sorot('#jubin', 1400);
+      await h.skrol('#cartaUnit', 1500);
+      await h.kata('Data kekal dalam Google Drive sekolah sendiri.', 2400);
+      await h.tamat('Cuba demo percuma');
+    }
   }
 ];
 
@@ -427,17 +490,30 @@ const BABAK = [
 const browser = await playwright.chromium.launch();
 const selesai = new Set();
 async function jalan(b, mod) {
-  const telefon = !!b.telefon;
-  const saiz = telefon ? { width: 390, height: 844 } : { width: 1280, height: 720 };
+  const tiktok = !!b.tiktok;                       // 9:16, 1080x1920, paparan telefon 390 CSS px
+  const telefon = !!b.telefon || tiktok;
+  const saiz = tiktok ? { width: 390, height: 693 } : telefon ? { width: 390, height: 844 } : { width: 1280, height: 720 };
   const opsyen = { viewport: saiz, timezoneId: 'Asia/Kuala_Lumpur', locale: 'ms-MY', serviceWorkers: 'block', acceptDownloads: true,
-    deviceScaleFactor: mod === 'shot' ? 2 : 1 };
+    deviceScaleFactor: mod === 'shot' ? 2 : tiktok ? 1080 / 390 : 1 };
   if (telefon) Object.assign(opsyen, { isMobile: true, hasTouch: true });
   const rawDir = OUT_VID + 'raw/' + b.id;
-  if (mod === 'video') { rmSync(rawDir, { recursive: true, force: true }); opsyen.recordVideo = { dir: rawDir, size: saiz }; }
+  if (mod === 'video') { rmSync(rawDir, { recursive: true, force: true }); if (!tiktok) opsyen.recordVideo = { dir: rawDir, size: saiz }; }
   if (b.sebelum) b.sebelum();
   const ctx = await browser.newContext(opsyen);
   await pasang(ctx);
   const pg = await ctx.newPage();
+  // TikTok: tangkapan CDP pada resolusi peranti penuh (recordVideo Playwright terhad kepada saiz viewport, jadi kabur)
+  const kerangka = []; let cdp = null; const fdir = rawDir + '/f';
+  if (tiktok && mod === 'video') {
+    mkdirSync(fdir, { recursive: true });
+    cdp = await ctx.newCDPSession(pg);
+    cdp.on('Page.screencastFrame', (ev) => {
+      writeFileSync(`${fdir}/${String(kerangka.length).padStart(6, '0')}.jpg`, Buffer.from(ev.data, 'base64'));
+      kerangka.push(ev.metadata.timestamp);
+      cdp.send('Page.screencastFrameAck', { sessionId: ev.sessionId }).catch(() => {});
+    });
+    await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 88, maxWidth: 1080, maxHeight: 1920, everyNthFrame: 1 });
+  }
   const t0 = Date.now();
   await pg.clock.setFixedTime(T0);
   if (mod === 'video') await pg.addInitScript(LAPISAN);
@@ -450,15 +526,33 @@ async function jalan(b, mod) {
   await pg.waitForSelector(b.sedia, { timeout: 30000 });
   await pg.waitForTimeout(400);
   const tMula = (Date.now() - t0) / 1000;
+  const tSiap = kerangka.length ? kerangka[kerangka.length - 1] : 0;
   try { await b.run(h); } catch (x) { ralat.push('babak gagal: ' + x.stack.split('\n').slice(0, 3).join(' | ')); }
-  const vid = pg.video();
+  const vid = cdp ? null : pg.video();
+  if (cdp) await cdp.send('Page.stopScreencast').catch(() => {});
   await ctx.close();
   selesai.add(b.id);
   if (ralat.length) { log(`  ! [${b.id}] ` + ralat.join('\n    ')); process.exitCode = 1; }
+  if (cdp && kerangka.length) {
+    const mp4 = OUT_VID + b.fail + '.mp4';
+    const mula = Math.max(0, kerangka.findIndex(t => t >= tSiap - 0.15));
+    const baris = [];
+    for (let i = mula; i < kerangka.length; i++) {
+      baris.push(`file '${laluanPenuh(fdir, String(i).padStart(6, '0') + '.jpg')}'`, `duration ${(i + 1 < kerangka.length ? kerangka[i + 1] - kerangka[i] : 0.6).toFixed(4)}`);
+    }
+    baris.push(baris[baris.length - 2]);   // peraturan concat: fail terakhir diulang
+    writeFileSync(rawDir + '/senarai.txt', baris.join('\n') + '\n');
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', rawDir + '/senarai.txt',
+      '-vf', 'fps=30,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=white,setsar=1',
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', mp4]);
+    const dur = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4]).toString().trim();
+    log(`  video ${b.fail}.mp4 (${(+dur).toFixed(0)} s, ${kerangka.length - mula} bingkai)`);
+  }
   if (mod === 'video' && vid) {
     const mp4 = OUT_VID + b.fail + '.mp4';
     execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', String(Math.max(0, tMula - 0.15)), '-i', await vid.path(),
-      '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', mp4]);
+      ...(tiktok ? ['-vf', 'scale=1080:1920:flags=lanczos,setsar=1', '-r', '30'] : []),
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', tiktok ? '18' : '20', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', mp4]);
     const dur = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4]).toString().trim();
     log(`  video ${b.fail}.mp4 (${(+dur).toFixed(0)} s)`);
   }
