@@ -354,3 +354,4 @@ h3{font-size:1rem;margin:0 0 .6rem}
 .a4l-ttd+.a4l-kaki{margin-top:6px}
 .krk-lentur{flex-wrap:wrap;row-gap:8px}
 .krk-kpi-nilai.teks{font-size:20px;overflow-wrap:normal;word-break:normal;hyphens:auto}
+.krk-kanvas-petunjuk[hidden]{display:none}

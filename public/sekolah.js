@@ -48,6 +48,13 @@ async function mulaSesi() {
   if (ME.peranan === 'admin') tabs.push('Dashboard', 'Guru', 'Tetapan');
   if (ME.pemilik) tabs.push('Drive');
   tabsOpr = tabs;
+  $('tukarModul').onclick = paparPilihanModul;
+  // Demo: OPR secara lalai; ?m=karakter membuka e-Karakter terus (tanpa skrin pilihan)
+  if (slug === 'demo') {
+    if (new URLSearchParams(location.search).get('m') !== 'karakter') return mulaOpr();
+    cfgKarakter = await api(A('/karakter/config'));
+    return pilihModul('karakter');
+  }
   if (!(await bolehKarakter())) return mulaOpr();
   $('tukarModul').onclick = paparPilihanModul;
   const m = new URLSearchParams(location.search).get('m');

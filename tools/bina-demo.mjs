@@ -2,7 +2,7 @@
 // sentiasa sama dengan apa yang sekolah dapat semasa mendaftar.
 // Jalankan semula selepas mengubah skema:  node tools/bina-demo.mjs
 import { writeFileSync } from 'node:fs';
-import { tetapanAsal, jenisLalai, SENARAI_ASAL } from '../src/skema.js';
+import { tetapanAsal, jenisLalai, SENARAI_ASAL, SENARAI_KARAKTER, tetapanKarakterAsal, TERAS_HURAIAN_ASAL } from '../src/skema.js';
 
 export function dataDemo() {
   const tetapan = Object.fromEntries(tetapanAsal('SMK Contoh Demo', 2026));
@@ -12,7 +12,12 @@ export function dataDemo() {
     FOOTER_PDF: '© SMK Contoh Demo'
   });
   delete tetapan.JENIS_TETAPAN; delete tetapan.VERSI_SKEMA;
-  return { tetapan, jenis: jenisLalai(), senarai: SENARAI_ASAL };
+  // e-Karakter: seed sebenar + nilai contoh sekolah demo
+  const krk = Object.fromEntries(tetapanKarakterAsal());
+  Object.assign(krk, { KRK_KOD_SEKOLAH: 'BEA1234', KRK_NAMA_PENGESAH: 'Puan Rohana binti Ahmad', KRK_JAWATAN_PENGESAH: 'Pengetua' });
+  delete krk.VERSI_SKEMA; delete krk.KRK_TERAS_HURAIAN;
+  return { tetapan, jenis: jenisLalai(), senarai: SENARAI_ASAL,
+    karakter: { senarai: SENARAI_KARAKTER, tetapan: krk, huraian: TERAS_HURAIAN_ASAL } };
 }
 
 if (import.meta.url === 'file://' + process.argv[1]) {

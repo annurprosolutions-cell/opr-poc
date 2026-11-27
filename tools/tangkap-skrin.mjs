@@ -39,7 +39,7 @@ const ralat = [];
 const semak = (s, m) => { if (!s) throw new Error('GAGAL: ' + m); console.log('  ok  ' + m); };
 const browser = await playwright.chromium.launch();
 async function halaman(viewport, dsf = 2) {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: dsf });
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: dsf, locale: 'ms-MY', timezoneId: 'Asia/Kuala_Lumpur' });
   await pasang(ctx);
   const p = await ctx.newPage();
   p.on('pageerror', x => ralat.push(String(x)));
@@ -57,7 +57,7 @@ async function simpanElemen(p, sel, nama) {
   await gaya.evaluate(n => n.remove());
 }
 // Sembunyikan jalur demo dan notis lesen untuk gambar sale page yang bersih
-const bersih = (p) => p.evaluate(() => { for (const s of ['.jalur-demo', '#notisLesen', '#mesej']) { const n = document.querySelector(s); if (n) n.style.display = 'none'; } window.scrollTo(0, 0); });
+const bersih = (p) => p.evaluate(() => { for (const s of ['.jalur-demo', '#notisLesen', '#mesej', '#mesejKarakter']) { const n = document.querySelector(s); if (n) n.style.display = 'none'; } window.scrollTo(0, 0); });
 
 try {
   // ---------------------------------------------------------- desktop: borang + pratonton
@@ -116,12 +116,88 @@ try {
   await t.waitForTimeout(800);
   await simpan(t, 'telefon-pratonton');
 
+  // ---------------------------------------------------------- e-Karakter (demo): admin desktop
+  const k = await halaman({ width: 1360, height: 860 });
+  await k.goto(ASAS + '/s/demo?m=karakter');
+  await k.waitForSelector('#tabKarakter button');
+  semak((await k.$$eval('#tabKarakter button', b => b.map(x => x.textContent))).join() === 'Borang,Laporan,Dashboard,Panduan Mula,Setup', 'demo e-Karakter admin: 5 tab');
+  await k.waitForSelector('#borangKrk');
+  await k.selectOption('#kKelas', '5 Ibnu Sina');
+  await k.selectOption('#kSubjek', 'Sains');
+  await k.check('#kTeras0', { force: true }); await k.check('#kTeras1', { force: true });
+  await k.fill('#kTajuk', 'Eksperimen tumbesaran pokok berkumpulan');
+  await k.click('#cadanganAyat');
+  const gbrK = await k.evaluate(() => [['#0f766e', 'Menyukat tumbesaran'], ['#b45309', 'Pembentangan kumpulan']].map(([w, t]) => { const c = document.createElement('canvas'); c.width = 900; c.height = 600;
+    const x = c.getContext('2d'); const gr = x.createLinearGradient(0, 0, 900, 600); gr.addColorStop(0, w); gr.addColorStop(1, '#0f172a'); x.fillStyle = gr; x.fillRect(0, 0, 900, 600);
+    x.fillStyle = 'rgba(255,255,255,.18)'; for (let i = 0; i < 6; i++) { x.beginPath(); x.arc(130 + i * 130, 470 - (i % 2) * 90, 70, 0, 7); x.fill(); }
+    x.fillStyle = '#fff'; x.font = 'bold 54px sans-serif'; x.textAlign = 'center'; x.fillText(t, 450, 280); x.font = '28px sans-serif'; x.fillText('Gambar contoh', 450, 330);
+    return c.toDataURL('image/png').split(',')[1]; }));
+  await k.setInputFiles('#kGambar', gbrK.map((b64, i) => ({ name: 'g' + i + '.png', mimeType: 'image/png', buffer: Buffer.from(b64, 'base64') })));
+  await k.waitForFunction(() => document.querySelectorAll('#kSenaraiGambar img').length === 2);
+  await k.check('#kAkuan');
+  await k.click('#butangTtd');
+  await k.waitForSelector('#dialogTtd[open] #kanvasTtd');
+  const kotak = await k.locator('#kanvasTtd').boundingBox();
+  await k.mouse.move(kotak.x + 40, kotak.y + 110); await k.mouse.down();
+  for (const [dx, dy] of [[90, 40], [140, 120], [200, 50], [260, 105], [330, 70], [420, 60]]) await k.mouse.move(kotak.x + dx, kotak.y + dy, { steps: 8 });
+  await k.mouse.up();
+  await k.click('#gunaTtd');
+  await k.waitForSelector('#kA4 .a4k-ttd-ruang img');
+  await bersih(k);
+  await k.waitForTimeout(500);
+  await simpan(k, 'krk-borang');
+  await simpanElemen(k, '#kA4 .krk-a4-skala', 'krk-a4');
+  await k.click('#hantarKrk');
+  await k.waitForFunction(() => /Laporan dihantar.*PDF disimpan/.test(document.getElementById('mesejKarakter').textContent), null, { timeout: 60000 });
+  semak(true, 'demo e-Karakter: hantar dengan tandatangan, PDF dijana dalam memori');
+  await k.click('#tabKarakter button[data-krk=Dashboard]');
+  await k.waitForSelector('.krk-kpi-kad');
+  await k.waitForFunction(() => window.Chart && window.Chart.getChart(document.getElementById('krkDonat')));
+  semak(Number((await k.textContent('.krk-kpi-kad .krk-kpi-nilai')).trim()) === 41, 'demo dashboard: 40 laporan contoh + 1 baharu');
+  await k.waitForTimeout(600);
+  await bersih(k);
+  await simpan(k, 'krk-dashboard');
+
+  // ---------------------------------------------------------- e-Karakter (demo): guru dan guru kelas di telefon
+  const kg = await halaman({ width: 390, height: 844 }, 3);
+  await kg.goto(ASAS + '/s/demo?m=karakter&peranan=guru');
+  await kg.waitForSelector('#borangKrk');
+  semak((await kg.$$eval('#tabKarakter button', b => b.map(x => x.textContent))).join() === 'Borang,Laporan', 'demo e-Karakter guru: Borang dan Laporan sahaja');
+  await kg.click('#tabKarakter button[data-krk=Laporan]');
+  await kg.waitForSelector('#kSenaraiLaporan .krk-item');
+  semak((await kg.$$('#kSkopTab')).length === 0 && (await kg.$$('#kSenaraiLaporan .krk-item')).length > 0, 'demo guru: laporan sendiri, tiada sub-tab Kelas Saya');
+  await kg.click('#tabKarakter button[data-krk=Borang]');
+  await kg.check('#kTeras0', { force: true }); await kg.check('#kTeras3', { force: true });
+  await kg.evaluate(() => document.getElementById('kTeras').scrollIntoView({ block: 'start' }));
+  await bersih(kg);
+  await kg.evaluate(() => window.scrollBy(0, document.getElementById('kTeras').getBoundingClientRect().top - 120));
+  await kg.waitForTimeout(300);
+  await simpan(kg, 'krk-telefon-borang');
+  await kg.click('#butangTtd');
+  await kg.waitForSelector('#dialogTtd[open] #kanvasTtd');
+  const kt = await kg.locator('#kanvasTtd').boundingBox();
+  await kg.mouse.move(kt.x + 20, kt.y + 110); await kg.mouse.down();
+  for (const [dx, dy] of [[60, 40], [100, 120], [150, 50], [200, 105], [260, 70], [320, 60]]) await kg.mouse.move(kt.x + dx, kt.y + dy, { steps: 8 });
+  await kg.mouse.up();
+  await kg.waitForTimeout(300);
+  await simpan(kg, 'krk-telefon-ttd');
+  await kg.click('#gunaTtd');
+  const kk = await halaman({ width: 390, height: 844 });
+  await kk.goto(ASAS + '/s/demo?m=karakter&peranan=gurukelas');
+  await kk.waitForSelector('#tabKarakter button');
+  await kk.click('#tabKarakter button[data-krk=Laporan]');
+  await kk.click('#kSkopTab button[data-skop=kelas]');
+  await kk.waitForSelector('.krk-ringkasan-kad[data-kelas="5 Ibnu Sina"]');
+  await kk.waitForSelector('#kSenaraiLaporan .krk-item');
+  semak((await kk.textContent('#kSenaraiLaporan')).includes('Cikgu') && (await kk.$$eval('#kSenaraiLaporan .meta', n => n.every(x => x.textContent.includes('5 Ibnu Sina')))), 'demo guru kelas: Kelas Saya hanya 5 Ibnu Sina');
+  semak(await kk.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'demo e-Karakter: tiada skrol mendatar pada 390px');
+
   // ---------------------------------------------------------- sale page
   for (const [vp, label] of [[{ width: 1360, height: 860 }, 'desktop'], [{ width: 390, height: 844 }, 'telefon']]) {
     const s = await halaman(vp, 1);
     const res = await s.goto(ASAS + '/');
     semak(res.status() === 200, `sale page dibuka (${label})`);
-    await s.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise(r => setTimeout(r, 30)); } });
+    await s.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 500) { window.scrollTo(0, y); await new Promise(r => setTimeout(r, 120)); } });
     semak(await s.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `tiada skrol mendatar (${label})`);
     semak(await s.evaluate(() => [...document.images].every(i => i.complete && i.naturalWidth > 0)), `semua gambar dimuatkan (${label})`);
     semak(await s.evaluate(() => [...document.querySelectorAll('.muncul')].every(n => n.classList.contains('nampak'))), `semua seksyen muncul selepas skrol (${label})`);

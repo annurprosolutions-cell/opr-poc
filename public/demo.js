@@ -9,7 +9,10 @@ if (DEMO) {
   const asal = window.fetch.bind(window);
   const D = await asal('/demo-data.json').then(r => r.json());
   const q = new URLSearchParams(location.search);
-  const peranan = q.get('peranan') === 'guru' ? 'guru' : 'admin';
+  // OPR: admin atau guru. e-Karakter: admin, guru atau gurukelas (guru yang dipetakan kepada 5 Ibnu Sina).
+  const perananKrk = ['guru', 'gurukelas'].includes(q.get('peranan')) ? q.get('peranan') : 'admin';
+  const peranan = perananKrk === 'admin' ? 'admin' : 'guru';
+  const modKrk = q.get('m') === 'karakter';
   const AKU = peranan === 'admin'
     ? { email: 'admin.demo@contoh.edu.my', nama: 'Cikgu Admin Demo' }
     : { email: 'guru.demo@contoh.edu.my', nama: 'Cikgu Aminah' };
@@ -78,11 +81,14 @@ if (DEMO) {
     tarikhProgram: l.tarikhProgram, nama: l.nama, pemilik: l.pemilik, status: l.status, adaPdf: !!l.pdfFileId,
     adaPdfDisemak: !!l.pdfDisemakId, disemakOleh: l.disemakOleh });
 
+  const jawabKarakter = (await import('/demo-karakter.js')).bina({ D, AKU, peranan: perananKrk, fail, idBaru, gambar: [g1, g2, g3], guru, hari, J, R });
+
   async function jawab(laluan, kaedah, init) {
     const url = new URL(laluan, location.href), p = url.pathname.replace('/api/s/demo', '');
     const badanMentah = init && init.body;
     const badan = typeof badanMentah === 'string' ? JSON.parse(badanMentah || '{}') : {};
     if (p === '' ) return J({ ok: true, slug: 'demo', nama: tetapan.NAMA_SEKOLAH });
+    if (p === '/karakter' || p.startsWith('/karakter/')) return jawabKarakter(p, kaedah, url, init);
     if (p === '/me') return J({ ok: true, ...AKU, peranan, pemilik: admin, adminEmail: 'admin.demo@contoh.edu.my', sedia: true, statusToken: 'ok',
       pautanSheet: '#', pautanFolder: '#', buyUrl: '/#harga',
       lesen: { ok: true, reason: 'ok', plan: 'percubaan', expires: hari(13), daysLeft: 13 } });
@@ -218,11 +224,16 @@ if (DEMO) {
   const jalur = document.createElement('div');
   jalur.className = 'jalur-demo';
   const t = document.createElement('span');
-  t.textContent = 'MOD DEMO: data contoh, tidak disimpan. ' + (admin ? 'Anda melihat sebagai admin.' : 'Anda melihat sebagai guru.');
-  const a = document.createElement('a');
-  a.href = admin ? '/s/demo?peranan=guru' : '/s/demo';
-  a.textContent = admin ? 'Lihat sebagai guru' : 'Lihat sebagai admin';
-  const b = document.createElement('a'); b.href = '/daftar'; b.textContent = 'Daftar percubaan 14 hari';
-  jalur.append(t, a, b);
+  const pautan = (href, teks) => { const x = document.createElement('a'); x.href = href; x.textContent = teks; return x; };
+  const namaPeranan = { admin: 'admin', guru: 'guru', gurukelas: 'guru kelas' };
+  t.textContent = 'MOD DEMO: data contoh, tidak disimpan. Anda melihat ' + (modKrk ? 'e-Karakter' : 'OPR') + ' sebagai ' + namaPeranan[modKrk ? perananKrk : peranan] + '.';
+  jalur.append(t);
+  if (modKrk) {
+    for (const r of ['admin', 'guru', 'gurukelas']) if (r !== perananKrk) jalur.append(pautan('/s/demo?m=karakter' + (r === 'admin' ? '' : '&peranan=' + r), 'Lihat sebagai ' + namaPeranan[r]));
+    jalur.append(pautan('/s/demo', 'Demo OPR'));
+  } else {
+    jalur.append(pautan(admin ? '/s/demo?peranan=guru' : '/s/demo', admin ? 'Lihat sebagai guru' : 'Lihat sebagai admin'), pautan('/s/demo?m=karakter', 'Cuba e-Karakter'));
+  }
+  jalur.append(pautan('/daftar', 'Daftar percubaan 14 hari'));
   document.body.prepend(jalur);
 }
