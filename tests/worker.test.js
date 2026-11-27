@@ -1403,3 +1403,70 @@ test('karakter fasa 3: akses PDF dan tandatangan, pengesahan fail, wajib tandata
   assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod/' + r.id)).ok, true, 'baca kekal');
   assert.ok(sek.karakter.sheetId);
 });
+
+// ======================================================================
+// e-Karakter Fasa 4: Laporan Kelas (guru kelas)
+// ======================================================================
+test('karakter fasa 4: penerimaan IPD - guru kelas nampak laporan 3 guru bagi kelasnya sahaja; pemetaan berubah serta-merta', async () => {
+  const x = await sekolahKarakter();
+  const { e, g } = x;
+  await panggilApi(e, g, x.sesiAdmin, '/guru', { teks: 'guru.c@gmail.com, Cikgu C' });
+  const c = (await logMasukSebagai(e, g, 'guru.c@gmail.com')).sesi;
+  await panggilApi(e, g, x.sesiAdmin, '/karakter/senarai', { kategori: 'KARAKTER_KELAS', item: [{ nilai: '5 Ibnu Sina' }, { nilai: '4 Sains' }] });
+  await panggilApi(e, g, x.sesiAdmin, '/karakter/gurukelas', { pemetaan: [{ kelas: '5 Ibnu Sina', email: 'guru.a@gmail.com' }] });
+  // Tiga guru melapor untuk 5 Ibnu Sina; laporan 4 Sains juga wujud
+  const f = await muatNaikKrk(e, g, x.b, JPEG);
+  const rb = await panggilApi(e, g, x.b, '/karakter/rekod', { data: dataSah({ tajuk: 'Laporan B' }), gambar: [{ fileId: f.fileId, kapsyen: 'B' }], akuanGambar: true });
+  const tb = await ttdNaik(x, x.b);
+  await panggilApi(e, g, x.b, '/karakter/rekod', { id: rb.id, data: dataSah({ tajuk: 'Laporan B' }), gambar: [{ fileId: f.fileId, kapsyen: 'B' }], akuanGambar: true, ttdFileId: tb.fileId });
+  const pb = await postBinari(e, g, x.b, '/karakter/rekod/' + rb.id + '/pdf', pdfPalsu('B'), 'application/pdf');
+  assert.equal(pb.ok, true);
+  await panggilApi(e, g, c, '/karakter/rekod', { data: dataSah({ tajuk: 'Laporan C', teras: ['Berdaya Tahan'] }) });
+  await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah({ tajuk: 'Laporan A' }) });
+  const r4 = await panggilApi(e, g, x.b, '/karakter/rekod', { data: dataSah({ tajuk: 'Laporan 4 Sains', kelas: '4 Sains' }) });
+  const padam = await panggilApi(e, g, c, '/karakter/rekod', { data: dataSah({ tajuk: 'Dipadam' }) });
+  await panggilApi(e, g, c, '/karakter/rekod/' + padam.id + '/padam', {});
+
+  // Cikgu A (guru kelas 5 Ibnu Sina)
+  const s = await panggilApi(e, g, x.a, '/karakter/rekod?skop=kelas');
+  assert.equal(s.ok, true);
+  assert.deepEqual(s.data.map(r => r.tajuk).sort(), ['Laporan A', 'Laporan B', 'Laporan C']);
+  assert.deepEqual([...new Set(s.data.map(r => r.email))].sort(), ['guru.a@gmail.com', 'guru.b@gmail.com', 'guru.c@gmail.com']);
+  assert.deepEqual(s.kelasDipeta, ['5 Ibnu Sina']);
+  assert.ok(s.data.every(r => r.kelas === '5 Ibnu Sina'), 'tiada laporan kelas lain');
+  // Manipulasi parameter: kelas lain ditolak di server
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod?skop=kelas&kelas=4%20Sains')).status, 403);
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod?skop=semua')).status, 403);
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod/' + r4.id)).status, 403, 'butiran kelas lain ditolak');
+  // Ringkasan kelas
+  const st = await panggilApi(e, g, x.a, '/karakter/statistik?skop=kelas');
+  assert.equal(st.kelas[0].kelas, '5 Ibnu Sina'); assert.equal(st.kelas[0].bil, 3);
+  assert.deepEqual(st.kelas[0].teras, [{ nama: 'Berdaya Tahan', bil: 3 }, { nama: 'Penyayang', bil: 2 }]);
+  assert.equal(st.kelas[0].guru.length, 3);
+  assert.equal(st.kelas[0].terakhir, '2026-11-06');
+  // Butiran laporan guru B: baca sahaja, gambar, tandatangan dan PDF boleh dibuka
+  const bt = await panggilApi(e, g, x.a, '/karakter/rekod/' + rb.id);
+  assert.equal(bt.ok, true); assert.equal(bt.bacaSahaja, true);
+  assert.deepEqual(bt.boleh, { edit: false, padam: false, janaPdf: false });
+  for (const fid of [f.fileId, tb.fileId]) {
+    assert.equal((await handle(req('/api/s/smkwakanda/karakter/fail/' + fid + '?rekod=' + rb.id, { kuki: { opr_sesi: x.a } }), e, deps(g))).status, 200);
+  }
+  const pdf = await handle(req('/api/s/smkwakanda/karakter/rekod/' + rb.id + '/pdf', { kuki: { opr_sesi: x.a } }), e, deps(g));
+  assert.equal(pdf.status, 200);
+  // Tidak boleh edit, padam atau jana semula laporan guru lain
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod', { id: rb.id, data: dataSah() })).status, 403);
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod/' + rb.id + '/padam', {})).status, 403);
+  assert.equal((await postBinari(e, g, x.a, '/karakter/rekod/' + rb.id + '/pdf', pdfPalsu(), 'application/pdf')).status, 403);
+  // Guru bukan guru kelas
+  assert.equal((await panggilApi(e, g, x.b, '/karakter/rekod?skop=kelas')).status, 403);
+  assert.equal((await panggilApi(e, g, x.b, '/karakter/statistik?skop=kelas')).status, 403);
+
+  // Admin tukar pemetaan: berkuat kuasa pada permintaan seterusnya
+  await panggilApi(e, g, x.sesiAdmin, '/karakter/gurukelas', { pemetaan: [{ kelas: '4 Sains', email: 'guru.a@gmail.com' }] });
+  const s2 = await panggilApi(e, g, x.a, '/karakter/rekod?skop=kelas');
+  assert.deepEqual(s2.data.map(r => r.tajuk), ['Laporan 4 Sains']);
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod/' + rb.id)).status, 403, 'akses kelas lama ditarik serta-merta');
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod/' + r4.id)).ok, true);
+  // Laporan sendiri dalam kelas lain kekal boleh dibuka (sebagai pemilik)
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod?skop=saya')).jumlah, 1);
+});

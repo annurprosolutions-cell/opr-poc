@@ -283,3 +283,7 @@ h3{font-size:1rem;margin:0 0 .6rem}
 .a4k-ttd-tarikh{color:#475569}
 .a4k-kaki{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #e2e8f0;padding-top:5px;font-size:8.5px;color:#64748b}
 .pil.ok-pdf{background:var(--ok-bg);color:var(--ok)}
+/* e-Karakter: ringkasan kelas (guru kelas) */
+.krk-ringkasan{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));margin:12px 0 4px}
+.krk-ringkasan-kad{display:grid;gap:4px}
+.krk-ringkasan-angka b{font-size:1.6rem}

@@ -418,6 +418,33 @@ try {
   const rekod2 = g.sheet.get(sekR.karakter.sheetId).tabs.get('KarakterRekod');
   const ttdSimpan = g.sheet.get(sekR.karakter.sheetId).tabs.get('KarakterTtd').find(r => r[0] === 'admin@sekolah.edu.my')[1];
   semak(rekod2.length === 3 && rekod2[2][15] === ttdSimpan, 'laporan kedua menggunakan tandatangan tersimpan (tab Tersimpan)');
+
+  // ---------------------------------------------------------- e-Karakter Fasa 4: guru kelas (Aminah, 5 Al-Biruni)
+  const aminah = await pengguna('aminah@moe-dl.edu.my');
+  await aminah.masuk();
+  await aminah.goto(ASAS + '/s/smkwakanda');
+  await aminah.click('#butangLogin');
+  await aminah.waitForSelector('#pilihModul:not(.tersembunyi)');
+  await aminah.click('.kad-modul[data-modul=karakter]');
+  await aminah.waitForSelector('#tabKarakter button');
+  semak((await aminah.$$eval('#tabKarakter button', b => b.map(x => x.textContent))).join() === 'Borang,Laporan', 'guru nampak tab Borang dan Laporan sahaja (tiada Setup)');
+  await aminah.click('#tabKarakter button[data-krk=Laporan]');
+  await aminah.waitForSelector('#kSkopTab');
+  semak((await aminah.$$eval('#kSkopTab button', b => b.map(x => x.textContent))).join() === 'Saya,Kelas Saya', 'guru kelas nampak sub-tab Saya dan Kelas Saya');
+  await aminah.click('#kSkopTab button[data-skop=kelas]');
+  await aminah.waitForSelector('.krk-ringkasan-kad[data-kelas="5 Al-Biruni"]');
+  await aminah.waitForSelector('#kSenaraiLaporan .krk-item');
+  const ringK = await aminah.textContent('.krk-ringkasan-kad');
+  semak(ringK.includes('1') && ringK.includes('laporan') && ringK.includes('Berdaya Tahan') && ringK.includes('Guru yang melapor'), 'ringkasan kelas: bilangan laporan, teras terbanyak, guru yang melapor');
+  const senaraiK = await aminah.textContent('#kSenaraiLaporan');
+  semak(senaraiK.includes('Pertandingan kuiz sains') && !senaraiK.includes('Eksperimen tumbesaran'), 'Kelas Saya: hanya laporan kelas dipetakan (laporan guru lain), tiada kelas lain');
+  await aminah.screenshot({ path: OUT + '5-karakter-kelas-saya.png', fullPage: true });
+  await aminah.click('#kSenaraiLaporan .krk-item button:text("Lihat")');
+  await aminah.waitForSelector('#kBacaSahaja');
+  semak(await aminah.$('#muatTurunPdf') !== null && await aminah.$('button:text-is("Edit")') === null && await aminah.$('button:text-is("Padam")') === null && await aminah.$('#janaSemulaPdf') === null,
+    'butiran guru kelas: baca sahaja, boleh muat turun PDF, tiada Edit/Padam/Jana semula');
+  semak(await aminah.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Laporan Kelas: tiada skrol mendatar pada 390px');
+  g.senario.email = 'admin@sekolah.edu.my';
   semak(await admin.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'borang dan laporan e-Karakter: tiada skrol mendatar pada 390px');
   await admin.click('#tukarModul');
   await admin.click('.kad-modul[data-modul=opr]');

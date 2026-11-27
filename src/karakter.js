@@ -166,6 +166,7 @@ export async function apiKarakter(ctx, sub) {
   if (s === '/fail' && req.method === 'POST') return await terimaFailKarakter(ctx);
   if (s === '/rekod' && req.method === 'POST') return await simpanRekod(ctx);
   if (s === '/rekod' && req.method === 'GET') return await senaraiRekod(ctx, laluan);
+  if (s === '/statistik' && req.method === 'GET' && ctx.url.searchParams.get('skop') === 'kelas') return await statistikKelas(ctx, laluan);
   const mr = s.match(/^\/rekod\/(KRK-\d{8}-[A-Z0-9]{5})(\/padam)?$/);
   if (mr && !mr[2] && req.method === 'GET') return await bacaSatuRekod(ctx, mr[1], laluan);
   if (mr && mr[2] && req.method === 'POST') return await padamRekod(ctx, mr[1], laluan);
@@ -612,13 +613,23 @@ async function senaraiRekod(ctx, laluan) {
   const q = url.searchParams;
   const skop = q.get('skop') || 'saya';
   if (skop === 'semua' && !admin) return tolakKarakter(ctx, laluan + '?skop=semua', 'Bukan admin');
-  if (!['saya', 'semua'].includes(skop)) return ralat('Skop tidak sah.');
-  const { baris } = await bacaJadualKrk(g, sek, TAB_KRK.REKOD);
+  if (!['saya', 'semua', 'kelas'].includes(skop)) return ralat('Skop tidak sah.');
+  const d = await bacaKarakter(g, sek, skop === 'kelas' ? [TAB_KRK.REKOD, TAB_KRK.GURUKELAS] : [TAB_KRK.REKOD]);
+  const { baris } = d[TAB_KRK.REKOD];
+  // Guru kelas: hanya kelas yang dipetakan kepadanya, dikuatkuasakan di server (F-10)
+  let kelasDibenar = null;
+  if (skop === 'kelas') {
+    const dipeta = kelasDipeta(d[TAB_KRK.GURUKELAS], sesi.email);
+    if (!dipeta.length) return tolakKarakter(ctx, laluan + '?skop=kelas', 'Bukan guru kelas', 'Anda bukan guru kelas bagi mana-mana kelas.');
+    const minta = q.get('kelas');
+    if (minta && !dipeta.includes(minta)) return tolakKarakter(ctx, laluan + '?skop=kelas&kelas=' + minta.slice(0, 60), 'Kelas tidak dipetakan', 'Anda bukan guru kelas bagi kelas ini.');
+    kelasDibenar = minta ? [minta] : dipeta;
+  }
   const cari = String(q.get('cari') || '').trim().toLowerCase().slice(0, 100);
   const dari = q.get('dari') || '', hingga = q.get('hingga') || '';
   let data = baris.filter(r => r.ID && !ya(r.Dipadam))
-    .filter(r => skop === 'semua' || String(r.PemilikEmail).toLowerCase() === sesi.email)
-    .filter(r => !q.get('kelas') || String(r.Kelas) === q.get('kelas'))
+    .filter(r => skop === 'semua' || (skop === 'kelas' ? kelasDibenar.includes(String(r.Kelas)) : String(r.PemilikEmail).toLowerCase() === sesi.email))
+    .filter(r => skop === 'kelas' || !q.get('kelas') || String(r.Kelas) === q.get('kelas'))
     .filter(r => !q.get('subjek') || String(r.Subjek) === q.get('subjek'))
     .filter(r => !q.get('teras') || pecahId(r.Teras).includes(q.get('teras')))
     .filter(r => !dari || String(r.TarikhISO) >= dari)
@@ -628,30 +639,58 @@ async function senaraiRekod(ctx, laluan) {
   const saiz = 20, jumlah = data.length;
   const halaman = Math.min(Math.max(1, parseInt(q.get('halaman'), 10) || 1), Math.max(1, Math.ceil(jumlah / saiz)));
   data = data.slice((halaman - 1) * saiz, halaman * saiz).map(ringkasRekod);
-  return json({ ok: true, skop, jumlah, halaman, saiz, data });
+  return json({ ok: true, skop, jumlah, halaman, saiz, data, ...(kelasDibenar ? { kelasDipeta: kelasDipeta(d[TAB_KRK.GURUKELAS], sesi.email) } : {}) });
 }
 
 // Akses baca: admin, atau pemilik. (Guru kelas bagi kelasnya: Fasa 4.)
+// Akses baca: admin, pemilik, atau guru kelas bagi kelas laporan itu (baca sahaja).
 async function cariRekodBolehBaca(ctx, id, laluan) {
   const { g, sek, sesi, admin } = ctx;
-  const { baris, tajuk } = await bacaJadualKrk(g, sek, TAB_KRK.REKOD);
+  const d = await bacaKarakter(g, sek, [TAB_KRK.REKOD, TAB_KRK.GURUKELAS]);
+  const { baris, tajuk } = d[TAB_KRK.REKOD];
   const r = baris.find(x => String(x.ID) === id);
   if (!r || ya(r.Dipadam)) return { respons: ralat('Laporan tidak dijumpai.', 404) };
   const pemilik = String(r.PemilikEmail).toLowerCase() === sesi.email;
-  if (!admin && !pemilik) return { respons: await tolakKarakter(ctx, laluan, 'Bukan pemilik rekod', 'Anda tiada kebenaran untuk laporan ini.') };
-  return { r, tajuk, pemilik };
+  const guruKelas = !pemilik && kelasDipeta(d[TAB_KRK.GURUKELAS], sesi.email).includes(String(r.Kelas));
+  if (!admin && !pemilik && !guruKelas) return { respons: await tolakKarakter(ctx, laluan, 'Bukan pemilik atau guru kelas', 'Anda tiada kebenaran untuk laporan ini.') };
+  return { r, tajuk, pemilik, guruKelas };
+}
+
+function kelasDipeta(jadualGuruKelas, email) {
+  return [...new Set(jadualGuruKelas.baris.filter(x => String(x.Email).trim().toLowerCase() === email).map(x => String(x.Kelas)).filter(Boolean))];
+}
+
+// Ringkasan kelas untuk guru kelas (F-10): bilangan laporan, teras terbanyak, guru yang melapor.
+async function statistikKelas(ctx, laluan) {
+  const { g, sek, sesi, url } = ctx;
+  const d = await bacaKarakter(g, sek, [TAB_KRK.REKOD, TAB_KRK.GURUKELAS]);
+  const dipeta = kelasDipeta(d[TAB_KRK.GURUKELAS], sesi.email);
+  if (!dipeta.length) return tolakKarakter(ctx, laluan + '?skop=kelas', 'Bukan guru kelas', 'Anda bukan guru kelas bagi mana-mana kelas.');
+  const minta = url.searchParams.get('kelas');
+  if (minta && !dipeta.includes(minta)) return tolakKarakter(ctx, laluan + '?skop=kelas&kelas=' + minta.slice(0, 60), 'Kelas tidak dipetakan', 'Anda bukan guru kelas bagi kelas ini.');
+  const kelas = minta ? [minta] : dipeta;
+  const kira = (peta, k) => peta.set(k, (peta.get(k) || 0) + 1);
+  const susun = (peta) => [...peta].map(([nama, bil]) => ({ nama, bil })).sort((a, b) => b.bil - a.bil || a.nama.localeCompare(b.nama));
+  const hasil = kelas.map(k => {
+    const rekod = d[TAB_KRK.REKOD].baris.filter(r => r.ID && !ya(r.Dipadam) && String(r.Kelas) === k);
+    const guru = new Map(), teras = new Map();
+    rekod.forEach(r => { kira(guru, String(r.NamaGuru || r.PemilikEmail)); pecahId(r.Teras).forEach(t => kira(teras, t)); });
+    const terakhir = rekod.map(r => String(r.TarikhISO)).sort().pop() || '';
+    return { kelas: k, bil: rekod.length, guru: susun(guru), teras: susun(teras), terakhir };
+  });
+  return json({ ok: true, kelasDipeta: dipeta, kelas: hasil });
 }
 
 async function bacaSatuRekod(ctx, id, laluan) {
   const x = await cariRekodBolehBaca(ctx, id, laluan);
   if (x.respons) return x.respons;
-  const { r, pemilik } = x;
+  const { r, pemilik, guruKelas } = x;
   const kap = kapsyenDari(r);
   return json({ ok: true, rekod: { ...ringkasRekod(r), catatan: String(r.Catatan), timestamp: String(r.Timestamp),
     gambar: pecahId(r.GambarIds).map((fileId, i) => ({ fileId, kapsyen: kap[i] || '' })),
     akuanGambar: ya(r.AkuanGambar), hash: String(r.KandunganHash).slice(0, 8), tahunSesi: String(r.TahunSesi),
     ttdFileId: String(r.TtdFileId || ''), ttdPada: String(r.TtdPada || ''), pdfPada: String(r.PdfPada || '') },
-    boleh: { edit: pemilik, padam: pemilik || ctx.admin, janaPdf: pemilik || ctx.admin } });
+    boleh: { edit: pemilik, padam: pemilik || ctx.admin, janaPdf: pemilik || ctx.admin }, bacaSahaja: !pemilik && !ctx.admin && !!guruKelas });
 }
 
 // Soft delete: baris kekal dalam Sheet dengan Dipadam = YA. Fail tidak dibuang.

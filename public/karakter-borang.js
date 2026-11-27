@@ -343,27 +343,46 @@ async function hantar(bekas) {
 export async function paparLaporan(bekas, bukaBorang) {
   const C = K.getCfg();
   const b = kosongkan(bekas);
-  const tajuk = el('h2', { text: senarai.skop === 'semua' ? 'Semua laporan karakter' : 'Laporan saya' });
-  const atas = el('div', { class: 'baris-antara' }, tajuk);
-  if (C.admin) {
-    const pilih = el('select', { id: 'kSkop', 'aria-label': 'Skop laporan', style: 'width:auto' },
-      el('option', { value: 'saya', text: 'Laporan saya' }), el('option', { value: 'semua', text: 'Semua laporan sekolah' }));
-    pilih.value = senarai.skop;
-    pilih.onchange = () => { senarai.skop = pilih.value; senarai.halaman = 1; paparLaporan(bekas, bukaBorang); };
-    atas.append(pilih);
+  // Sub-tab (S-05): Saya, Kelas Saya (guru kelas sahaja), Semua (admin sahaja)
+  const skop = [['saya', 'Saya'], ...((C.guruKelas || []).length ? [['kelas', 'Kelas Saya']] : []), ...(C.admin ? [['semua', 'Semua']] : [])];
+  if (!skop.some(([k]) => k === senarai.skop)) senarai.skop = 'saya';
+  const tajuk = el('h2', { text: senarai.skop === 'semua' ? 'Semua laporan karakter' : senarai.skop === 'kelas' ? 'Laporan kelas saya' : 'Laporan saya' });
+  b.append(tajuk);
+  if (skop.length > 1) {
+    const nav = el('nav', { class: 'tab tab-kecil', id: 'kSkopTab', role: 'tablist', 'aria-label': 'Skop laporan' });
+    skop.forEach(([k, label]) => nav.append(el('button', { type: 'button', role: 'tab', 'data-skop': k, 'aria-selected': String(k === senarai.skop), text: label,
+      onclick: () => { senarai = { skop: k, halaman: 1, cari: '', kelas: '', teras: '' }; paparLaporan(bekas, bukaBorang); } })));
+    b.append(nav);
   }
+  const ringkasan = el('div', { id: 'kRingkasanKelas' });
   const cari = el('input', { type: 'search', id: 'kCari', placeholder: 'Cari tajuk, kelas, subjek...', 'aria-label': 'Cari laporan' });
   cari.value = senarai.cari;
-  const kelas = el('select', { id: 'kTapisKelas', 'aria-label': 'Tapis kelas' }, el('option', { value: '', text: 'Semua kelas' }), ...C.kelas.map(v => el('option', { value: v, text: v })));
+  const pilihanKelas = senarai.skop === 'kelas' ? C.guruKelas : C.kelas;
+  const kelas = el('select', { id: 'kTapisKelas', 'aria-label': 'Tapis kelas' }, el('option', { value: '', text: senarai.skop === 'kelas' ? 'Semua kelas saya' : 'Semua kelas' }), ...pilihanKelas.map(v => el('option', { value: v, text: v })));
   kelas.value = senarai.kelas;
   const teras = el('select', { id: 'kTapisTeras', 'aria-label': 'Tapis teras' }, el('option', { value: '', text: 'Semua teras' }), ...C.teras.map(t => el('option', { value: t.nama, text: t.nama })));
   teras.value = senarai.teras;
   let tunda = null;
-  const tapis = () => { senarai.cari = cari.value.trim(); senarai.kelas = kelas.value; senarai.teras = teras.value; senarai.halaman = 1; muat(); };
+  const tapis = () => { senarai.cari = cari.value.trim(); senarai.kelas = kelas.value; senarai.teras = teras.value; senarai.halaman = 1; muat(); if (senarai.skop === 'kelas') muatRingkasan(); };
   cari.oninput = () => { clearTimeout(tunda); tunda = setTimeout(tapis, 350); };
   kelas.onchange = tapis; teras.onchange = tapis;
   const hasil = el('div', { id: 'kSenaraiLaporan', class: 'senarai ruang-atas' });
-  b.append(atas, el('div', { class: 'krk-tapis' }, cari, kelas, teras), hasil);
+  b.append(ringkasan, el('div', { class: 'krk-tapis' }, cari, kelas, teras), hasil);
+
+  // Ringkasan kelas (F-10): bilangan laporan, teras terbanyak, guru yang melapor
+  async function muatRingkasan() {
+    kosongkan(ringkasan);
+    const r = await api(K.A('/karakter/statistik?skop=kelas' + (senarai.kelas ? '&kelas=' + encodeURIComponent(senarai.kelas) : '')));
+    if (!r.ok) return ringkasan.append(el('div', { class: 'mesej bahaya', text: r.ralat || 'Ringkasan kelas tidak dapat dimuatkan.' }));
+    const grid = el('div', { class: 'krk-ringkasan' });
+    r.kelas.forEach(k => grid.append(el('div', { class: 'item krk-ringkasan-kad', 'data-kelas': k.kelas },
+      el('div', { class: 'tajuk', text: k.kelas }),
+      el('div', { class: 'krk-ringkasan-angka' }, el('b', { text: String(k.bil) }), el('span', { class: 'kecil redup', text: ' laporan' + (k.terakhir ? ', terkini ' + tarikhDmy(k.terakhir) : '') })),
+      k.teras.length ? el('div', { class: 'kecil' }, el('span', { class: 'redup', text: 'Teras terbanyak: ' }), lencanaTeras(k.teras[0].nama), el('span', { class: 'redup', text: ' (' + k.teras[0].bil + ')' })) : '',
+      k.guru.length ? el('div', { class: 'kecil redup', text: 'Guru yang melapor: ' + k.guru.map(x => x.nama + ' (' + x.bil + ')').join(', ') }) : el('div', { class: 'kecil redup', text: 'Belum ada laporan.' }))));
+    ringkasan.append(grid);
+  }
+  if (senarai.skop === 'kelas') muatRingkasan();
 
   async function muat() {
     kosongkan(hasil).append(el('p', { class: 'redup', text: 'Memuatkan...' }));
@@ -372,7 +391,8 @@ export async function paparLaporan(bekas, bukaBorang) {
     const r = await api(K.A('/karakter/rekod?' + q));
     kosongkan(hasil);
     if (!r.ok) return hasil.append(el('div', { class: 'mesej bahaya', text: r.ralat || 'Gagal memuatkan laporan.' }));
-    if (!r.data.length) return hasil.append(el('p', { class: 'redup', text: senarai.cari || senarai.kelas || senarai.teras ? 'Tiada laporan sepadan.' : 'Belum ada laporan. Isi borang pertama anda.' }));
+    if (!r.data.length) return hasil.append(el('p', { class: 'redup', text: senarai.cari || senarai.kelas || senarai.teras ? 'Tiada laporan sepadan.'
+      : senarai.skop === 'saya' ? 'Belum ada laporan. Isi borang pertama anda.' : 'Belum ada laporan.' }));
     hasil.append(el('p', { class: 'kecil redup', text: r.jumlah + ' laporan' }));
     r.data.forEach(x => hasil.append(kadLaporan(x, () => paparButiran(bekas, x.id, bukaBorang))));
     const halAkhir = Math.ceil(r.jumlah / r.saiz);
@@ -389,7 +409,7 @@ export async function paparLaporan(bekas, bukaBorang) {
 function kadLaporan(x, buka) {
   return el('div', { class: 'item krk-item', 'data-id': x.id },
     el('div', { class: 'atas' }, el('div', {}, el('div', { class: 'tajuk', text: x.tajuk }),
-      el('div', { class: 'meta', text: tarikhDmy(x.tarikh) + (x.masa ? ' ' + x.masa : '') + ' · ' + x.kelas + ' · ' + x.subjek + (senarai.skop === 'semua' ? ' · ' + x.nama : '') }))),
+      el('div', { class: 'meta', text: tarikhDmy(x.tarikh) + (x.masa ? ' ' + x.masa : '') + ' · ' + x.kelas + ' · ' + x.subjek + (senarai.skop !== 'saya' ? ' · ' + x.nama : '') }))),
     el('div', { class: 'krk-lencana-baris' }, ...x.teras.map(lencanaTeras),
       x.bilGambar ? el('span', { class: 'pil draf', text: x.bilGambar + ' gambar' }) : '',
       x.adaTtd ? el('span', { class: 'pil draf', text: 'Bertandatangan' }) : '',
@@ -417,6 +437,7 @@ async function paparButiran(bekas, id, bukaBorang) {
   const ttdUrl = x.ttdFileId ? await muatGambar(x.id, x.ttdFileId) : '';
   b.append(el('div', { class: 'krk-ttd-blok ruang-atas' }, el('span', { class: 'kecil redup', text: x.ttdFileId ? 'Ditandatangani:' : 'Belum ditandatangani.' }),
     ttdUrl ? el('img', { src: ttdUrl, alt: 'Tandatangan guru' }) : ''));
+  if (r.bacaSahaja) b.append(el('p', { class: 'kecil redup', id: 'kBacaSahaja', text: 'Anda melihat laporan ini sebagai guru kelas (baca sahaja).' }));
   const aksi = el('div', { class: 'baris-butang ruang-atas' });
   if (x.adaPdf) aksi.append(el('button', { type: 'button', class: 'butang', id: 'muatTurunPdf', text: 'Muat turun PDF', onclick: () => muatTurunPdf(x) }));
   if (r.boleh.janaPdf) aksi.append(el('button', { type: 'button', class: 'butang sekunder', id: 'janaSemulaPdf', text: x.pdf === 'siap' ? 'Jana semula PDF' : 'Jana PDF sekarang', onclick: async () => {

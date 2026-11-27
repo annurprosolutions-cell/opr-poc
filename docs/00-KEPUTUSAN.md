@@ -43,7 +43,7 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 | 1 Setup sekolah dan skrin pilihan modul | Siap 27/11/2026 |
 | 2 Borang dan rekod | Siap 27/11/2026 |
 | 3 Tandatangan dan PDF | Siap 27/11/2026 |
-| 4 Laporan Saya dan Kelas | |
+| 4 Laporan Saya dan Kelas | Siap 27/11/2026 |
 | 5 Dashboard dan eksport | |
 | 6 Demo, panduan, keselamatan | |
 
@@ -82,3 +82,12 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 - **Keputusan 1 dilaksanakan:** `POST /karakter/rekod/<id>/pdf` dibenarkan walaupun lesen tamat; laporan baharu disekat (402).
 - **Susun atur PDF:** A4 potret 794 x 1122 px, satu muka untuk 0 hingga 4 gambar (diuji dengan 12 teras dan catatan panjang). Catatan yang tidak muat dipotong dengan "..." dalam PDF sahaja. Dengan 3 hingga 4 gambar dan banyak teras, ruang catatan dalam PDF hanya kira-kira 3 baris.
 - **Logo** diambil daripada Logo 1 modul OPR; nama, alamat, telefon dan warna kotak (`WARNA_2`) daripada Tetapan OPR.
+
+## Nota pelaksanaan Fasa 4
+
+- **`GET /karakter/rekod?skop=kelas[&kelas=X]`**: hanya laporan bagi kelas yang dipetakan kepada pengguna dalam `KarakterGuruKelas`, dikuatkuasakan di server. `kelas` di luar pemetaan, atau pengguna tanpa pemetaan, mendapat 403 dan direkod `KARAKTER_AKSES_DITOLAK`. Respons turut memulangkan `kelasDipeta`.
+- **`GET /karakter/statistik?skop=kelas[&kelas=X]`**: ringkasan setiap kelas dipetakan (bilangan laporan, teras mengikut kekerapan, guru yang melapor, tarikh terkini). Statistik penuh admin ialah Fasa 5.
+- **Akses baca butiran, gambar, tandatangan dan PDF** kini: admin, pemilik, atau guru kelas bagi kelas laporan itu (`bacaSahaja: true`). Edit, padam dan jana semula PDF kekal pemilik (dan admin untuk padam/jana semula).
+- **Pemetaan dibaca setiap permintaan** (tiada cache), jadi perubahan oleh admin berkuat kuasa serta-merta, termasuk menarik akses kelas lama.
+- **Admin yang juga guru kelas** boleh guna sub-tab Kelas Saya (tidak merugikan; admin sudah nampak semua).
+- **UI:** sub-tab Saya, Kelas Saya (jika dipetakan), Semua (admin), menggantikan pemilih skop admin.
