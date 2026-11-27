@@ -45,6 +45,7 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | e-Karakter 3 | Tandatangan guru (lukis dengan jari, upload gambar, tersimpan), pratonton A4, PDF satu muka dijana selepas Hantar dan disimpan automatik dalam `e-Karakter/PDF` (jana semula menimpa fail sama), muat turun PDF, status PDF, wajib tandatangan; modul dibuka kepada guru | Siap |
 | e-Karakter 4 | Laporan Kelas untuk guru kelas: sub-tab Saya / Kelas Saya / Semua (admin), ringkasan kelas (bilangan, teras terbanyak, guru yang melapor), butiran baca sahaja dengan PDF; akses ikut pemetaan dikuatkuasakan di server dan berubah serta-merta | Siap |
 | e-Karakter 5 | Dashboard admin: KPI, donat teras, bar kelas/subjek (Chart.js tempatan), top 5 guru, penapis (tarikh, kelas, subjek, guru, teras, carian), jadual berhalaman; Eksport CSV selamat; PDF Dashboard landskap berbilang muka; ujian beban `npm run beban` | Siap |
+| e-Karakter 6 | Demo `/s/demo?m=karakter` (admin, guru, guru kelas), seksyen sale page, bab manual dan 4 video, semakan keselamatan dan PDPA (ujian khusus, had badan JSON, polisi privasi), tajuk borang BCL | Siap (ujian sekolah pilot oleh pemilik) |
 
 ## Ujian
 

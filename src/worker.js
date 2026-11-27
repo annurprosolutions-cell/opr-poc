@@ -581,7 +581,11 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
     if (panjang > HAD_FAIL.pdf) return ralat('Fail terlalu besar.', 413);
     bait = new Uint8Array(await req.arrayBuffer());
   } else if (req.method === 'POST') {
-    try { badan = await req.json(); } catch (e) { badan = {}; }
+    // Had 1MB untuk badan JSON (borang dan tetapan jauh lebih kecil); fail binari ada had sendiri.
+    const teks = await req.text();
+    if (teks.length > 1000000) return ralat('Permintaan terlalu besar.', 413);
+    try { badan = JSON.parse(teks || '{}'); } catch (e) { badan = {}; }
+    if (!badan || typeof badan !== 'object' || Array.isArray(badan)) badan = {};
   }
 
   try {

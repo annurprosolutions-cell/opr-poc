@@ -1533,3 +1533,62 @@ test('karakter fasa 5: statistik sepadan dengan jadual selepas tapisan; CSV sela
   // Penapis guru diabaikan untuk skop saya (tiada kebocoran)
   assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod?guru=guru.b%40gmail.com')).jumlah, 2);
 });
+
+// ======================================================================
+// e-Karakter Fasa 6: semakan keselamatan (IPD 6.6)
+// ======================================================================
+test('keselamatan e-Karakter: tanpa sesi, sekolah lain, origin, tukar fail, kekeliruan jenis muat naik, badan besar', async () => {
+  const x = await sekolahKarakter();
+  const { e, g } = x;
+  const f = await muatNaikKrk(e, g, x.a, JPEG);
+  const r = await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah({ tajuk: '<img src=x onerror=alert(1)>' }), gambar: [{ fileId: f.fileId }], akuanGambar: true });
+  assert.equal(r.ok, true);
+
+  // 1. Tanpa sesi: semua laluan 401
+  for (const [laluan, kaedah] of [['/karakter/config', 'GET'], ['/karakter/rekod', 'GET'], ['/karakter/rekod/' + r.id, 'GET'],
+    ['/karakter/fail/' + f.fileId + '?rekod=' + r.id, 'GET'], ['/karakter/statistik', 'GET'], ['/karakter/eksport', 'GET'], ['/karakter/ttd/gambar', 'GET'],
+    ['/karakter/rekod', 'POST'], ['/karakter/rekod/' + r.id + '/padam', 'POST'], ['/karakter/senarai', 'POST'], ['/karakter/skema/pasang', 'POST']]) {
+    const res = await handle(req('/api/s/smkwakanda' + laluan, kaedah === 'POST' ? { method: 'POST', body: {} } : {}), e, deps(g));
+    assert.equal(res.status, 401, kaedah + ' ' + laluan);
+  }
+  // 2. Admin sekolah LAIN: bukan ahli sekolah ini -> 403
+  g.senario.email = 'admin@sekolahlain.edu.my';
+  const lain = await logMasuk(e, g, 'admin');
+  await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: lain.sesi }, body: { nama: 'SMK Lain', slug: 'smklain' } }), e, deps(g));
+  g.senario.email = 'admin@sekolah.edu.my';
+  for (const laluan of ['/karakter/rekod/' + r.id, '/karakter/fail/' + f.fileId + '?rekod=' + r.id, '/karakter/rekod?skop=semua', '/karakter/statistik']) {
+    assert.equal((await panggilApi(e, g, lain.sesi, laluan)).status, 403, laluan);
+  }
+  // 3. POST tanpa Origin atau dari laman lain ditolak (CSRF)
+  for (const origin of [false, 'https://jahat.example']) {
+    const res = await handle(req('/api/s/smkwakanda/karakter/rekod', { method: 'POST', kuki: { opr_sesi: x.a }, body: { data: dataSah() }, origin }), e, deps(g));
+    assert.equal(res.status, 403, 'origin ' + origin);
+  }
+  // 4. Tukar fail: rekod milik sendiri + fileId gambar laporan orang lain -> 404
+  const fb = await muatNaikKrk(e, g, x.b, JPEG);
+  await panggilApi(e, g, x.b, '/karakter/rekod', { data: dataSah(), gambar: [{ fileId: fb.fileId }], akuanGambar: true });
+  assert.equal((await handle(req('/api/s/smkwakanda/karakter/fail/' + fb.fileId + '?rekod=' + r.id, { kuki: { opr_sesi: x.a } }), e, deps(g))).status, 404);
+  // 5. Kekeliruan jenis: gambar sebagai tandatangan, muat naik OPR sebagai gambar e-Karakter, tandatangan sebagai gambar
+  const g2 = await muatNaikKrk(e, g, x.a, JPEG);
+  assert.match((await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah(), ttdFileId: g2.fileId })).ralat, /Tandatangan tidak sah/);
+  assert.match((await panggilApi(e, g, x.a, '/karakter/ttd', { fileId: g2.fileId })).ralat, /tidak sah/);
+  const opr = await handle(new Request(ASAS + '/api/s/smkwakanda/fail?jenis=lampiran&nama=a.jpg', { method: 'POST',
+    headers: { 'content-type': 'image/jpeg', Origin: ASAS, Cookie: 'opr_sesi=' + encodeURIComponent(x.a) }, body: JPEG }), e, deps(g));
+  const idOpr = (await opr.json()).fileId;
+  assert.match((await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah(), gambar: [{ fileId: idOpr }], akuanGambar: true })).ralat, /tidak sah atau sudah luput/);
+  const t = await ttdNaik(x, x.a);
+  assert.match((await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah(), gambar: [{ fileId: t.fileId }], akuanGambar: true })).ralat, /tidak sah atau sudah luput/);
+  // 6. Badan JSON melebihi 1MB ditolak
+  const besar = await handle(req('/api/s/smkwakanda/karakter/rekod', { method: 'POST', kuki: { opr_sesi: x.a }, body: { data: dataSah({ catatan: 'x'.repeat(1100000) }) } }), e, deps(g));
+  assert.equal(besar.status, 413);
+  // 7. ID dan laluan tidak sah
+  for (const laluan of ['/karakter/rekod/KRK-1', '/karakter/rekod/..%2F..%2Fsetup', '/karakter/fail/abc?rekod=' + r.id, '/karakter/fail/' + f.fileId + '?rekod=bukan-id']) {
+    assert.ok([400, 404].includes((await panggilApi(e, g, x.a, laluan)).status), laluan);
+  }
+  // 8. Teks berbahaya disimpan apa adanya sebagai teks (UI memaparkan melalui textContent)
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod/' + r.id)).rekod.tajuk, '<img src=x onerror=alert(1)>');
+  const { readFileSync } = await import('node:fs');
+  for (const fail of ['karakter.js', 'karakter-borang.js', 'karakter-dokumen.js', 'karakter-dashboard.js', 'tandatangan.js', 'demo-karakter.js']) {
+    assert.doesNotMatch(readFileSync(new URL('../public/' + fail, import.meta.url), 'utf8'), /innerHTML|insertAdjacentHTML|document\.write/, fail + ' tidak guna sink HTML');
+  }
+});

@@ -45,7 +45,7 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 | 3 Tandatangan dan PDF | Siap 27/11/2026 |
 | 4 Laporan Saya dan Kelas | Siap 27/11/2026 |
 | 5 Dashboard dan eksport | Siap 27/11/2026 (lihat risiko CPU di bawah) |
-| 6 Demo, panduan, keselamatan | |
+| 6 Demo, panduan, keselamatan | Siap 27/11/2026, kecuali 6.8 (ujian sekolah pilot) |
 
 ## Nota pelaksanaan Fasa 1
 
@@ -115,3 +115,16 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 | 8,000 | 5.3 MB | ~38 ms |
 
 Melebihi kira-kira 2,500 laporan, permintaan senarai/dashboard/butiran mungkin ditolak oleh had CPU pelan percuma. Pilihan: (1) pelan Workers Paid (had CPU jauh lebih tinggi), (2) baca lajur tertentu sahaja dan cache ringkasan dalam KV, (3) pecahkan rekod ikut `TahunSesi`. Belum dilaksanakan; menunggu keputusan. (Angka CPU di atas diukur dalam Node pada mesin pembangunan, bukan dalam Cloudflare; perlu disahkan.)
+
+## Nota pelaksanaan Fasa 6
+
+- **6.1 Demo:** `public/demo-karakter.js` menjawab semua laluan `/karakter/*` dalam browser (40 laporan contoh). `/s/demo?m=karakter`, `&peranan=guru` atau `&peranan=gurukelas`.
+- **6.2 Sale page:** seksyen e-Karakter dengan 5 tangkapan skrin sebenar daripada demo; harga menyebut OPR dan e-Karakter.
+- **6.3 dan 6.4:** bab 16 manual (12 gambar), 4 video (setup admin, guru isi dan tandatangan, guru kelas, dashboard).
+- **6.5:** tajuk borang BCL 21187 ditukar kepada "ANNUR OPR (termasuk e-Karakter)". Harga, item, webhook dan medan e-mel tidak diubah. Webhook mengesahkan ID borang, bukan tajuk.
+- **6.6 Semakan keselamatan dan PDPA (7 Teknik):**
+  - Lulus dan diuji: tiada fail atau Sheet dikongsi awam (tiada panggilan `permissions`); tiada kata laluan (log masuk Google); sesi rawak dalam KV, kuki `HttpOnly; Secure; SameSite=Lax`, log keluar memadam sesi di pelayan; akses dan skop dikuatkuasakan di pelayan; semakan `Origin` untuk POST; ID fail mesti milik rekod; jenis muat naik tidak boleh dikelirukan (gambar/tandatangan/OPR); tiada sink HTML (`innerHTML`) dalam UI e-Karakter; Sheets ditulis RAW dan CSV dineutralkan; lesen tamat menyekat tulis.
+  - Diperbaiki: had 1MB untuk badan JSON (dahulu tiada had); polisi privasi kini menerangkan data e-Karakter, akses, tandatangan elektronik visual, tanggungjawab sekolah sebagai pengawal data dan pemindahan data ke luar Malaysia.
+  - **Belum dibuat (dicatat):** (1) tiada Content-Security-Policy; skrip modul sebaris dalam `index.html` dan `daftar.html` serta Google Fonts perlu disusun semula dahulu. (2) Had kadar tulis 120 seminit (TRD) belum dibuat kerana setiap kiraan KV memakan kuota 1,000 tulisan sehari pelan percuma; buat selepas pelan berbayar. (3) Sesi 30 hari; pertimbang lebih pendek untuk admin. (4) Teks bermula `=` disimpan sebagai teks dalam Sheet; jika admin memuat turun Sheet sebagai CSV terus dari Google Sheets (bukan butang Eksport CSV), Excel mungkin mentafsirnya sebagai formula. (5) Tiada pemadaman automatik (retention) data murid; bergantung pada sekolah.
+- **6.7:** semua ujian lulus dan di-deploy.
+- **6.8 (pemilik):** ujian sebenar dengan satu sekolah pilot di telefon sebenar.
