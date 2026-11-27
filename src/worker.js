@@ -575,7 +575,7 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
   }
 
   let badan = {}, bait = null;
-  if (req.method === 'POST' && (sub === '/fail' || /^\/logo\/[1-6]$/.test(sub))) {
+  if (req.method === 'POST' && (sub === '/fail' || sub === '/karakter/fail' || /^\/logo\/[1-6]$/.test(sub))) {
     const panjang = Number(req.headers.get('content-length') || 0);
     if (panjang > HAD_FAIL.pdf) return ralat('Fail terlalu besar.', 413);
     bait = new Uint8Array(await req.arrayBuffer());

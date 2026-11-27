@@ -41,7 +41,7 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 |---|---|
 | 0 Sheet asing dan pemasangan | Siap 27/11/2026 |
 | 1 Setup sekolah dan skrin pilihan modul | Siap 27/11/2026 |
-| 2 Borang dan rekod | |
+| 2 Borang dan rekod | Siap 27/11/2026 |
 | 3 Tandatangan dan PDF | |
 | 4 Laporan Saya dan Kelas | |
 | 5 Dashboard dan eksport | |
@@ -57,3 +57,16 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 - **Pilihan modul dipapar kepada admin sahaja buat masa ini.** Guru terus ke OPR sehingga borang e-Karakter siap (Fasa 2), supaya sekolah percubaan tidak nampak modul separuh siap. `KRK_AKTIF` akan dikuatkuasakan untuk guru pada Fasa 2. Demo `/s/demo` belum ada e-Karakter (Fasa 6).
 - **Keputusan 9 (nilai "Lain-lain")** dipindah ke Fasa 2, kerana nilai itu hanya wujud selepas guru menghantar laporan.
 - Video tutorial OPR 01 (daftar sekolah) belum menunjukkan skrin pilihan modul. Rakam semula dengan `npm run video 01` bila perlu.
+
+## Nota pelaksanaan Fasa 2
+
+- **Laluan:** `POST /karakter/fail?jenis=lampiran` (gambar ke `e-Karakter/Lampiran`, jenis disemak melalui bait sebenar, rekod tergantung `upload:<slug>:<id>` jenis `krk-lampiran` 1 hari), `POST /karakter/rekod` (cipta/kemas kini), `GET /karakter/rekod?skop=saya|semua&halaman&cari&kelas&subjek&teras&dari&hingga` (20 sebaris halaman; `semua` admin sahaja), `GET /karakter/rekod/<id>`, `POST /karakter/rekod/<id>/padam` (soft delete), `GET /karakter/fail/<fileId>?rekod=<id>`.
+- **Akses baca rekod (Fasa 2):** pemilik dan admin. Guru kelas bagi kelasnya ditambah pada Fasa 4.
+- **Edit:** pemilik sahaja; admin tidak mengedit laporan guru lain tetapi boleh memadam. Edit memadam `TtdFileId`/`TtdPada` dan mengira semula `KandunganHash`. Gambar yang dibuang semasa edit dihantar ke Tong Sampah selepas baris disimpan.
+- **ID:** `KRK-<tarikh hari ini MYT>-<5 aksara>` (tanpa aksara keliru seperti O/0, I/1).
+- **TahunSesi** dibaca daripada `TAHUN_SESI` dalam Tetapan OPR (sandaran: tahun tarikh laporan).
+- **Had mundur tarikh** dikenakan pada cipta dan edit oleh guru (laporan lebih lama daripada had tidak boleh diedit oleh guru). Admin tiada had.
+- **Kelas/subjek "Lain-lain"** diterima sebagai teks bebas (maks 60 aksara). Admin nampak senarai nilai ini dengan bilangan laporan dalam Setup > Kelas / Mata Pelajaran dan boleh menambahnya ke senarai rasmi (keputusan 9).
+- **Draf setempat:** teks borang disimpan dalam browser (bukan gambar) dan dipulihkan selepas muat semula; dikosongkan selepas hantar.
+- **Akses guru kepada modul masih ditutup** (pilihan modul hanya untuk admin). Admin boleh menguji borang sepenuhnya. Dibuka kepada guru pada Fasa 3 bila tandatangan dan PDF siap, supaya guru tidak menghantar laporan tanpa PDF. `KRK_AKTIF = TIDAK` sudah dikuatkuasakan di server (guru tidak boleh hantar).
+- Ikon SVG pada kad teras (DBD 2) belum dibuat; kad guna warna teras dan nama sahaja.

@@ -93,7 +93,7 @@ function pilihModul(m) {
     $('utama').classList.add('lebar');
     if (!karakterDimulakan) {
       karakterDimulakan = true;
-      KR.mula({ A, overlay, bukaOpr: (tab) => { pilihModul('opr'); buka(tab); } });
+      KR.mula({ A, overlay, slug, email: ME.email, bukaOpr: (tab) => { pilihModul('opr'); buka(tab); } });
     }
   } else {
     tunjuk('appKarakter', false);

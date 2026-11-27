@@ -188,3 +188,36 @@ h3{font-size:1rem;margin:0 0 .6rem}
 .krk-cip-bekas{display:flex;flex-wrap:wrap;gap:6px}
 .krk-cip{display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--garis);border-radius:99px;padding:4px 4px 4px 12px;font-size:.88rem}
 .krk-cip button{border:0;background:transparent;color:var(--redup);font-size:1.1rem;min-width:32px;min-height:32px;cursor:pointer;border-radius:50%}
+/* e-Karakter: borang dan laporan */
+.krk-papar{margin:0;padding:10px 12px;border:1px dashed var(--garis);border-radius:10px;color:var(--redup)}
+.krk-lain{margin-top:8px}
+.krk-teras{border:0;padding:0;margin:14px 0 0;display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.krk-teras legend{font-weight:600;font-size:.9rem;margin-bottom:6px;padding:0}
+@media (max-width:480px){.krk-teras{grid-template-columns:minmax(0,1fr)}}
+.krk-teras-kad{display:flex;gap:10px;align-items:flex-start;min-height:44px;margin:0;padding:12px;border:2px solid var(--garis);border-radius:12px;cursor:pointer;font-weight:400;background:var(--kad)}
+.krk-teras-kad:has(input:checked){border-color:var(--w);background:color-mix(in srgb,var(--w) 8%,var(--kad))}
+.krk-teras-kad:has(input:focus-visible){outline:2px solid var(--utama);outline-offset:2px}
+.krk-teras-tanda{flex:0 0 22px;height:22px;border-radius:6px;border:2px solid var(--w);display:flex;align-items:center;justify-content:center}
+.krk-teras-kad:has(input:checked) .krk-teras-tanda{background:var(--w)}
+.krk-teras-kad:has(input:checked) .krk-teras-tanda::after{content:'';width:10px;height:6px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
+.krk-teras-teks{display:flex;flex-direction:column;gap:2px}
+.krk-teras-teks .kecil{font-size:.75rem}
+.krk-gambar{display:grid;gap:8px;margin:10px 0}
+.krk-gambar-item{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:8px;align-items:center}
+.krk-gambar-item img{width:64px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--garis)}
+.krk-gambar-item input{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--garis);border-radius:10px;background:var(--bg);color:var(--teks);font:inherit;font-size:16px}
+.krk-tapis{display:grid;gap:8px;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr);margin-top:10px}
+.krk-tapis input{width:100%;min-height:44px;padding:8px 12px;border:1px solid var(--garis);border-radius:10px;background:var(--bg);color:var(--teks);font:inherit;font-size:16px}
+@media (max-width:640px){.krk-tapis{grid-template-columns:minmax(0,1fr)}}
+.krk-item{margin-bottom:10px}
+.krk-lencana-baris{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.krk-lencana{display:inline-block;font-size:.75rem;font-weight:600;padding:3px 9px;border-radius:99px;color:var(--w);border:1px solid var(--w);background:color-mix(in srgb,var(--w) 10%,transparent)}
+.krk-butiran{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 14px;margin:10px 0;font-size:.92rem}
+.krk-butiran dt{color:var(--redup)}
+.krk-butiran dd{margin:0;word-break:break-word}
+.krk-catatan{white-space:pre-wrap;word-break:break-word;line-height:1.6}
+.krk-gambar-butiran{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.krk-gambar-butiran figure{margin:0}
+.krk-gambar-butiran img{width:100%;height:auto;border-radius:10px;border:1px solid var(--garis)}
+.krk-gambar-butiran figcaption{font-size:.85rem;color:var(--redup);margin-top:4px}
+.krk-lain-baris{margin-top:6px}

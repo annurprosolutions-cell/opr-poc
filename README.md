@@ -40,6 +40,7 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | 5b | Manual pengguna `/panduan/` (HTML + PDF 25 muka) dan 6 video tutorial, semuanya dirakam daripada app sebenar dengan data contoh | Siap |
 | e-Karakter 0 | Modul e-Karakter: Google Sheet **asing** (`... (e-Karakter)`) + folder `e-Karakter` (PDF, Lampiran, Tandatangan) dicipta semasa daftar; sekolah sedia ada dinaik taraf automatik oleh admin; `POST /karakter/skema/pasang` membaiki tab/seed yang hilang; audit `KARAKTER_*`. Reka bentuk dan keputusan: `docs/` (baca `docs/00-KEPUTUSAN.md` dahulu) | Siap |
 | e-Karakter 1 | Skrin pilihan modul (OPR / Pembentukan Karakter) untuk admin, Panduan Mula Pantas, Setup: kelas, mata pelajaran, teras (dengan huraian), guru kelas, tetapan dokumen, struktur. Semua disimpan dalam Sheet e-Karakter | Siap |
+| e-Karakter 2 | Borang laporan karakter (kelas/subjek dengan Lain-lain, kad teras berwarna, cadangan ayat, maks 4 gambar dimampat 900px, akuan ibu bapa, draf setempat), Laporan saya/semua (cari, tapis, halaman), butiran dengan gambar melalui Worker, edit dan padam lembut | Siap |
 
 ## Ujian
 

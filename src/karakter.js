@@ -18,8 +18,10 @@ import { json, ralat } from './lib.js';
 import {
   ciptaFolder, ciptaSpreadsheet, pindahKeFolder, infoFail, tambahBaris, bacaObjek,
   senaraiTab, tambahTab, pautanSheet, pautanFolder, RalatGoogle,
-  bacaBanyak, kemaskiniJulat, kosongkanJulat
+  bacaBanyak, kemaskiniJulat, kosongkanJulat, muatNaik, muatTurun, buangKeTong
 } from './google.js';
+import { hariIni, tambahHari } from './lesen.js';
+import { hurufLajur } from './laporan.js';
 import {
   TAB, VERSI_SKEMA_KRK, TAB_KRK, KOLUM_KRK, FOLDER_KRK, SUBFOLDER_KRK,
   SENARAI_KARAKTER, tetapanKarakterAsal, barisSenaraiKarakter
@@ -160,6 +162,16 @@ export async function apiKarakter(ctx, sub) {
   if (s === '/gurukelas' && req.method === 'POST') return admin ? await simpanGuruKelas(ctx) : tolakKarakter(ctx, laluan, 'Bukan admin');
   if (s === '/tetapan' && req.method === 'POST') return admin ? await simpanTetapanKarakter(ctx) : tolakKarakter(ctx, laluan, 'Bukan admin');
 
+  // Fasa 2: rekod dan fail
+  if (s === '/fail' && req.method === 'POST') return await terimaFailKarakter(ctx);
+  if (s === '/rekod' && req.method === 'POST') return await simpanRekod(ctx);
+  if (s === '/rekod' && req.method === 'GET') return await senaraiRekod(ctx, laluan);
+  const mr = s.match(/^\/rekod\/(KRK-\d{8}-[A-Z0-9]{5})(\/padam)?$/);
+  if (mr && !mr[2] && req.method === 'GET') return await bacaSatuRekod(ctx, mr[1], laluan);
+  if (mr && mr[2] && req.method === 'POST') return await padamRekod(ctx, mr[1], laluan);
+  const mf = s.match(/^\/fail\/([A-Za-z0-9_-]{10,128})$/);
+  if (mf && req.method === 'GET') return await hantarFailKarakter(ctx, mf[1], laluan);
+
   if (s === '/struktur' && req.method === 'GET') {
     if (!admin) return tolakKarakter(ctx, laluan, 'Bukan admin');
     const tabAda = await senaraiTab(g, sek.karakter.sheetId);
@@ -222,7 +234,7 @@ const guruAktif = (kenal, sek) => kenal.jadual.baris
 async function bacaKarakter(g, sek, tabs) { return bacaBanyak(g, sek.karakter.sheetId, tabs); }
 
 // Untuk semua peranan: senarai aktif, tetapan awam, kelas yang dipetakan kepada pengguna, ada tandatangan tersimpan.
-async function configKarakter({ g, sek, sesi, admin }) {
+async function configKarakter({ g, sek, sesi, admin, kenal, now }) {
   const d = await bacaKarakter(g, sek, [TAB_KRK.SENARAI, TAB_KRK.TETAPAN, TAB_KRK.GURUKELAS, TAB_KRK.TTD]);
   const senarai = kumpulSenarai(d[TAB_KRK.SENARAI].baris);
   const t = kumpulTetapan(d[TAB_KRK.TETAPAN].baris);
@@ -232,18 +244,31 @@ async function configKarakter({ g, sek, sesi, admin }) {
   const email = sesi.email.toLowerCase();
   const guruKelas = d[TAB_KRK.GURUKELAS].baris.filter(r => String(r.Email).trim().toLowerCase() === email).map(r => String(r.Kelas));
   const adaTtd = d[TAB_KRK.TTD].baris.some(r => String(r.Email).trim().toLowerCase() === email && r.FileId);
+  const had = hadMundur(t);
   return json({ ok: true, admin, kelas: aktif(KAT.KELAS), subjek: aktif(KAT.SUBJEK),
     teras: aktif(KAT.TERAS).map(nama => ({ nama, huraian: hur[nama] || '' })),
-    tetapan, guruKelas, adaTtd });
+    tetapan, guruKelas, adaTtd,
+    nama: namaGuru(kenal, sesi), hariIni: hariIni(now()), tarikhAwal: admin ? '' : tambahHari(hariIni(now()), -had),
+    aktifUntukGuru: t.KRK_AKTIF !== 'TIDAK',
+    ...(admin ? { setupBelumLengkap: !(t[SIAP[KAT.KELAS]] && t[SIAP[KAT.SUBJEK]] && t[SIAP.TETAPAN]) } : {}) });
 }
 
 // Admin: semua data untuk skrin Setup dan Panduan Mula Pantas, satu bacaan.
 async function setupKarakter({ g, sek, kenal }) {
-  const d = await bacaKarakter(g, sek, [TAB_KRK.SENARAI, TAB_KRK.TETAPAN, TAB_KRK.GURUKELAS]);
+  const d = await bacaKarakter(g, sek, [TAB_KRK.SENARAI, TAB_KRK.TETAPAN, TAB_KRK.GURUKELAS, TAB_KRK.REKOD]);
   const senarai = kumpulSenarai(d[TAB_KRK.SENARAI].baris);
   const t = kumpulTetapan(d[TAB_KRK.TETAPAN].baris);
   const hur = huraianTeras(t);
   const guru = guruAktif(kenal, sek);
+  const lainLain = (kat, medan) => {
+    const rasmi = new Set((senarai[kat] || []).map(x => x.nilai.toLowerCase()));
+    const kira = new Map();
+    d[TAB_KRK.REKOD].baris.filter(r => !ya(r.Dipadam)).forEach(r => {
+      const v = String(r[medan] || '').trim();
+      if (v && !rasmi.has(v.toLowerCase())) kira.set(v, (kira.get(v) || 0) + 1);
+    });
+    return [...kira].map(([nilai, bil]) => ({ nilai, bil })).sort((a, b) => b.bil - a.bil).slice(0, 50);
+  };
   const pemetaan = d[TAB_KRK.GURUKELAS].baris.map(r => ({ kelas: String(r.Kelas), email: String(r.Email).trim().toLowerCase() }))
     .filter(m => m.kelas && m.email);
   const kelasAktif = new Set((senarai[KAT.KELAS] || []).filter(x => x.aktif).map(x => x.nilai));
@@ -264,7 +289,8 @@ async function setupKarakter({ g, sek, kenal }) {
       kelas: senarai[KAT.KELAS] || [], subjek: senarai[KAT.SUBJEK] || [],
       teras: (senarai[KAT.TERAS] || []).map(x => ({ ...x, huraian: hur[x.nilai] || '' }))
     },
-    tetapan, pemetaan, yatim, guru, panduan, struktur: statusStruktur(sek) });
+    tetapan, pemetaan, yatim, guru, panduan, struktur: statusStruktur(sek),
+    lainLain: { kelas: lainLain(KAT.KELAS, 'Kelas'), subjek: lainLain(KAT.SUBJEK, 'Subjek') } });
 }
 
 async function tulisTetapanKrk(g, sek, ubah) {
@@ -383,4 +409,243 @@ async function simpanTetapanKarakter(ctx) {
   await tulisTetapanKrk(g, sek, ubah);
   await auditKarakter(ctx, 'KARAKTER_TETAPAN', '', 'BERJAYA', Object.keys(ubah).filter(k => k !== SIAP.TETAPAN).join(', '));
   return json({ ok: true, disimpan: Object.keys(ubah).filter(k => k !== SIAP.TETAPAN), ditolak });
+}
+
+// ======================================================================
+// Fasa 2: borang dan rekod (F-05, F-06, F-09 asas)
+// ======================================================================
+
+const MAKS_GAMBAR = 4;
+const HAD_GAMBAR = 10 * 1024 * 1024;
+const HAD = { kelas: 60, subjek: 60, tajuk: 150, catatan: 3000, kapsyen: 80, teras: 40 };
+const RE_ID = /^KRK-\d{8}-[A-Z0-9]{5}$/;
+
+const hadMundur = (t) => { const n = Number(t.KRK_HAD_MUNDUR_HARI); return Number.isInteger(n) && n >= 0 ? n : 30; };
+const namaGuru = (kenal, sesi) => String((kenal && kenal.baris && kenal.baris.Nama) || sesi.nama || sesi.email).trim().slice(0, 120);
+const bersihTeks = (v) => String(v ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+const failNama = (n, lalai) => String(n || '').replace(/[\u0000-\u001f\u007f/\\:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 150) || lalai;
+
+async function hex256(teks) {
+  const b = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(teks)));
+  return [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+export async function hashKandungan(r) {
+  const teras = String(r.Teras || '').split(',').map(x => x.trim()).filter(Boolean).sort().join(', ');
+  return hex256(JSON.stringify([String(r.PemilikEmail), String(r.TarikhISO), String(r.Masa), String(r.Kelas), String(r.Subjek),
+    teras, String(r.Tajuk), String(r.Catatan), String(r.GambarIds), String(r.TtdFileId)]));
+}
+
+function idBaharu(tarikhHariIni, ada) {
+  const abjad = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (;;) {
+    const b = crypto.getRandomValues(new Uint8Array(5));
+    const id = 'KRK-' + tarikhHariIni.replace(/-/g, '') + '-' + [...b].map(x => abjad[x % abjad.length]).join('');
+    if (!ada.has(id)) return id;
+  }
+}
+
+// Semak bait sebenar, bukan hanya content-type.
+function jenisGambar(b) {
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  if (b.length > 12 && String.fromCharCode(...b.slice(0, 4)) === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WEBP') return 'image/webp';
+  return '';
+}
+
+async function terimaFailKarakter(ctx) {
+  const { env, g, sek, sesi, url, bait, req } = ctx;
+  if ((url.searchParams.get('jenis') || 'lampiran') !== 'lampiran') return ralat('Jenis fail tidak sah.');
+  const mime = String(req.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (!bait || !bait.length) return ralat('Fail kosong.');
+  if (bait.length > HAD_GAMBAR) return ralat('Gambar melebihi had 10MB.', 413);
+  const sebenar = jenisGambar(bait);
+  if (!sebenar || sebenar !== mime) return ralat('Hanya gambar JPG, PNG atau WEBP dibenarkan.');
+  const id = await muatNaik(g, sek.karakter.subfolder.LAMPIRAN, failNama(url.searchParams.get('nama'), 'gambar.jpg'), mime, bait);
+  await env.OPR_KV.put('upload:' + sek.slug + ':' + id, JSON.stringify({ email: sesi.email, jenis: 'krk-lampiran' }), { expirationTtl: 86400 });
+  return json({ ok: true, fileId: id });
+}
+
+const pecahId = (v) => String(v || '').split(',').map(x => x.trim()).filter(Boolean);
+function kapsyenDari(r) { try { const a = JSON.parse(r.Kapsyen || '[]'); return Array.isArray(a) ? a.map(String) : []; } catch (e) { return []; } }
+
+function ringkasRekod(r) {
+  return { id: String(r.ID), tarikh: String(r.TarikhISO), masa: String(r.Masa), kelas: String(r.Kelas), subjek: String(r.Subjek),
+    teras: pecahId(r.Teras), tajuk: String(r.Tajuk), nama: String(r.NamaGuru), email: String(r.PemilikEmail),
+    bilGambar: Number(r.BilGambar) || 0, adaTtd: !!r.TtdFileId, adaPdf: !!r.PdfFileId,
+    dikemaskini: String(r.DikemaskiniPada || r.Timestamp) };
+}
+
+// Pengesahan penuh di server (BSD 8, TRD 5). Pulangkan { ralat } atau { data }.
+function sahkanInput(m, { teras, admin, hariIniMyt, had }) {
+  const salah = (t) => ({ ralat: t });
+  const tarikh = String(m.tarikh || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tarikh) || Number.isNaN(Date.parse(tarikh + 'T00:00:00Z')) || new Date(tarikh + 'T00:00:00Z').toISOString().slice(0, 10) !== tarikh) return salah('Tarikh tidak sah.');
+  if (tarikh > hariIniMyt) return salah('Tarikh tidak boleh melebihi hari ini.');
+  if (!admin && tarikh < tambahHari(hariIniMyt, -had)) return salah('Tarikh tidak boleh lebih awal daripada ' + had + ' hari lalu.');
+  const masa = String(m.masa || '');
+  if (masa && !/^([01]\d|2[0-3]):[0-5]\d$/.test(masa)) return salah('Masa tidak sah (gunakan format 24 jam, contoh 08:30).');
+  const out = { TarikhISO: tarikh, Masa: masa };
+  for (const [k, kol, label] of [['kelas', 'Kelas', 'Kelas'], ['subjek', 'Subjek', 'Mata pelajaran'], ['tajuk', 'Tajuk', 'Tajuk aktiviti']]) {
+    const v = bersihTeks(m[k]).replace(/\s+/g, ' ');
+    if (!v) return salah(label + ' wajib diisi.');
+    if (v.length > HAD[k]) return salah(label + ' melebihi ' + HAD[k] + ' aksara.');
+    out[kol] = v;
+  }
+  const catatan = bersihTeks(m.catatan);
+  if (!catatan) return salah('Huraian aktiviti dan impak wajib diisi.');
+  if (catatan.length > HAD.catatan) return salah('Huraian melebihi ' + HAD.catatan + ' aksara.');
+  out.Catatan = catatan;
+  const dipilih = [...new Set((Array.isArray(m.teras) ? m.teras : []).map(x => bersihTeks(x)))].filter(Boolean);
+  if (!dipilih.length) return salah('Pilih sekurang-kurangnya satu elemen teras.');
+  const tidakSah = dipilih.filter(x => !teras.includes(x));
+  if (tidakSah.length) return salah('Elemen teras tidak sah: ' + tidakSah.join(', ').slice(0, 100) + '.');
+  out.Teras = teras.filter(x => dipilih.includes(x)).join(', ');     // susunan ikut senarai rasmi
+  return { data: out };
+}
+
+async function simpanRekod(ctx) {
+  const { env, g, sek, sesi, kenal, admin, badan, now } = ctx;
+  const d = await bacaKarakter(g, sek, [TAB_KRK.SENARAI, TAB_KRK.TETAPAN, TAB_KRK.REKOD]);
+  const t = kumpulTetapan(d[TAB_KRK.TETAPAN].baris);
+  if (!admin && t.KRK_AKTIF === 'TIDAK') return tolakKarakter(ctx, 'POST /karakter/rekod', 'Modul tidak aktif', 'Modul e-Karakter belum diaktifkan oleh admin sekolah.');
+  const teras = (kumpulSenarai(d[TAB_KRK.SENARAI].baris)[KAT.TERAS] || []).filter(x => x.aktif).map(x => x.nilai);
+  const hariMyt = hariIni(now());
+  const v = sahkanInput((badan && badan.data) || {}, { teras, admin, hariIniMyt: hariMyt, had: hadMundur(t) });
+  if (v.ralat) return ralat(v.ralat);
+
+  const jadual = d[TAB_KRK.REKOD];
+  let lama = null;
+  if (badan.id !== undefined && badan.id !== null && badan.id !== '') {
+    const id = String(badan.id);
+    lama = RE_ID.test(id) ? jadual.baris.find(r => String(r.ID) === id) : null;
+    if (!lama || ya(lama.Dipadam)) return ralat('Laporan tidak dijumpai.', 404);
+    // Hanya pemilik boleh mengedit (admin tidak mengedit laporan guru lain)
+    if (String(lama.PemilikEmail).toLowerCase() !== sesi.email) return tolakKarakter(ctx, 'POST /karakter/rekod ' + id, 'Bukan pemilik', 'Anda hanya boleh mengedit laporan sendiri.');
+  }
+
+  // Gambar: maksimum 4; fail baharu mesti dimuat naik oleh pengguna ini
+  const gambar = Array.isArray(badan.gambar) ? badan.gambar : [];
+  if (gambar.length > MAKS_GAMBAR) return ralat('Maksimum ' + MAKS_GAMBAR + ' gambar setiap laporan.');
+  const lamaIds = lama ? pecahId(lama.GambarIds) : [];
+  const ids = [], kapsyen = [], baharu = [];
+  for (const x of gambar) {
+    const fid = String((x && x.fileId) || '');
+    if (!/^[A-Za-z0-9_-]{10,128}$/.test(fid) || ids.includes(fid)) return ralat('Rujukan gambar tidak sah.');
+    if (!lamaIds.includes(fid)) {
+      const rek = await env.OPR_KV.get('upload:' + sek.slug + ':' + fid, 'json');
+      if (!rek || rek.email !== sesi.email || rek.jenis !== 'krk-lampiran') return ralat('Gambar tidak sah atau sudah luput. Sila muat naik semula.');
+      baharu.push(fid);
+    }
+    const k = bersihTeks(x.kapsyen).replace(/\s+/g, ' ');
+    if (k.length > HAD.kapsyen) return ralat('Kapsyen gambar melebihi ' + HAD.kapsyen + ' aksara.');
+    ids.push(fid); kapsyen.push(k);
+  }
+  if (ids.length && badan.akuanGambar !== true) return ralat('Sila tanda akuan kebenaran ibu bapa atau penjaga bagi gambar murid.');
+
+  // Tahun sesi daripada Tetapan OPR (satu sumber identiti sekolah)
+  let tahunSesi = v.data.TarikhISO.slice(0, 4);
+  try {
+    const opr = await bacaObjek(g, sek.sheetId, TAB.TETAPAN);
+    const ts = opr.find(r => String(r.Kunci).trim() === 'TAHUN_SESI');
+    if (ts && /^\d{4}$/.test(String(ts.Nilai).trim())) tahunSesi = String(ts.Nilai).trim();
+  } catch (e) { console.error('Baca TAHUN_SESI gagal', e && e.message); }
+
+  const masa = new Date(now()).toISOString();
+  const rekod = lama ? { ...lama } : {
+    ID: idBaharu(hariMyt, new Set(jadual.baris.map(r => String(r.ID)))), Timestamp: masa,
+    PemilikEmail: sesi.email, PdfFileId: '', PdfPada: '', Dipadam: '', DipadamPada: ''
+  };
+  Object.assign(rekod, v.data, {
+    DikemaskiniPada: masa, NamaGuru: namaGuru(kenal, sesi), BilGambar: String(ids.length), GambarIds: ids.join(','),
+    Kapsyen: JSON.stringify(kapsyen), AkuanGambar: ids.length ? 'YA' : '', TahunSesi: tahunSesi,
+    TtdFileId: '', TtdPada: ''    // edit memadam tandatangan; guru perlu tandatangan semula (Fasa 3)
+  });
+  rekod.KandunganHash = await hashKandungan(rekod);
+
+  const tajuk = jadual.tajuk.length ? jadual.tajuk : KOLUM_KRK[TAB_KRK.REKOD];
+  const baris = tajuk.map(h => { const x = rekod[h]; return x === undefined || x === null ? '' : String(x); });
+  if (lama) await kemaskiniJulat(g, sek.karakter.sheetId, TAB_KRK.REKOD, 'A' + lama._baris + ':' + hurufLajur(tajuk.length) + lama._baris, [baris]);
+  else await tambahBaris(g, sek.karakter.sheetId, TAB_KRK.REKOD, [baris]);
+
+  for (const fid of baharu) await env.OPR_KV.delete('upload:' + sek.slug + ':' + fid);
+  for (const fid of lamaIds.filter(x => !ids.includes(x))) {
+    try { await buangKeTong(g, fid); } catch (e) { console.error('Buang gambar lama gagal', fid, e && e.message); }
+  }
+  await auditKarakter(ctx, 'KARAKTER_SIMPAN', rekod.ID, 'BERJAYA', (lama ? 'Kemas kini' : 'Baharu') + ', ' + ids.length + ' gambar');
+  return json({ ok: true, id: rekod.ID, baharu: !lama, rekod: ringkasRekod(rekod) });
+}
+
+// Senarai berhalaman. skop=saya (lalai, semua peranan) atau skop=semua (admin sahaja).
+async function senaraiRekod(ctx, laluan) {
+  const { g, sek, sesi, admin, url } = ctx;
+  const q = url.searchParams;
+  const skop = q.get('skop') || 'saya';
+  if (skop === 'semua' && !admin) return tolakKarakter(ctx, laluan + '?skop=semua', 'Bukan admin');
+  if (!['saya', 'semua'].includes(skop)) return ralat('Skop tidak sah.');
+  const { baris } = await bacaJadualKrk(g, sek, TAB_KRK.REKOD);
+  const cari = String(q.get('cari') || '').trim().toLowerCase().slice(0, 100);
+  const dari = q.get('dari') || '', hingga = q.get('hingga') || '';
+  let data = baris.filter(r => r.ID && !ya(r.Dipadam))
+    .filter(r => skop === 'semua' || String(r.PemilikEmail).toLowerCase() === sesi.email)
+    .filter(r => !q.get('kelas') || String(r.Kelas) === q.get('kelas'))
+    .filter(r => !q.get('subjek') || String(r.Subjek) === q.get('subjek'))
+    .filter(r => !q.get('teras') || pecahId(r.Teras).includes(q.get('teras')))
+    .filter(r => !dari || String(r.TarikhISO) >= dari)
+    .filter(r => !hingga || String(r.TarikhISO) <= hingga)
+    .filter(r => !cari || [r.Tajuk, r.Catatan, r.Kelas, r.Subjek, r.NamaGuru, r.ID].join(' ').toLowerCase().includes(cari))
+    .sort((a, b) => String(b.TarikhISO).localeCompare(String(a.TarikhISO)) || String(b.Timestamp).localeCompare(String(a.Timestamp)));
+  const saiz = 20, jumlah = data.length;
+  const halaman = Math.min(Math.max(1, parseInt(q.get('halaman'), 10) || 1), Math.max(1, Math.ceil(jumlah / saiz)));
+  data = data.slice((halaman - 1) * saiz, halaman * saiz).map(ringkasRekod);
+  return json({ ok: true, skop, jumlah, halaman, saiz, data });
+}
+
+// Akses baca: admin, atau pemilik. (Guru kelas bagi kelasnya: Fasa 4.)
+async function cariRekodBolehBaca(ctx, id, laluan) {
+  const { g, sek, sesi, admin } = ctx;
+  const { baris, tajuk } = await bacaJadualKrk(g, sek, TAB_KRK.REKOD);
+  const r = baris.find(x => String(x.ID) === id);
+  if (!r || ya(r.Dipadam)) return { respons: ralat('Laporan tidak dijumpai.', 404) };
+  const pemilik = String(r.PemilikEmail).toLowerCase() === sesi.email;
+  if (!admin && !pemilik) return { respons: await tolakKarakter(ctx, laluan, 'Bukan pemilik rekod', 'Anda tiada kebenaran untuk laporan ini.') };
+  return { r, tajuk, pemilik };
+}
+
+async function bacaSatuRekod(ctx, id, laluan) {
+  const x = await cariRekodBolehBaca(ctx, id, laluan);
+  if (x.respons) return x.respons;
+  const { r, pemilik } = x;
+  const kap = kapsyenDari(r);
+  return json({ ok: true, rekod: { ...ringkasRekod(r), catatan: String(r.Catatan), timestamp: String(r.Timestamp),
+    gambar: pecahId(r.GambarIds).map((fileId, i) => ({ fileId, kapsyen: kap[i] || '' })),
+    akuanGambar: ya(r.AkuanGambar), hash: String(r.KandunganHash).slice(0, 8), tahunSesi: String(r.TahunSesi) },
+    boleh: { edit: pemilik, padam: pemilik || ctx.admin } });
+}
+
+// Soft delete: baris kekal dalam Sheet dengan Dipadam = YA. Fail tidak dibuang.
+async function padamRekod(ctx, id, laluan) {
+  const { g, sek, sesi, admin, now } = ctx;
+  const { baris, tajuk } = await bacaJadualKrk(g, sek, TAB_KRK.REKOD);
+  const r = baris.find(x => String(x.ID) === id);
+  if (!r || ya(r.Dipadam)) return ralat('Laporan tidak dijumpai.', 404);
+  if (!admin && String(r.PemilikEmail).toLowerCase() !== sesi.email) return tolakKarakter(ctx, laluan, 'Bukan pemilik rekod', 'Anda hanya boleh memadam laporan sendiri.');
+  const rekod = { ...r, Dipadam: 'YA', DipadamPada: new Date(now()).toISOString() };
+  const b = tajuk.map(h => { const x = rekod[h]; return x === undefined || x === null ? '' : String(x); });
+  await kemaskiniJulat(g, sek.karakter.sheetId, TAB_KRK.REKOD, 'A' + r._baris + ':' + hurufLajur(tajuk.length) + r._baris, [b]);
+  await auditKarakter(ctx, 'KARAKTER_PADAM', id, 'BERJAYA', String(r.PemilikEmail) === sesi.email ? '' : 'Dipadam oleh admin');
+  return json({ ok: true });
+}
+
+// Hidang gambar melalui Worker selepas semak akses. Fail mesti milik rekod itu.
+async function hantarFailKarakter(ctx, fileId, laluan) {
+  const id = String(ctx.url.searchParams.get('rekod') || '');
+  if (!RE_ID.test(id)) return ralat('Rujukan laporan tidak sah.');
+  const x = await cariRekodBolehBaca(ctx, id, laluan);
+  if (x.respons) return x.respons;
+  if (!pecahId(x.r.GambarIds).includes(fileId)) return ralat('Fail tidak berkaitan dengan laporan ini.', 404);
+  const res = await muatTurun(ctx.g, fileId);
+  return new Response(res.body, { headers: {
+    'content-type': res.headers.get('content-type') || 'application/octet-stream',
+    'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff'
+  } });
 }

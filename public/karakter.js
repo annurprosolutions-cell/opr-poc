@@ -1,33 +1,42 @@
-// Modul e-Karakter (Fasa 1): Panduan Mula Pantas (S-10) dan Setup (S-08) untuk admin.
+// Modul e-Karakter: kerangka modul (tab), Panduan Mula Pantas (S-10) dan Setup (S-08).
+// Borang dan Laporan dalam /karakter-borang.js.
 // Semua teks pengguna melalui el()/textContent. Server menguatkuasa akses; UI hanya memudahkan.
 import { $, el, api, mesej } from '/app.js';
+import * as B from '/karakter-borang.js';
 
-let K = null;          // { A, overlay, bukaOpr(tab) }
-let S = null;          // data /karakter/setup
+let K = null;          // { A, overlay, bukaOpr(tab), slug, email }
+let CFG = null;        // data /karakter/config (semua peranan)
+let S = null;          // data /karakter/setup (admin, dimuat bila perlu)
 let subSemasa = 'kelas';
 let draf = {};         // salinan boleh diedit bagi setiap senarai dan pemetaan
 
 const pesan = (jenis, teks) => mesej($('mesejKarakter'), jenis, teks);
 const kosongkan = (n) => { n.textContent = ''; return n; };
+const PANE = ['Borang', 'Laporan', 'Panduan', 'Setup'];
 
 export async function mula(konteks) {
   K = konteks;
   const bekas = kosongkan($('appKarakter'));
-  bekas.append(
-    el('nav', { id: 'tabKarakter', class: 'tab', role: 'tablist' }),
-    el('div', { id: 'mesejKarakter' }),
-    el('section', { id: 'krkPanduan', class: 'kad krk-pane' }),
-    el('section', { id: 'krkSetup', class: 'kad krk-pane tersembunyi' })
-  );
-  const tabs = [['Panduan', 'Panduan Mula'], ['Setup', 'Setup']];
-  tabs.forEach(([k, label], i) => $('tabKarakter').append(el('button', { type: 'button', role: 'tab', 'data-krk': k,
-    'aria-selected': String(i === 0), text: label, onclick: () => bukaTab(k) })));
-  await muat(true);
-  bukaTab('Panduan');
+  bekas.append(el('nav', { id: 'tabKarakter', class: 'tab', role: 'tablist' }), el('div', { id: 'mesejKarakter' }),
+    ...PANE.map(k => el('section', { id: 'krk' + k, class: 'kad krk-pane tersembunyi' })));
+  K.overlay(true, 'Menyediakan e-Karakter untuk sekolah anda...');
+  try { CFG = await api(K.A('/karakter/config')); } finally { K.overlay(false); }
+  if (!CFG.ok) { const r = CFG; CFG = null; return pesan(r.perluSediaKarakter ? 'amaran' : 'bahaya', r.ralat || 'e-Karakter belum boleh digunakan.'); }
+  B.pasang({ A: K.A, overlay: K.overlay, pesan, getCfg: () => CFG, slug: K.slug, email: K.email });
+  const tabs = [['Borang', 'Borang'], ['Laporan', 'Laporan']];
+  if (CFG.admin) tabs.push(['Panduan', 'Panduan Mula'], ['Setup', 'Setup']);
+  tabs.forEach(([k, label]) => $('tabKarakter').append(el('button', { type: 'button', role: 'tab', 'data-krk': k,
+    'aria-selected': 'false', text: label, onclick: () => bukaTab(k) })));
+  bukaTab(CFG.admin && CFG.setupBelumLengkap ? 'Panduan' : 'Borang');
+}
+
+async function muatConfig() {
+  const r = await api(K.A('/karakter/config'));
+  if (r.ok) CFG = r;
 }
 
 async function muat(pertama) {
-  if (pertama) K.overlay(true, 'Menyediakan e-Karakter untuk sekolah anda...');
+  if (pertama) K.overlay(true, 'Memuatkan setup...');
   try {
     const r = await api(K.A('/karakter/setup'));
     if (!r.ok) { pesan('bahaya', r.ralat || 'Tidak dapat memuatkan e-Karakter.'); return false; }
@@ -42,11 +51,12 @@ async function muat(pertama) {
   } finally { if (pertama) K.overlay(false); }
 }
 
-function bukaTab(k) {
+async function bukaTab(k, dataBorang) {
   document.querySelectorAll('#tabKarakter button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.krk === k)));
-  $('krkPanduan').classList.toggle('tersembunyi', k !== 'Panduan');
-  $('krkSetup').classList.toggle('tersembunyi', k !== 'Setup');
-  if (!S) return;
+  PANE.forEach(p => $('krk' + p).classList.toggle('tersembunyi', p !== k));
+  if (k === 'Borang') return B.paparBorang($('krkBorang'), dataBorang);
+  if (k === 'Laporan') return B.paparLaporan($('krkLaporan'), (d) => bukaTab('Borang', d));
+  if (!S && !(await muat(true))) return;
   if (k === 'Panduan') paparPanduan(); else paparSetup();
 }
 
@@ -97,6 +107,19 @@ function editorSenarai(isi, kunci, kategori, nama, contoh, teras = false) {
     ? 'Teras dipaparkan sebagai kad dalam borang, dashboard dan PDF. Maksimum 12. Laporan lama kekal dengan nama teras asal.'
     : 'Guru hanya nampak item yang aktif. Nyahaktif item yang tidak digunakan lagi; laporan lama kekal dengan nama asal.';
   isi.append(el('p', { class: 'redup kecil', text: nota }));
+  const lainLain = !teras && S.lainLain ? (S.lainLain[kunci] || []) : [];
+  if (lainLain.length) {
+    const kotak = el('div', { class: 'mesej amaran', id: 'lainLainKrk' }, el('b', { text: 'Nilai "Lain-lain" yang ditaip guru' }),
+      el('div', { class: 'kecil', text: 'Tidak ada dalam senarai rasmi. Tambah ke senarai supaya guru boleh memilihnya.' }));
+    lainLain.forEach(x => kotak.append(el('div', { class: 'baris-antara krk-lain-baris' },
+      el('span', { text: x.nilai + ' (' + x.bil + ' laporan)' }),
+      el('button', { type: 'button', class: 'butang sekunder kecil-butang', text: 'Tambah', onclick: (ev) => {
+        if (!item.some(y => y.nilai.trim().toLowerCase() === x.nilai.toLowerCase())) item.push({ nilai: x.nilai, aktif: true });
+        ev.target.disabled = true; lukis();
+        pesan('ok', '"' + x.nilai + '" ditambah. Tekan Simpan untuk menyimpan.');
+      } }))));
+    isi.append(kotak);
+  }
   const senarai = el('div', { class: 'krk-senarai', id: 'senaraiKrk' });
   const lukis = () => {
     kosongkan(senarai);
@@ -252,6 +275,7 @@ async function simpan(laluan, badan, teksBerjaya) {
     const r = await api(K.A(laluan), { method: 'POST', body: badan });
     if (!r.ok) { pesan('bahaya', r.ralat || 'Gagal menyimpan.'); return; }
     await muat(false);
+    await muatConfig();
     paparSetup();
     pesan('ok', teksBerjaya(r));
   } catch (e) {
