@@ -137,3 +137,75 @@ export function barisSenaraiAsal() {
   }
   return baris;
 }
+
+// ======================================================================
+// e-Karakter: Google Sheet ASING daripada Sheet OPR (keputusan 26/11/2026).
+// Sheet OPR kekal VERSI_SKEMA 1 dan tidak disentuh. Peranan guru dan identiti
+// sekolah (nama, alamat, logo) dibaca daripada Sheet OPR; Sheet Karakter hanya
+// menyimpan data modul ini. Peraturan sama: kolum baharu hanya di HUJUNG.
+// ======================================================================
+
+export const VERSI_SKEMA_KRK = 1;
+
+export const TAB_KRK = {
+  REKOD: 'KarakterRekod',
+  GURUKELAS: 'KarakterGuruKelas',
+  TTD: 'KarakterTtd',
+  SENARAI: 'Senarai',
+  TETAPAN: 'Tetapan',
+  AUDIT: 'AuditLog'
+};
+
+export const KOLUM_KRK = {
+  [TAB_KRK.REKOD]: ['ID', 'Timestamp', 'DikemaskiniPada', 'PemilikEmail', 'NamaGuru', 'TarikhISO', 'Masa',
+    'Kelas', 'Subjek', 'Teras', 'Tajuk', 'Catatan', 'BilGambar', 'GambarIds', 'Kapsyen', 'TtdFileId', 'TtdPada',
+    'KandunganHash', 'TahunSesi', 'Dipadam', 'DipadamPada', 'AkuanGambar', 'PdfFileId', 'PdfPada'],
+  [TAB_KRK.GURUKELAS]: ['Kelas', 'Email', 'Ditambah', 'DitambahOleh'],
+  [TAB_KRK.TTD]: ['Email', 'FileId', 'DikemaskiniPada'],
+  [TAB_KRK.SENARAI]: ['Kategori', 'Nilai', 'Susunan', 'Aktif'],
+  [TAB_KRK.TETAPAN]: ['Kunci', 'Nilai'],
+  [TAB_KRK.AUDIT]: ['Masa', 'Email', 'Peranan', 'Tindakan', 'Sasaran', 'Status', 'Nota']
+};
+
+// Folder "e-Karakter" di bawah folder sekolah, dengan tiga subfolder.
+export const FOLDER_KRK = 'e-Karakter';
+export const SUBFOLDER_KRK = { PDF: 'PDF', LAMPIRAN: 'Lampiran', TTD: 'Tandatangan' };
+
+// Seed: contoh SK dan SMK digabung (tanpa pendua). Admin ganti semasa setup.
+export const SENARAI_KARAKTER = {
+  KARAKTER_TERAS: ['Penyayang', 'Berdaya Tahan', 'Berupaya Memimpin', 'Warganegara Aktif'],
+  KARAKTER_KELAS: ['1 Arif', '2 Bestari', '3 Cemerlang', '4 Al-Farabi', '5 Ibnu Sina', '6 Al-Khawarizmi',
+    '1 Amanah', '4 Sains', '5 Sains'],
+  KARAKTER_SUBJEK: ['Bahasa Melayu', 'Bahasa Inggeris', 'Matematik', 'Sains', 'Pendidikan Islam', 'Pendidikan Moral',
+    'Sejarah', 'Geografi', 'Reka Bentuk dan Teknologi', 'Pendidikan Jasmani dan Kesihatan', 'Pendidikan Seni Visual',
+    'Bahasa Arab']
+};
+
+export const TERAS_HURAIAN_ASAL = {
+  'Penyayang': 'Empati, hormat-menghormati, prihatin dan budi bahasa.',
+  'Berdaya Tahan': 'Tabah, tidak mudah putus asa dan bangkit semula selepas kegagalan.',
+  'Berupaya Memimpin': 'Berinisiatif, bertanggungjawab dan boleh membimbing rakan.',
+  'Warganegara Aktif': 'Prihatin terhadap komuniti, mematuhi peraturan dan menyumbang kepada masyarakat.'
+};
+
+export function tetapanKarakterAsal() {
+  return [
+    ['KRK_KOD_SEKOLAH', ''],
+    ['KRK_TAJUK_DOKUMEN', 'Laporan Pelaksanaan Pembentukan Karakter'],
+    ['KRK_NAMA_PENGESAH', ''],
+    ['KRK_JAWATAN_PENGESAH', 'Guru Besar / Pengetua'],
+    ['KRK_WAJIB_TTD', 'TIDAK'],
+    ['KRK_TERAS_HURAIAN', JSON.stringify(TERAS_HURAIAN_ASAL)],
+    ['KRK_HAD_MUNDUR_HARI', '30'],
+    ['KRK_AKTIF', 'YA'],
+    ['VERSI_SKEMA', String(VERSI_SKEMA_KRK)]
+  ];
+}
+
+export function barisSenaraiKarakter() {
+  const baris = [];
+  for (const [kat, item] of Object.entries(SENARAI_KARAKTER)) {
+    item.forEach((v, i) => baris.push([kat, v, String(i + 1), 'YA']));
+  }
+  return baris;
+}

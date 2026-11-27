@@ -13,6 +13,7 @@ Cloudflare Worker "annur-opr"  (repo ini, deploy automatik setiap push ke main)
  ├─ src/skema.js       tab, kolum dan data asal Sheet sekolah
  ├─ src/lesen.js       lesen + webhook BCL (dari Worker lesen Annur Time Table)
  ├─ src/laporan.js     normalisasi + rekod laporan (dari Code.gs v2)
+ ├─ src/karakter.js    modul e-Karakter (Sheet asing, pemasangan, /karakter/*)
  ├─ public/dokumen.js  enjin pratonton A4 + PDF (kod v2 verbatim + lapisan sambungan)
  ├─ public/pentadbiran.js  dashboard, tetapan, logo, jenis, senarai, semakan (admin)
  ├─ public/vendor/     html2pdf 0.10.1, pdf.js 3.11.174 (salinan tempatan, bukan CDN)
@@ -37,6 +38,7 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | 4 | Lesen ikut sekolah: percubaan 14 hari, BCL (disahkan API, idempoten, kredit sebelum daftar, auto-debit), tempoh ihsan 7 hari, sekatan tulis bila tamat, notis dalam app, halaman /pemilik | Siap |
 | 5a | Sale page di `/` (tangkapan skrin sebenar), mod demo `/s/demo` (app sebenar, data dalam browser, `?peranan=guru`), panduan pengesahan Google | Siap |
 | 5b | Manual pengguna `/panduan/` (HTML + PDF 25 muka) dan 6 video tutorial, semuanya dirakam daripada app sebenar dengan data contoh | Siap |
+| e-Karakter 0 | Modul e-Karakter: Google Sheet **asing** (`... (e-Karakter)`) + folder `e-Karakter` (PDF, Lampiran, Tandatangan) dicipta semasa daftar; sekolah sedia ada dinaik taraf automatik oleh admin; `POST /karakter/skema/pasang` membaiki tab/seed yang hilang; audit `KARAKTER_*`. Reka bentuk dan keputusan: `docs/` (baca `docs/00-KEPUTUSAN.md` dahulu) | Siap |
 
 ## Ujian
 

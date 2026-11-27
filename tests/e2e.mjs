@@ -97,6 +97,9 @@ try {
   semak((await admin.textContent('#notisLesen')).includes('admin@sekolah.edu.my'), 'notis memberitahu emel untuk diisi dalam borang BCL');
   const tabAdmin = await admin.$$eval('#tab button', b => b.map(x => x.textContent));
   semak(JSON.stringify(tabAdmin) === JSON.stringify(['Borang OPR', 'Laporan', 'Dashboard', 'Guru', 'Tetapan', 'Drive']), 'admin utama nampak 6 tab');
+  const sekDaftar = await e.OPR_KV.get('school:smkwakanda', 'json');
+  semak(sekDaftar.karakter && sekDaftar.karakter.sheetId && sekDaftar.karakter.sheetId !== sekDaftar.sheetId && g.sheet.size === 2,
+    'daftar sekolah mencipta dua Sheet berasingan: OPR dan e-Karakter');
 
   // ---------------------------------------------------------- tambah guru
   await admin.click('#tab button[data-tab=Guru]');

@@ -51,6 +51,7 @@ export function googlePalsu(senario = {}) {
   const sheet = new Map();     // id -> { title, tabs: Map(nama -> rows[][]) }
   let kiraan = 0;
   const gagalSheetKali = { n: senario.gagalSheetKali || 0 };
+  senario._ciptaSheet = 0;
 
   const f = async (url, opt = {}) => {
     const u = String(url);
@@ -132,6 +133,9 @@ export function googlePalsu(senario = {}) {
     // ---- Sheets
     if (u.startsWith('https://sheets.googleapis.com/v4/spreadsheets')) {
       if (kaedah === 'POST' && /\/spreadsheets\?/.test(u)) {
+        if (senario.gagalCiptaSheetKe && ++senario._ciptaSheet === senario.gagalCiptaSheetKe) {
+          return Response.json({ error: { code: 500, message: 'Ralat dalaman palsu' } }, { status: 500 });
+        }
         if (gagalSheetKali.n > 0) {
           gagalSheetKali.n--;
           return Response.json({ error: { code: 403, status: 'PERMISSION_DENIED',
@@ -152,11 +156,32 @@ export function googlePalsu(senario = {}) {
         return Response.json({ spreadsheetId: sid });
       }
       if (senario.tolak401Sekali) { senario.tolak401Sekali = false; return Response.json({ error: { code: 401, message: 'Invalid Credentials' } }, { status: 401 }); }
+      // Metadata: senarai tab
+      const mMeta = u.match(/\/spreadsheets\/([^/?:]+)\?fields=sheets/);
+      if (mMeta) {
+        const shm = sheet.get(mMeta[1]);
+        if (!shm) return Response.json({ error: { code: 404, message: 'Requested entity was not found.' } }, { status: 404 });
+        return Response.json({ sheets: [...shm.tabs.keys()].map(title => ({ properties: { title } })) });
+      }
+      // batchUpdate: addSheet
+      const mBatch = u.match(/\/spreadsheets\/([^/?:]+):batchUpdate/);
+      if (mBatch && kaedah === 'POST') {
+        const shb = sheet.get(mBatch[1]);
+        if (!shb) return Response.json({ error: { code: 404, message: 'Requested entity was not found.' } }, { status: 404 });
+        for (const rq of JSON.parse(teks).requests) {
+          const t = rq.addSheet.properties.title;
+          if (shb.tabs.has(t)) return Response.json({ error: { code: 400, message: 'A sheet with the name "' + t + '" already exists.' } }, { status: 400 });
+          shb.tabs.set(t, []);
+        }
+        return Response.json({ replies: [] });
+      }
       const m = u.match(/\/spreadsheets\/([^/]+)\/values\/([^?:]+)(:append|:clear)?/);
       const sh = m && sheet.get(m[1]);
       if (!sh) return Response.json({ error: { code: 404, message: 'Requested entity was not found.' } }, { status: 404 });
       const tab = decodeURIComponent(m[2]).replace(/^'|'(!.*)?$/g, '').replace(/''/g, "'");
       const rows = sh.tabs.get(tab);
+      // Seperti Google sebenar: tab yang tiada -> 400
+      if (!rows) return Response.json({ error: { code: 400, message: 'Unable to parse range: ' + tab } }, { status: 400 });
       if (m[3] === ':clear') {
         const dari = Number(decodeURIComponent(m[2]).match(/!A(\d+):/)[1]);
         rows.length = Math.min(rows.length, dari - 1);

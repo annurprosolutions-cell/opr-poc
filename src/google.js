@@ -148,3 +148,17 @@ export async function muatTurun(g, fileId) {
 export async function kosongkanJulat(g, sheetId, tab, a1) {
   return panggil(g, SHEETS + '/' + sheetId + '/values/' + julat(tab, a1) + ':clear', { method: 'POST', ...jsonBadan({}) }, 'Kosongkan julat');
 }
+
+// Senarai tajuk tab dalam spreadsheet (satu panggilan metadata).
+export async function senaraiTab(g, sheetId) {
+  const d = await panggil(g, SHEETS + '/' + sheetId + '?fields=sheets.properties.title', {}, 'Baca struktur Sheet');
+  return ((d && d.sheets) || []).map(s => s.properties.title);
+}
+
+// Tambah tab baharu dengan baris tajuk (dibekukan) dan data asal pilihan.
+export async function tambahTab(g, sheetId, nama, tajuk, baris = []) {
+  await panggil(g, SHEETS + '/' + sheetId + ':batchUpdate', { method: 'POST', ...jsonBadan({
+    requests: [{ addSheet: { properties: { title: nama, gridProperties: { frozenRowCount: 1 } } } }]
+  }) }, 'Tambah tab');
+  await kemaskiniJulat(g, sheetId, nama, 'A1:ZZ' + (1 + baris.length), [tajuk, ...baris]);
+}

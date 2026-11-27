@@ -1,0 +1,48 @@
+# 00 - Keputusan yang mengatasi dokumen 01 hingga 05
+
+Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan di bawah dibuat selepas semakan dan **mengatasi** dokumen itu jika bercanggah. Baca fail ini dahulu.
+
+## Keputusan 26-27/11/2026
+
+| # | Perkara | Keputusan | Kesan pada dokumen |
+|---|---|---|---|
+| 1 | Lesen tamat vs PDF | Rekod baharu disekat. Muat naik PDF bagi rekod **sedia ada** dibenarkan walaupun lesen tamat | TRD 5 (Lesen), PRD F-14. Dibina pada Fasa 3 |
+| 2 | Harga | e-Karakter termasuk dalam RM20/bulan atau RM200/tahun. Tiada caj tambahan | Tiada |
+| 3 | Branch | Kerja terus di `main` (tiada branch `karakter`, tiada PR) | TRD 10, IPD 0.1 |
+| 3b | Navigasi | **Bukan tab baharu.** Selepas log masuk di `/s/<slug>`, pengguna pilih modul pada skrin depan: dua kad "OPR" dan "Pembentukan Karakter". Pilihan terakhir diingat dalam browser, pautan "Tukar modul" di header, `?m=karakter` kekal sebagai pautan terus, demo turut papar dua kad | AFD S-01, DBD 3 (pensuis modul) |
+| 4 | Laluan pemilik platform | Kekal `/pemilik` | PRD R-04 |
+| 5 | Storan | Admin sekolah guna akaun edu (3 TB). Storan bukan kekangan | TRD 7 |
+| 6 | Kuota Sheets API | Diterima; uji beban lebih awal jika perlu | TRD 7 |
+| 7 | PDF landskap dashboard | Sahkan pada Fasa 5, sandaran dalam TRD | IPD 5.5 |
+| 8 | Gambar | **Dimampat** di browser (maks 4, 900px) | TRD andaian 7 dibatalkan |
+| 9 | Subjek/kelas "Lain-lain" | Admin boleh lihat nilai "Lain-lain" yang ditaip guru dan tambah ke senarai rasmi | Tambahan pada S-08 (Fasa 1) |
+| 10 | Kolum `Sesi` | Dinamakan **`TahunSesi`** | BSD 2.1 kolum 19 |
+| 11 | Chart.js | Salinan tempatan dalam `public/vendor/` | Tiada |
+| 12 | Sasaran jualan | Tiada tarikh sasaran; jualan berterusan | IPD soalan terbuka 1 |
+| 13 | Prototype Apps Script lama | Sudah ditutup oleh pemilik | IPD 6.9 selesai |
+| 14 | **Pangkalan data asing** | e-Karakter guna **Google Sheet berasingan** daripada OPR (bukan tab tambahan dalam Sheet OPR) | BSD 1, 2, 9; TRD 2, 4; IPD Fasa 0 |
+
+## Butiran keputusan 14 (Sheet asing)
+
+- **Sheet OPR tidak disentuh.** Kekal `VERSI_SKEMA = 1`, tiada tab atau kategori baharu.
+- **Sheet e-Karakter**: `Annur OPR - <sekolah> (e-Karakter)`, dalam folder sekolah bersebelahan Sheet OPR. Tab: `KarakterRekod`, `KarakterGuruKelas`, `KarakterTtd`, `Senarai` (kategori `KARAKTER_*`), `Tetapan` (kunci `KRK_*` dan `VERSI_SKEMA` sendiri, kini 1), `AuditLog` (tindakan `KARAKTER_*`).
+- **Dikongsi, satu sumber dalam Sheet OPR:** tab `Guru` (peranan; nyahaktif guru berkuat kuasa untuk kedua-dua modul) dan identiti sekolah dalam `Tetapan` OPR (nama, alamat, logo).
+- **Drive:** folder `e-Karakter` di bawah folder sekolah, dengan subfolder `PDF`, `Lampiran`, `Tandatangan`.
+- **KV:** `school:<slug>.karakter = { folderId, subfolder: {PDF, LAMPIRAN, TTD}, sheetId, sheetDalamFolder, versiSkema, sediaPada }`. Kunci sementara `kunci:karakter:<slug>` (60 saat) semasa pemasangan.
+- **Bila dicipta:**
+  1. Sekolah baharu: semasa setup Drive, serentak dengan Sheet OPR. Jika gagal, OPR tetap siap.
+  2. Sekolah sedia ada: automatik pada permintaan `/karakter/*` pertama oleh **admin**. Guru biasa mendapat 409 sehingga admin membuka modul sekali.
+  3. Butang sandaran admin `POST /karakter/skema/pasang`: semak penuh, cipta semula tab yang dipadam, seed kategori atau kunci yang hilang tanpa menimpa suntingan.
+- Risiko diterima: jika Sheet OPR dipadam, kedua-dua modul terjejas kerana peranan guru berada di situ (sama seperti OPR sekarang).
+
+## Status fasa
+
+| Fasa | Status |
+|---|---|
+| 0 Sheet asing dan pemasangan | Siap 27/11/2026 |
+| 1 Setup sekolah dan skrin pilihan modul | |
+| 2 Borang dan rekod | |
+| 3 Tandatangan dan PDF | |
+| 4 Laporan Saya dan Kelas | |
+| 5 Dashboard dan eksport | |
+| 6 Demo, panduan, keselamatan | |

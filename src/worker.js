@@ -25,6 +25,7 @@ import {
 import { VERSI_SKEMA, TAB, KOLUM, SUBFOLDER, tetapanAsal, barisSenaraiAsal, jenisLalai, JENIS_SAH } from './skema.js';
 import { binaRekod, barisIkutTajuk, ringkasan, butiran, hurufLajur, STATUS } from './laporan.js';
 import { nilai, lesenSekolah, mulaPercubaan, pakaiKredit, lanjutLesen, prosesBcl, hariIni } from './lesen.js';
+import { apiKarakter, pasangSkemaKarakter, karakterSedia } from './karakter.js';
 
 const SKOP_GURU = 'openid email profile';
 const SKOP_ADMIN = 'openid email profile https://www.googleapis.com/auth/drive.file';
@@ -408,6 +409,12 @@ export async function sediakanDrive(env, sek, g, sesi, now) {
   sek.versiSkema = VERSI_SKEMA;
   sek.sediaPada = sek.sediaPada || new Date(now()).toISOString();
   await simpanSekolah(env, sek);
+  // e-Karakter: Sheet asing dicipta sekali gus. Jika gagal, OPR tetap siap;
+  // struktur akan dipasang automatik bila admin membuka modul e-Karakter.
+  if (!karakterSedia(sek)) {
+    try { await pasangSkemaKarakter(env, sek, g, sesi, now); }
+    catch (e) { console.error('Sediakan e-Karakter gagal (akan dicuba semula)', sek.slug, e && e.message); }
+  }
   return sek;
 }
 
@@ -541,7 +548,7 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
   const lesen = nilai(await lesenSekolah(env, sek, now()), now(), env);
   const infoLesen = { lesen, buyUrl: env.BUY_URL || '' };
   // Lesen tamat: operasi tulis disekat; baca, buka PDF dan eksport kekal. Data dalam Drive tidak disentuh.
-  if (req.method === 'POST' && !lesen.ok && !['/setup', '/health'].includes(sub)) {
+  if (req.method === 'POST' && !lesen.ok && !['/setup', '/health', '/karakter/skema/pasang'].includes(sub)) {
     return ralat(lesen.reason === 'percubaan-tamat'
       ? 'Tempoh percubaan sekolah ini telah tamat. Laporan sedia ada masih boleh dibuka; langgan untuk terus menambah laporan.'
       : 'Langganan sekolah ini telah tamat. Laporan sedia ada masih boleh dibuka; perbaharui langganan untuk terus menambah laporan.', 402, { lesenTamat: true, lesen });
@@ -588,6 +595,7 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
       }
       const admin = kenal.peranan === 'admin';
       const ctx = { env, sek, sesi, g, kenal, admin, pemilik, badan, url, now, bait, req };
+      if (sub === '/karakter' || sub.startsWith('/karakter/')) return await apiKarakter(ctx, sub);
 
       if (sub === '/config' && req.method === 'GET') {
         const c = await bacaConfig(g, sek);

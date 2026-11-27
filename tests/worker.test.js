@@ -147,7 +147,10 @@ test('Sheets API gagal semasa daftar: sekolah tetap berdaftar, butang sediakan m
   sek = await e.OPR_KV.get('school:smkwakanda', 'json');
   assert.equal(sek.folderId, folderAsal);
   assert.ok(sek.sheetId);
-  assert.equal([...g.fail.values()].filter(x => x.mimeType === 'application/vnd.google-apps.folder').length, bilFolder);
+  // Folder OPR tidak berganda; folder e-Karakter (1 + 3 subfolder) dicipta sekali bersama Sheet Karakter
+  const folderKrk = [sek.karakter.folderId, ...Object.values(sek.karakter.subfolder)];
+  assert.equal([...g.fail.entries()].filter(([id, x]) => x.mimeType === 'application/vnd.google-apps.folder' && !folderKrk.includes(id)).length, bilFolder);
+  assert.equal(folderKrk.length, 4);
 
   // Panggil sekali lagi: tiada apa dicipta semula
   const bilSheet = g.sheet.size;
@@ -845,4 +848,159 @@ test('BCL: kunci webhook gaya base64 (mengandungi + dan =) diterima; kunci hampi
   assert.equal((await webhook(e, g, jualan('K-1', 'Langganan Bulanan', '20.00'), T0, k)).months, 1);
   assert.equal((await webhook(e, g, {}, T0, k.slice(0, -1))).status, 404);
   assert.equal((await webhook(e, g, {}, T0, k + 'x')).status, 404);
+});
+
+// ======================================================================
+// e-Karakter Fasa 0: Sheet asing, pemasangan idempoten, audit
+// ======================================================================
+const FOLDER = 'application/vnd.google-apps.folder';
+const tabKrk = ['KarakterRekod', 'KarakterGuruKelas', 'KarakterTtd', 'Senarai', 'Tetapan', 'AuditLog'];
+
+test('karakter: sekolah baharu dapat Sheet e-Karakter asing; Sheet OPR tidak berubah', async () => {
+  const { e, g } = await sekolahSiap();
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const K = sek.karakter;
+  assert.ok(K && K.sheetId && K.sheetId !== sek.sheetId, 'dua Sheet berbeza');
+  assert.equal(K.versiSkema, 1);
+  // Sheet OPR: 5 tab asal, VERSI_SKEMA kekal 1, tiada kategori KARAKTER_*
+  const opr = g.sheet.get(sek.sheetId);
+  assert.deepEqual([...opr.tabs.keys()], ['Guru', 'Laporan', 'Senarai', 'Tetapan', 'AuditLog']);
+  assert.equal(opr.tabs.get('Tetapan').find(r => r[0] === 'VERSI_SKEMA')[1], '1');
+  assert.ok(!opr.tabs.get('Senarai').some(r => String(r[0]).startsWith('KARAKTER_')));
+  // Sheet Karakter: 6 tab, tajuk, seed
+  const krk = g.sheet.get(K.sheetId);
+  assert.equal(krk.title, 'Annur OPR - SMK Wakanda (e-Karakter)');
+  assert.deepEqual([...krk.tabs.keys()], tabKrk);
+  assert.equal(krk.tabs.get('KarakterRekod')[0].length, 24);
+  assert.equal(krk.tabs.get('KarakterRekod')[0][18], 'TahunSesi');
+  const senarai = krk.tabs.get('Senarai').slice(1);
+  assert.deepEqual(senarai.filter(r => r[0] === 'KARAKTER_TERAS').map(r => r[1]), ['Penyayang', 'Berdaya Tahan', 'Berupaya Memimpin', 'Warganegara Aktif']);
+  assert.equal(new Set(senarai.filter(r => r[0] === 'KARAKTER_KELAS').map(r => r[1])).size, senarai.filter(r => r[0] === 'KARAKTER_KELAS').length, 'kelas tanpa pendua');
+  const tet = Object.fromEntries(krk.tabs.get('Tetapan').slice(1));
+  assert.equal(tet.KRK_WAJIB_TTD, 'TIDAK');
+  assert.equal(tet.KRK_HAD_MUNDUR_HARI, '30');
+  assert.ok(JSON.parse(tet.KRK_TERAS_HURAIAN).Penyayang);
+  assert.equal(krk.tabs.get('AuditLog')[1][3], 'KARAKTER_SEDIAKAN');
+  // Drive: Sheet Karakter bersebelahan Sheet OPR; folder e-Karakter dengan 3 subfolder
+  assert.deepEqual(g.fail.get(K.sheetId).parents, [sek.folderId]);
+  assert.equal(g.fail.get(K.folderId).name, 'e-Karakter');
+  assert.deepEqual(g.fail.get(K.folderId).parents, [sek.folderId]);
+  for (const [k, nama] of [['PDF', 'PDF'], ['LAMPIRAN', 'Lampiran'], ['TTD', 'Tandatangan']]) {
+    assert.equal(g.fail.get(K.subfolder[k]).name, nama);
+    assert.deepEqual(g.fail.get(K.subfolder[k]).parents, [K.folderId]);
+  }
+});
+
+test('karakter: pasang semula dua kali tiada pendua tab, seed atau folder', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const bilSheet = g.sheet.size, bilFolder = [...g.fail.values()].filter(x => x.mimeType === FOLDER).length;
+  const bilSenarai = g.sheet.get(sek.karakter.sheetId).tabs.get('Senarai').length;
+  const r1 = await panggilApi(e, g, sesiAdmin, '/karakter/skema/pasang', {});
+  const r2 = await panggilApi(e, g, sesiAdmin, '/karakter/skema/pasang', {});
+  for (const r of [r1, r2]) { assert.equal(r.ok, true); assert.deepEqual(r.dicipta, []); assert.deepEqual(r.dibaiki, []); }
+  assert.equal(r2.versiSkema, 1);
+  assert.equal(g.sheet.size, bilSheet);
+  assert.equal([...g.fail.values()].filter(x => x.mimeType === FOLDER).length, bilFolder);
+  assert.equal(g.sheet.get(sek.karakter.sheetId).tabs.get('Senarai').length, bilSenarai);
+  assert.equal(await e.OPR_KV.get('kunci:karakter:smkwakanda'), null, 'kunci dilepaskan');
+});
+
+test('karakter: pasang semula membaiki tab yang dipadam dan seed yang hilang tanpa menimpa suntingan', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const krk = g.sheet.get(sek.karakter.sheetId);
+  krk.tabs.delete('KarakterTtd');                                        // admin padam satu tab
+  krk.tabs.set('Senarai', krk.tabs.get('Senarai').filter(r => r[0] !== 'KARAKTER_TERAS'));   // padam semua teras
+  const kelas = krk.tabs.get('Senarai').filter(r => r[0] === 'KARAKTER_KELAS');
+  kelas[0][1] = '6 Ibnu Khaldun';                                        // suntingan admin
+  krk.tabs.set('Tetapan', krk.tabs.get('Tetapan').filter(r => r[0] !== 'KRK_WAJIB_TTD'));
+  const r = await panggilApi(e, g, sesiAdmin, '/karakter/skema/pasang', {});
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.dibaiki.sort(), ['senarai KARAKTER_TERAS', 'tab KarakterTtd', 'tetapan KRK_WAJIB_TTD'].sort());
+  assert.deepEqual(krk.tabs.get('KarakterTtd')[0], ['Email', 'FileId', 'DikemaskiniPada']);
+  assert.equal(krk.tabs.get('Senarai').filter(r => r[0] === 'KARAKTER_TERAS').length, 4);
+  assert.equal(krk.tabs.get('Senarai').filter(r => r[0] === 'KARAKTER_KELAS').length, kelas.length, 'kelas tidak diseed semula');
+  assert.ok(krk.tabs.get('Senarai').some(r => r[1] === '6 Ibnu Khaldun'), 'suntingan admin kekal');
+  assert.equal(krk.tabs.get('Tetapan').filter(r => r[0] === 'KRK_WAJIB_TTD').length, 1);
+  const s = await panggilApi(e, g, sesiAdmin, '/karakter/struktur');
+  assert.deepEqual(s.tabHilang, []);
+  assert.ok(krk.tabs.get('AuditLog').some(x => x[3] === 'KARAKTER_SEDIAKAN' && /tab KarakterTtd/.test(x[6])));
+});
+
+test('karakter: sekolah sedia ada (tanpa Sheet Karakter) dinaik taraf automatik oleh admin; guru tunggu; data OPR utuh', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  // Simulasi sekolah yang didaftar sebelum e-Karakter wujud
+  let sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  delete sek.karakter;
+  await e.OPR_KV.put('school:smkwakanda', JSON.stringify(sek));
+  const bilSheet = g.sheet.size;
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'guru@gmail.com' });
+  const lap = await panggilApi(e, g, sesiAdmin, '/laporan', { data: { tajuk: 'Laporan OPR lama' }, consent: true });
+  assert.equal(lap.ok, true);
+  const laporanSebelum = JSON.stringify(g.sheet.get(sek.sheetId).tabs.get('Laporan'));
+
+  // Guru buka dahulu: 409, tiada apa dicipta
+  const guru = await logMasukSebagai(e, g, 'guru@gmail.com');
+  const rg = await panggilApi(e, g, guru.sesi, '/karakter/struktur');
+  assert.equal(rg.status, 409);
+  assert.equal(rg.perluSediaKarakter, true);
+  assert.equal(g.sheet.size, bilSheet);
+
+  // Admin buka: Sheet Karakter dicipta, OPR tidak disentuh
+  const ra = await panggilApi(e, g, sesiAdmin, '/karakter/struktur');
+  assert.equal(ra.ok, true);
+  assert.equal(ra.versiSkema, 1);
+  assert.equal(g.sheet.size, bilSheet + 1);
+  sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  assert.ok(sek.karakter.sheetId);
+  assert.equal(JSON.stringify(g.sheet.get(sek.sheetId).tabs.get('Laporan')), laporanSebelum);
+  assert.equal((await panggilApi(e, g, sesiAdmin, '/laporan')).jumlah, 1);
+
+  // Guru kini boleh masuk modul (laluan admin tetap ditolak, lihat ujian seterusnya)
+  assert.equal((await panggilApi(e, g, guru.sesi, '/karakter/tiada')).status, 404);
+});
+
+test('karakter: guru ditolak untuk laluan admin dan penolakan direkod dalam AuditLog e-Karakter', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'guru@gmail.com' });
+  const guru = await logMasukSebagai(e, g, 'guru@gmail.com');
+  const p = await panggilApi(e, g, guru.sesi, '/karakter/skema/pasang', {});
+  assert.equal(p.status, 403);
+  const s = await panggilApi(e, g, guru.sesi, '/karakter/struktur');
+  assert.equal(s.status, 403);
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const log = g.sheet.get(sek.karakter.sheetId).tabs.get('AuditLog').filter(r => r[3] === 'KARAKTER_AKSES_DITOLAK');
+  assert.equal(log.length, 2);
+  assert.equal(log[0][1], 'guru@gmail.com');
+  assert.equal(log[0][4], 'POST /karakter/skema/pasang');
+  assert.equal(log[0][5], 'DITOLAK');
+  // Tiada apa-apa ditulis ke AuditLog OPR untuk penolakan karakter
+  assert.ok(!g.sheet.get(sek.sheetId).tabs.get('AuditLog').some(r => r[3] === 'KARAKTER_AKSES_DITOLAK'));
+  // Bukan ahli langsung: ditolak oleh pengawal OPR sedia ada
+  const luar = await logMasukSebagai(e, g, 'orang.luar@gmail.com');
+  assert.equal((await panggilApi(e, g, luar.sesi, '/karakter/struktur')).status, 403);
+});
+
+test('karakter: kegagalan Sheet e-Karakter semasa daftar tidak menggagalkan OPR; admin baiki kemudian', async () => {
+  const e = env(); const g = googlePalsu({ gagalCiptaSheetKe: 2 });   // Sheet ke-2 = Sheet Karakter
+  const { sesi } = await logMasuk(e, g, 'admin');
+  const c = await (await handle(req('/api/schools', { method: 'POST', kuki: { opr_sesi: sesi }, body: { nama: 'SMK Wakanda', slug: 'smkwakanda' } }), e, deps(g))).json();
+  assert.equal(c.sedia, true, 'OPR tetap siap');
+  let sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  assert.ok(sek.sheetId && !sek.karakter.sheetId && sek.karakter.folderId, 'folder Karakter wujud, Sheet belum');
+  const bilFolder = [...g.fail.values()].filter(x => x.mimeType === FOLDER).length;
+  const r = await panggilApi(e, g, sesi, '/karakter/struktur');
+  assert.equal(r.ok, true);
+  sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  assert.ok(sek.karakter.sheetId);
+  assert.equal([...g.fail.values()].filter(x => x.mimeType === FOLDER).length, bilFolder, 'folder tidak dicipta semula');
+});
+
+test('karakter: dua permintaan serentak semasa pemasangan: yang kedua diminta cuba lagi', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await e.OPR_KV.put('kunci:karakter:smkwakanda', '1');
+  const r = await panggilApi(e, g, sesiAdmin, '/karakter/skema/pasang', {});
+  assert.equal(r.status, 409);
+  assert.equal(r.sedangSedia, true);
 });
