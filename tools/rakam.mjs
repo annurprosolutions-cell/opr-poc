@@ -214,6 +214,10 @@ const BABAK = [
       await h.gambar('daftar-2-borang');
       await h.klik('#hantar', { lepas: 400 });
       await pg.waitForURL(/\/s\//, { timeout: 30000 });
+      await pg.waitForSelector('#pilihModul:not(.tersembunyi)', { timeout: 30000 });
+      await h.gambar('pilih-modul');
+      await h.kata('Admin pilih modul. Untuk OPR, pilih kad OPR.', 2200);
+      await h.klik('.kad-modul[data-modul=opr]', { lepas: 400 });
       await pg.waitForSelector('#tab button', { timeout: 30000 });
       await h.W(600);
       await h.kata('Siap. Folder dan Google Sheet sekolah dicipta dalam Drive anda. Percubaan 14 hari bermula.');

@@ -6,6 +6,7 @@ import { $, el, api, mesej, logKeluar } from '/app.js';
 import { PROFIL_JENIS, SENARAI_JENIS, LABEL_SENARAI, STATUS_PAPAR } from '/profil.js';
 import * as D from '/dokumen.js';
 import * as P from '/pentadbiran.js';
+import * as KR from '/karakter.js';
 
 const tunjuk = (id, ya = true) => $(id).classList.toggle('tersembunyi', !ya);
 const slug = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -46,8 +47,59 @@ async function mulaSesi() {
   const tabs = ['Borang', 'Laporan'];
   if (ME.peranan === 'admin') tabs.push('Dashboard', 'Guru', 'Tetapan');
   if (ME.pemilik) tabs.push('Drive');
-  bina(tabs);
-  sediaBorang();
+  tabsOpr = tabs;
+  if (!bolehKarakter()) return mulaOpr();
+  $('tukarModul').onclick = paparPilihanModul;
+  const m = new URLSearchParams(location.search).get('m');
+  if (m === 'opr' || m === 'karakter') return pilihModul(m);
+  paparPilihanModul();
+}
+
+// ====================================================================== modul (OPR / e-Karakter)
+// Fasa 1: hanya admin nampak pilihan modul (setup e-Karakter). Guru terus ke OPR
+// sehingga borang e-Karakter siap (Fasa 2). Demo belum ada e-Karakter.
+const KUNCI_MODUL = 'opr.modul.' + slug;
+let tabsOpr = null, oprDimulakan = false, karakterDimulakan = false;
+const bolehKarakter = () => ME && ME.peranan === 'admin' && slug !== 'demo';
+
+function mulaOpr() {
+  if (!oprDimulakan) { oprDimulakan = true; bina(tabsOpr); sediaBorang(); }
+  else tunjuk('aplikasi');
+}
+
+function paparPilihanModul() {
+  ['aplikasi', 'appKarakter', 'barisModul', 'butangPratonton'].forEach(id => tunjuk(id, false));
+  let akhir = '';
+  try { akhir = localStorage.getItem(KUNCI_MODUL) || ''; } catch (e) { /* storan disekat */ }
+  document.querySelectorAll('#pilihModul .kad-modul').forEach(b => {
+    b.querySelector('.lencana-terakhir').classList.toggle('tersembunyi', b.dataset.modul !== akhir);
+    b.onclick = () => pilihModul(b.dataset.modul);
+  });
+  const q = new URLSearchParams(location.search); q.delete('m');
+  history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : ''));
+  tunjuk('pilihModul');
+}
+
+function pilihModul(m) {
+  tunjuk('pilihModul', false);
+  tunjuk('barisModul');
+  $('labelModul').textContent = m === 'karakter' ? 'Modul: Pembentukan Karakter' : 'Modul: OPR';
+  const q = new URLSearchParams(location.search); q.set('m', m);
+  history.replaceState(null, '', location.pathname + '?' + q);
+  try { localStorage.setItem(KUNCI_MODUL, m); } catch (e) { /* storan disekat */ }
+  if (m === 'karakter') {
+    tunjuk('aplikasi', false);
+    tunjuk('appKarakter');
+    $('utama').classList.add('lebar');
+    if (!karakterDimulakan) {
+      karakterDimulakan = true;
+      KR.mula({ A, overlay, bukaOpr: (tab) => { pilihModul('opr'); buka(tab); } });
+    }
+  } else {
+    tunjuk('appKarakter', false);
+    mulaOpr();
+  }
+  kemaskiniTerapung();
 }
 
 // ====================================================================== lesen
@@ -445,7 +497,7 @@ async function bukaPdf(x, jenis = 'asal') {
 // ---------------------------------------------------------------- butang pratonton (telefon)
 let pratontonNampak = false;
 function kemaskiniTerapung() {
-  const diBorang = !$('paneBorang').classList.contains('tersembunyi');
+  const diBorang = !$('paneBorang').classList.contains('tersembunyi') && !$('aplikasi').classList.contains('tersembunyi');
   tunjuk('butangPratonton', diBorang && !pratontonNampak);
 }
 function sediaTerapung() {

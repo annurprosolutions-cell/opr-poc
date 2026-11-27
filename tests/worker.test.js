@@ -1004,3 +1004,110 @@ test('karakter: dua permintaan serentak semasa pemasangan: yang kedua diminta cu
   assert.equal(r.status, 409);
   assert.equal(r.sedangSedia, true);
 });
+
+// ======================================================================
+// e-Karakter Fasa 1: setup sekolah (kelas, subjek, teras, guru kelas, tetapan)
+// ======================================================================
+test('karakter fasa 1: penerimaan IPD (12 kelas, 10 subjek, teras kelima, 2 guru kelas, kod sekolah)', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'aminah@gmail.com, Cikgu Aminah\nali@gmail.com, Cikgu Ali\nbekas@gmail.com' });
+  // Panduan awal: guru siap, kelas/subjek/tetapan belum
+  let s = await panggilApi(e, g, sesiAdmin, '/karakter/setup');
+  const siap = (p) => Object.fromEntries(p.map(x => [x.kod, x.siap]));
+  assert.deepEqual(siap(s.panduan), { guru: true, kelas: false, subjek: false, gurukelas: false, teras: true, tetapan: false });
+  assert.equal(s.senarai.teras.length, 4);
+  assert.ok(s.senarai.teras[0].huraian);
+
+  const kelas = Array.from({ length: 12 }, (_, i) => ({ nilai: (i % 6 + 1) + ' ' + ['Arif', 'Bijak'][Math.floor(i / 6)] }));
+  let r = await panggilApi(e, g, sesiAdmin, '/karakter/senarai', { kategori: 'KARAKTER_KELAS', item: [...kelas, { nilai: '1 arif' }, { nilai: '  ' }] });
+  assert.equal(r.ok, true); assert.equal(r.bilangan, 12); assert.equal(r.pendua, 1);
+  const subjek = ['BM', 'BI', 'MT', 'SN', 'PI', 'PM', 'SJ', 'GG', 'RBT', 'PJK'].map(nilai => ({ nilai }));
+  r = await panggilApi(e, g, sesiAdmin, '/karakter/senarai', { kategori: 'KARAKTER_SUBJEK', item: subjek });
+  assert.equal(r.bilangan, 10);
+  const teras = ['Penyayang', 'Berdaya Tahan', 'Berupaya Memimpin', 'Warganegara Aktif', 'Berintegriti'].map(nilai => ({ nilai }));
+  r = await panggilApi(e, g, sesiAdmin, '/karakter/senarai', { kategori: 'KARAKTER_TERAS', item: teras,
+    huraian: { Penyayang: 'Ubah huraian', Berintegriti: 'Jujur dan amanah.' } });
+  assert.equal(r.bilangan, 5);
+  r = await panggilApi(e, g, sesiAdmin, '/karakter/gurukelas', { pemetaan: [
+    { kelas: '5 Arif', email: 'aminah@gmail.com' }, { kelas: '5 Arif', email: 'ali@gmail.com' },
+    { kelas: '6 Bijak', email: 'aminah@gmail.com' }, { kelas: '6 Bijak', email: 'AMINAH@gmail.com' }] });
+  assert.equal(r.ok, true); assert.equal(r.bilangan, 3, 'pendua (huruf besar) diabaikan');
+  r = await panggilApi(e, g, sesiAdmin, '/karakter/tetapan', { tetapan: { KRK_KOD_SEKOLAH: 'BEA1234', KRK_NAMA_PENGESAH: 'Puan Rohana', KRK_WAJIB_TTD: 'ya', LOGO1_ID: 'x' } });
+  assert.equal(r.ok, true); assert.deepEqual(r.ditolak, ['LOGO1_ID']);
+
+  s = await panggilApi(e, g, sesiAdmin, '/karakter/setup');
+  assert.deepEqual(siap(s.panduan), { guru: true, kelas: true, subjek: true, gurukelas: true, teras: true, tetapan: true });
+  assert.equal(s.senarai.kelas.length, 12);
+  assert.equal(s.senarai.teras[4].huraian, 'Jujur dan amanah.');
+  assert.equal(s.tetapan.KRK_KOD_SEKOLAH, 'BEA1234');
+  assert.equal(s.tetapan.KRK_WAJIB_TTD, 'YA');
+  assert.deepEqual(s.yatim, []);
+
+  // Config guru: Aminah guru kelas 2 kelas, Ali 1 kelas, guru lain tiada
+  const aminah = await logMasukSebagai(e, g, 'aminah@gmail.com');
+  const c = await panggilApi(e, g, aminah.sesi, '/karakter/config');
+  assert.equal(c.ok, true); assert.equal(c.admin, false);
+  assert.deepEqual(c.guruKelas.sort(), ['5 Arif', '6 Bijak']);
+  assert.equal(c.kelas.length, 12); assert.equal(c.subjek.length, 10);
+  assert.deepEqual(c.teras.map(t => t.nama), teras.map(t => t.nilai));
+  assert.equal(c.tetapan.KRK_KOD_SEKOLAH, 'BEA1234');
+  assert.equal(c.tetapan.KRK_SIAP_KELAS, undefined, 'penanda dalaman tidak didedahkan');
+  assert.equal(c.adaTtd, false);
+  const bekas = await logMasukSebagai(e, g, 'bekas@gmail.com');
+  assert.deepEqual((await panggilApi(e, g, bekas.sesi, '/karakter/config')).guruKelas, []);
+
+  // Guru biasa: Setup ditolak di server (403) untuk semua laluan admin, dan direkod
+  for (const [laluan, body] of [['/karakter/setup'], ['/karakter/senarai', { kategori: 'KARAKTER_KELAS', item: [{ nilai: 'X' }] }],
+    ['/karakter/gurukelas', { pemetaan: [] }], ['/karakter/tetapan', { tetapan: { KRK_KOD_SEKOLAH: 'X' } }]]) {
+    assert.equal((await panggilApi(e, g, aminah.sesi, laluan, body)).status, 403, laluan);
+  }
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const audit = g.sheet.get(sek.karakter.sheetId).tabs.get('AuditLog');
+  assert.equal(audit.filter(x => x[3] === 'KARAKTER_AKSES_DITOLAK').length, 4);
+  for (const t of ['KARAKTER_SENARAI', 'KARAKTER_GURUKELAS', 'KARAKTER_TETAPAN']) assert.ok(audit.some(x => x[3] === t), t);
+});
+
+test('karakter fasa 1: nyahaktif kelas mengekalkan nama; pemetaan yatim dipaparkan; tukar pemetaan serta-merta', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  await panggilApi(e, g, sesiAdmin, '/guru', { teks: 'aminah@gmail.com' });
+  await panggilApi(e, g, sesiAdmin, '/karakter/senarai', { kategori: 'KARAKTER_KELAS', item: [{ nilai: '1 Arif' }, { nilai: '2 Bestari' }] });
+  await panggilApi(e, g, sesiAdmin, '/karakter/gurukelas', { pemetaan: [{ kelas: '1 Arif', email: 'aminah@gmail.com' }] });
+  // Nyahaktif kelas 1 Arif: item kekal dalam Sheet (TIDAK), hilang dari config, pemetaan jadi yatim
+  await panggilApi(e, g, sesiAdmin, '/karakter/senarai', { kategori: 'KARAKTER_KELAS', item: [{ nilai: '1 Arif', aktif: false }, { nilai: '2 Bestari' }] });
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  assert.ok(g.sheet.get(sek.karakter.sheetId).tabs.get('Senarai').some(r => r[0] === 'KARAKTER_KELAS' && r[1] === '1 Arif' && r[3] === 'TIDAK'));
+  const s = await panggilApi(e, g, sesiAdmin, '/karakter/setup');
+  assert.deepEqual(s.senarai.kelas.map(x => [x.nilai, x.aktif]), [['1 Arif', false], ['2 Bestari', true]]);
+  assert.equal(s.yatim.length, 1); assert.match(s.yatim[0].sebab, /Kelas/);
+  const aminah = await logMasukSebagai(e, g, 'aminah@gmail.com');
+  assert.deepEqual((await panggilApi(e, g, aminah.sesi, '/karakter/config')).kelas, ['2 Bestari']);
+  // Pemetaan ke kelas tidak aktif / guru bukan ahli ditolak, tiada apa disimpan
+  const bad = await panggilApi(e, g, sesiAdmin, '/karakter/gurukelas', { pemetaan: [
+    { kelas: '1 Arif', email: 'aminah@gmail.com' }, { kelas: '2 Bestari', email: 'luar@gmail.com' }] });
+  assert.equal(bad.status, 400); assert.equal(bad.salah.length, 2);
+  // Tukar pemetaan: berkuat kuasa pada permintaan seterusnya
+  await panggilApi(e, g, sesiAdmin, '/karakter/gurukelas', { pemetaan: [{ kelas: '2 Bestari', email: 'aminah@gmail.com' }] });
+  assert.deepEqual((await panggilApi(e, g, aminah.sesi, '/karakter/config')).guruKelas, ['2 Bestari']);
+  // Guru dinyahaktif dalam OPR: hilang akses e-Karakter serta-merta
+  await panggilApi(e, g, sesiAdmin, '/guru/kemaskini', { email: 'aminah@gmail.com', aktif: false });
+  assert.equal((await panggilApi(e, g, aminah.sesi, '/karakter/config')).status, 403);
+});
+
+test('karakter fasa 1: pengesahan input senarai dan tetapan', async () => {
+  const { e, g, sesiAdmin } = await sekolahSiap();
+  const p = (laluan, body) => panggilApi(e, g, sesiAdmin, laluan, body);
+  assert.equal((await p('/karakter/senarai', { kategori: 'UNIT_SUKAN', item: [{ nilai: 'X' }] })).status, 400, 'kategori OPR ditolak');
+  assert.equal((await p('/karakter/senarai', { kategori: 'KARAKTER_TERAS', item: [{ nilai: 'A', aktif: false }] })).status, 400, 'teras mesti ada yang aktif');
+  assert.equal((await p('/karakter/senarai', { kategori: 'KARAKTER_KELAS', item: [] })).status, 400);
+  assert.equal((await p('/karakter/senarai', { kategori: 'KARAKTER_TERAS', item: Array.from({ length: 13 }, (_, i) => ({ nilai: 'T' + i })) })).status, 400, 'maks 12 teras');
+  const panjang = await p('/karakter/senarai', { kategori: 'KARAKTER_KELAS', item: [{ nilai: 'K'.repeat(100) }, { nilai: '=HYPERLINK("x")' }] });
+  assert.equal(panjang.ok, true);
+  const sek = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const kel = g.sheet.get(sek.karakter.sheetId).tabs.get('Senarai').filter(r => r[0] === 'KARAKTER_KELAS');
+  assert.equal(kel[0][1].length, 60);
+  assert.equal(kel[1][1], '=HYPERLINK("x")', 'disimpan sebagai teks (RAW), bukan formula');
+  assert.equal((await p('/karakter/tetapan', { tetapan: { KRK_WAJIB_TTD: 'MUNGKIN' } })).status, 400);
+  assert.equal((await p('/karakter/tetapan', { tetapan: { KRK_HAD_MUNDUR_HARI: '3.5' } })).status, 400);
+  assert.equal((await p('/karakter/tetapan', { tetapan: { KRK_TAJUK_DOKUMEN: '  ' } })).status, 400);
+  assert.equal((await p('/karakter/tetapan', { tetapan: { NAMA_SEKOLAH: 'Hack' } })).status, 400, 'kunci OPR tidak boleh diubah melalui e-Karakter');
+});

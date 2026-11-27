@@ -91,7 +91,12 @@ try {
   await admin.waitForFunction(() => document.getElementById('statusSlug').textContent.startsWith('Tersedia'));
   await admin.click('#hantar');
   await admin.waitForURL(/\/s\/smkwakanda/);
+  // Admin: pilih modul dahulu (OPR / Pembentukan Karakter)
+  await admin.waitForSelector('#pilihModul:not(.tersembunyi)');
+  semak((await admin.$$eval('#pilihModul .kad-modul-tajuk', n => n.map(x => x.textContent))).join() === 'OPR,Pembentukan Karakter', 'admin nampak skrin pilihan modul: OPR dan Pembentukan Karakter');
+  await admin.click('.kad-modul[data-modul=opr]');
   await admin.waitForSelector('#tab button');
+  semak(admin.url().includes('m=opr') && (await admin.textContent('#labelModul')) === 'Modul: OPR', 'modul OPR dibuka, pautan ?m=opr dan label modul dipapar');
   semak((await admin.textContent('#notisLesen')).includes('Tempoh percubaan percuma tamat 13 hari lagi (21/11/2026)'), 'admin nampak notis percubaan 14 hari');
   semak((await admin.getAttribute('#notisLesen a.butang', 'href')) === 'https://bcl.my/f/annur-opr', 'butang Langgan menuju borang BCL');
   semak((await admin.textContent('#notisLesen')).includes('admin@sekolah.edu.my'), 'notis memberitahu emel untuk diisi dalam borang BCL');
@@ -131,6 +136,7 @@ try {
   await ali.goto(ASAS + '/s/smkwakanda');
   await ali.click('#butangLogin');
   await ali.waitForSelector('#tab button');
+  semak(await ali.$eval('#pilihModul', n => n.classList.contains('tersembunyi')), 'guru terus ke OPR (pilihan modul belum dipapar kepada guru dalam Fasa 1)');
   const tabGuru = await ali.$$eval('#tab button', b => b.map(x => x.textContent));
   semak(JSON.stringify(tabGuru) === JSON.stringify(['Borang OPR', 'Laporan']), 'guru hanya nampak tab Borang dan Laporan');
   semak((await ali.inputValue('input[name=nama]')) === 'Cikgu Ujian', 'nama penyedia diisi automatik dari akaun Google');
@@ -271,9 +277,50 @@ try {
   const audit = g.sheet.get(sek.sheetId).tabs.get('AuditLog').map(r => r[3]);
   semak(['TAMBAH_GURU', 'SIMPAN_LAPORAN', 'KEMASKINI_GURU', 'TANDA_DISEMAK', 'SIMPAN_TETAPAN', 'MUAT_NAIK_LOGO', 'SIMPAN_SENARAI'].every(x => audit.includes(x)), 'AuditLog merekod semua tindakan');
 
+  // ---------------------------------------------------------- e-Karakter Fasa 1: setup oleh admin (telefon 390px)
+  await admin.goto(ASAS + '/s/smkwakanda');
+  await admin.waitForSelector('#pilihModul:not(.tersembunyi)');
+  semak(await admin.$eval('.kad-modul[data-modul=opr] .lencana-terakhir', n => !n.classList.contains('tersembunyi')), 'pilihan terakhir (OPR) ditanda "Terakhir digunakan"');
+  await admin.click('.kad-modul[data-modul=karakter]');
+  await admin.waitForSelector('#krkPanduan .krk-langkah-item');
+  const siapAwal = await admin.$$eval('.krk-langkah-item.siap', n => n.map(x => x.dataset.langkah));
+  semak(siapAwal.join() === 'guru,teras', 'panduan mula pantas: guru dan teras siap, langkah lain belum');
+  await admin.click('.krk-langkah-item[data-langkah=kelas] button');
+  await admin.waitForSelector('#senaraiKrk .krk-baris');
+  await admin.locator('#senaraiKrk .krk-baris').first().locator('button[aria-label^="Buang"]').click();
+  await admin.fill('#tampalKrk', ['5 Ibnu Sina', '5 Al-Biruni' + String.fromCharCode(9) + '30 murid', '5 ibnu sina'].join(String.fromCharCode(10)));
+  await admin.click('#tambahKrk');
+  semak((await admin.textContent('#mesejKarakter')).includes('1 kelas ditambah'), 'tampal pukal: lajur kedua Excel diabaikan, pendua tidak ditambah');
+  await admin.click('#simpanKrk');
+  await admin.waitForFunction(() => document.getElementById('mesejKarakter').textContent.includes('Senarai kelas disimpan'));
+  const sekK = await e.OPR_KV.get('school:smkwakanda', 'json');
+  const kelasSheet = g.sheet.get(sekK.karakter.sheetId).tabs.get('Senarai').filter(r => r[0] === 'KARAKTER_KELAS').map(r => r[1]);
+  semak(kelasSheet.includes('5 Al-Biruni') && !kelasSheet.includes('1 Arif') && kelasSheet.length === 9, 'senarai kelas disimpan dalam Sheet e-Karakter (bukan Sheet OPR)');
+  await admin.click('#subKarakter button[data-sub=subjek]');
+  await admin.click('#simpanKrk');
+  await admin.waitForFunction(() => document.getElementById('mesejKarakter').textContent.includes('Senarai mata pelajaran disimpan'));
+  await admin.click('#subKarakter button[data-sub=gurukelas]');
+  await admin.locator('.krk-gk-baris[data-kelas="5 Al-Biruni"] select').selectOption('aminah@moe-dl.edu.my');
+  await admin.click('#simpanGuruKelas');
+  await admin.waitForFunction(() => document.getElementById('mesejKarakter').textContent.includes('1 pemetaan'));
+  semak(g.sheet.get(sekK.karakter.sheetId).tabs.get('KarakterGuruKelas').some(r => r[0] === '5 Al-Biruni' && r[1] === 'aminah@moe-dl.edu.my'), 'guru kelas dipetakan dan disimpan');
+  await admin.click('#subKarakter button[data-sub=tetapan]');
+  await admin.fill('#krk_KRK_KOD_SEKOLAH', 'BEA1234');
+  await admin.fill('#krk_KRK_NAMA_PENGESAH', 'Puan Rohana');
+  await admin.click('#simpanTetapanKrk');
+  await admin.waitForFunction(() => document.getElementById('mesejKarakter').textContent.includes('Tetapan e-Karakter disimpan'));
+  await admin.click('#tabKarakter button[data-krk=Panduan]');
+  semak((await admin.$$('.krk-langkah-item.siap')).length === 6, 'panduan mula pantas: semua 6 langkah siap');
+  semak(await admin.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'setup e-Karakter: tiada skrol mendatar pada 390px');
+  semak(await admin.$eval('#butangPratonton', n => n.classList.contains('tersembunyi')), 'butang pratonton OPR tidak muncul dalam modul e-Karakter');
+  await admin.click('#tukarModul');
+  await admin.click('.kad-modul[data-modul=opr]');
+  await admin.waitForSelector('#tab button');
+  semak(!(await admin.$eval('#aplikasi', n => n.classList.contains('tersembunyi'))), 'tukar modul kembali ke OPR');
+
   // ---------------------------------------------------------- lesen: tamat percubaan -> bayar -> buka semula
   masaKini = T0 + 20 * 864e5;
-  await admin.goto(ASAS + '/s/smkwakanda');
+  await admin.goto(ASAS + '/s/smkwakanda?m=opr');
   await admin.waitForSelector('#notisLesen .mesej');
   semak((await admin.textContent('#notisLesen')).includes('Tempoh percubaan percuma telah tamat'), 'selepas 14 hari: notis percubaan tamat');
   semak(await admin.evaluate(() => document.body.classList.contains('lesen-tamat')), 'butang simpan disekat bila lesen tamat');
@@ -287,7 +334,7 @@ try {
       main_data: { order_number: 'OPR-1', payer_email: 'bendahari@gmail.com', transaction_type: 'live', subtotal_amount: '200.00', amount: '201.00', status: 3, is_paid: 1 },
       custom_fields_data: { 'E-mel Google untuk sistem': 'admin@sekolah.edu.my' } } }) }), e, { fetch: g.f, now: () => masaKini });
   semak((await hook.json()).months === 12, 'webhook BCL tahunan diterima dan disahkan');
-  await admin.goto(ASAS + '/s/smkwakanda');
+  await admin.goto(ASAS + '/s/smkwakanda?m=opr');
   await admin.waitForSelector('#tab button');
   semak(!(await admin.evaluate(() => document.body.classList.contains('lesen-tamat'))) && (await admin.textContent('#notisLesen')) === '', 'selepas bayar: sistem dibuka semula, tiada notis');
 

@@ -162,3 +162,20 @@ export async function tambahTab(g, sheetId, nama, tajuk, baris = []) {
   }) }, 'Tambah tab');
   await kemaskiniJulat(g, sheetId, nama, 'A1:ZZ' + (1 + baris.length), [tajuk, ...baris]);
 }
+
+// Baca beberapa tab sekaligus (satu panggilan). Pulangkan { tab: { tajuk, baris } } seperti bacaJadual.
+export async function bacaBanyak(g, sheetId, tabs) {
+  const q = tabs.map(t => 'ranges=' + julat(t)).join('&');
+  const d = await panggil(g, SHEETS + '/' + sheetId + '/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&' + q, {}, 'Baca Sheet');
+  const hasil = {};
+  tabs.forEach((t, i) => {
+    const v = ((d.valueRanges || [])[i] || {}).values || [];
+    const tajuk = (v[0] || []).map(h => String(h).trim());
+    hasil[t] = { tajuk, baris: v.slice(1).map((r, j) => {
+      const o = { _baris: j + 2 };
+      tajuk.forEach((h, k) => { o[h] = r[k] === undefined ? '' : r[k]; });
+      return o;
+    }) };
+  });
+  return hasil;
+}

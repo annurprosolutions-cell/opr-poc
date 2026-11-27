@@ -20,8 +20,27 @@
 
   <p class="redup kecil" id="pautan"></p>
   <h1 id="namaSekolah">Memuatkan...</h1>
+  <p id="barisModul" class="baris-modul tersembunyi"><span id="labelModul"></span> <button type="button" id="tukarModul" class="pautan-butang">Tukar modul</button></p>
   <div id="notisLesen"></div>
   <div id="mesej"></div>
+
+  <!-- Pilihan modul selepas log masuk (OPR / Pembentukan Karakter) -->
+  <section id="pilihModul" class="tersembunyi" aria-labelledby="tajukPilihModul">
+    <h2 id="tajukPilihModul">Pilih modul</h2>
+    <div class="pilih-modul">
+      <button type="button" class="kad-modul" data-modul="opr">
+        <span class="kad-modul-tajuk">OPR</span>
+        <span class="redup">One Page Report untuk program dan aktiviti sekolah.</span>
+        <span class="lencana-terakhir tersembunyi">Terakhir digunakan</span>
+      </button>
+      <button type="button" class="kad-modul" data-modul="karakter">
+        <span class="kad-modul-tajuk">Pembentukan Karakter</span>
+        <span class="redup">Rekod penerapan elemen teras karakter dalam setiap sesi PdP.</span>
+        <span class="kecil redup" id="notaModulKarakter">Baharu. Lengkapkan setup sebelum guru mula menggunakannya.</span>
+        <span class="lencana-terakhir tersembunyi">Terakhir digunakan</span>
+      </button>
+    </div>
+  </section>
 
   <section id="perluLogin" class="kad tersembunyi">
     <h2>Log masuk</h2>
@@ -463,6 +482,9 @@
       <div id="hasilUji"></div>
     </section>
   </div>
+
+  <!-- Modul e-Karakter (dilukis oleh /karakter.js) -->
+  <div id="appKarakter" class="tersembunyi"></div>
 
   <button type="button" id="butangPratonton" class="terapung tersembunyi" aria-controls="lajurPratonton">Lihat pratonton</button>
 

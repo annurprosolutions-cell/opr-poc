@@ -17,7 +17,8 @@
 import { json, ralat } from './lib.js';
 import {
   ciptaFolder, ciptaSpreadsheet, pindahKeFolder, infoFail, tambahBaris, bacaObjek,
-  senaraiTab, tambahTab, pautanSheet, pautanFolder, RalatGoogle
+  senaraiTab, tambahTab, pautanSheet, pautanFolder, RalatGoogle,
+  bacaBanyak, kemaskiniJulat, kosongkanJulat
 } from './google.js';
 import {
   TAB, VERSI_SKEMA_KRK, TAB_KRK, KOLUM_KRK, FOLDER_KRK, SUBFOLDER_KRK,
@@ -153,6 +154,12 @@ export async function apiKarakter(ctx, sub) {
     if (r) return r;
   }
 
+  if (s === '/config' && req.method === 'GET') return await configKarakter(ctx);
+  if (s === '/setup' && req.method === 'GET') return admin ? await setupKarakter(ctx) : tolakKarakter(ctx, laluan, 'Bukan admin');
+  if (s === '/senarai' && req.method === 'POST') return admin ? await simpanSenaraiKarakter(ctx) : tolakKarakter(ctx, laluan, 'Bukan admin');
+  if (s === '/gurukelas' && req.method === 'POST') return admin ? await simpanGuruKelas(ctx) : tolakKarakter(ctx, laluan, 'Bukan admin');
+  if (s === '/tetapan' && req.method === 'POST') return admin ? await simpanTetapanKarakter(ctx) : tolakKarakter(ctx, laluan, 'Bukan admin');
+
   if (s === '/struktur' && req.method === 'GET') {
     if (!admin) return tolakKarakter(ctx, laluan, 'Bukan admin');
     const tabAda = await senaraiTab(g, sek.karakter.sheetId);
@@ -176,4 +183,204 @@ async function denganKunci(env, sek, fn) {
   if (await env.OPR_KV.get(k)) return ralat('e-Karakter sedang disediakan untuk sekolah anda. Cuba lagi sebentar.', 409, { sedangSedia: true });
   await env.OPR_KV.put(k, '1', { expirationTtl: 60 });
   try { return await fn(); } finally { await env.OPR_KV.delete(k); }
+}
+
+// ======================================================================
+// Fasa 1: config, setup (kelas, subjek, teras, guru kelas, tetapan), panduan
+// ======================================================================
+
+const KAT = { KELAS: 'KARAKTER_KELAS', SUBJEK: 'KARAKTER_SUBJEK', TERAS: 'KARAKTER_TERAS' };
+const HAD_KAT = {
+  [KAT.KELAS]: { panjang: 60, maks: 200, nama: 'kelas' },
+  [KAT.SUBJEK]: { panjang: 60, maks: 200, nama: 'mata pelajaran' },
+  [KAT.TERAS]: { panjang: 40, maks: 12, nama: 'elemen teras' }
+};
+// Penanda langkah panduan mula pantas (bukan tetapan awam)
+const SIAP = { [KAT.KELAS]: 'KRK_SIAP_KELAS', [KAT.SUBJEK]: 'KRK_SIAP_SUBJEK', [KAT.TERAS]: 'KRK_SIAP_TERAS', TETAPAN: 'KRK_SIAP_TETAPAN' };
+
+const bersih = (v, n) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+const ya = (v) => String(v).trim().toUpperCase() === 'YA';
+
+function kumpulSenarai(baris) {
+  const out = {};
+  baris.forEach(r => {
+    const k = String(r.Kategori).trim();
+    if (!k) return;
+    (out[k] = out[k] || []).push({ nilai: String(r.Nilai), aktif: ya(r.Aktif || 'YA'), susunan: Number(r.Susunan) || 0 });
+  });
+  Object.values(out).forEach(a => a.sort((x, y) => x.susunan - y.susunan));
+  return out;
+}
+const kumpulTetapan = (baris) => Object.fromEntries(baris.filter(r => r.Kunci).map(r => [String(r.Kunci).trim(), String(r.Nilai ?? '')]));
+function huraianTeras(t) {
+  try { const o = JSON.parse(t.KRK_TERAS_HURAIAN || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; }
+}
+const guruAktif = (kenal, sek) => kenal.jadual.baris
+  .filter(r => String(r.Email).trim() && (ya(r.Aktif) || String(r.Email).trim().toLowerCase() === sek.adminEmail))
+  .map(r => ({ email: String(r.Email).trim().toLowerCase(), nama: String(r.Nama || ''), peranan: String(r.Peranan || 'guru').toLowerCase() }));
+
+async function bacaKarakter(g, sek, tabs) { return bacaBanyak(g, sek.karakter.sheetId, tabs); }
+
+// Untuk semua peranan: senarai aktif, tetapan awam, kelas yang dipetakan kepada pengguna, ada tandatangan tersimpan.
+async function configKarakter({ g, sek, sesi, admin }) {
+  const d = await bacaKarakter(g, sek, [TAB_KRK.SENARAI, TAB_KRK.TETAPAN, TAB_KRK.GURUKELAS, TAB_KRK.TTD]);
+  const senarai = kumpulSenarai(d[TAB_KRK.SENARAI].baris);
+  const t = kumpulTetapan(d[TAB_KRK.TETAPAN].baris);
+  const aktif = (k) => (senarai[k] || []).filter(x => x.aktif).map(x => x.nilai);
+  const hur = huraianTeras(t);
+  const tetapan = Object.fromEntries(Object.entries(t).filter(([k]) => k.startsWith('KRK_') && !k.startsWith('KRK_SIAP_') && k !== 'KRK_TERAS_HURAIAN'));
+  const email = sesi.email.toLowerCase();
+  const guruKelas = d[TAB_KRK.GURUKELAS].baris.filter(r => String(r.Email).trim().toLowerCase() === email).map(r => String(r.Kelas));
+  const adaTtd = d[TAB_KRK.TTD].baris.some(r => String(r.Email).trim().toLowerCase() === email && r.FileId);
+  return json({ ok: true, admin, kelas: aktif(KAT.KELAS), subjek: aktif(KAT.SUBJEK),
+    teras: aktif(KAT.TERAS).map(nama => ({ nama, huraian: hur[nama] || '' })),
+    tetapan, guruKelas, adaTtd });
+}
+
+// Admin: semua data untuk skrin Setup dan Panduan Mula Pantas, satu bacaan.
+async function setupKarakter({ g, sek, kenal }) {
+  const d = await bacaKarakter(g, sek, [TAB_KRK.SENARAI, TAB_KRK.TETAPAN, TAB_KRK.GURUKELAS]);
+  const senarai = kumpulSenarai(d[TAB_KRK.SENARAI].baris);
+  const t = kumpulTetapan(d[TAB_KRK.TETAPAN].baris);
+  const hur = huraianTeras(t);
+  const guru = guruAktif(kenal, sek);
+  const pemetaan = d[TAB_KRK.GURUKELAS].baris.map(r => ({ kelas: String(r.Kelas), email: String(r.Email).trim().toLowerCase() }))
+    .filter(m => m.kelas && m.email);
+  const kelasAktif = new Set((senarai[KAT.KELAS] || []).filter(x => x.aktif).map(x => x.nilai));
+  const emelAktif = new Set(guru.map(x => x.email));
+  const yatim = pemetaan.filter(m => !kelasAktif.has(m.kelas) || !emelAktif.has(m.email))
+    .map(m => ({ ...m, sebab: !kelasAktif.has(m.kelas) ? 'Kelas tiada atau tidak aktif dalam senarai' : 'Guru tiada atau tidak aktif' }));
+  const tetapan = Object.fromEntries(Object.entries(t).filter(([k]) => k.startsWith('KRK_') && !k.startsWith('KRK_SIAP_')));
+  const panduan = [
+    { kod: 'guru', tajuk: 'Tambah guru', siap: guru.filter(x => x.email !== sek.adminEmail).length > 0, nota: 'Dalam modul OPR, tab Guru (dikongsi dengan e-Karakter).' },
+    { kod: 'kelas', tajuk: 'Senarai kelas', siap: !!t[SIAP[KAT.KELAS]], nota: 'Ganti kelas contoh dengan kelas sekolah anda.' },
+    { kod: 'subjek', tajuk: 'Senarai mata pelajaran', siap: !!t[SIAP[KAT.SUBJEK]], nota: 'Semak dan simpan senarai mata pelajaran.' },
+    { kod: 'gurukelas', tajuk: 'Guru kelas', siap: pemetaan.length > 0, pilihan: true, nota: 'Pilihan. Guru kelas boleh melihat laporan kelasnya.' },
+    { kod: 'teras', tajuk: 'Elemen teras', siap: true, nota: 'Empat teras lalai sudah tersedia. Tambah atau ubah jika perlu.' },
+    { kod: 'tetapan', tajuk: 'Tetapan dokumen', siap: !!t[SIAP.TETAPAN], nota: 'Kod sekolah, nama dan jawatan pengesah.' }
+  ];
+  return json({ ok: true,
+    senarai: {
+      kelas: senarai[KAT.KELAS] || [], subjek: senarai[KAT.SUBJEK] || [],
+      teras: (senarai[KAT.TERAS] || []).map(x => ({ ...x, huraian: hur[x.nilai] || '' }))
+    },
+    tetapan, pemetaan, yatim, guru, panduan, struktur: statusStruktur(sek) });
+}
+
+async function tulisTetapanKrk(g, sek, ubah) {
+  const { baris } = await bacaJadualKrk(g, sek, TAB_KRK.TETAPAN);
+  const b = baris.map(r => [String(r.Kunci), String(r.Nilai ?? '')]);
+  for (const [k, v] of Object.entries(ubah)) {
+    const ada = b.find(r => r[0] === k);
+    if (ada) ada[1] = v; else b.push([k, v]);
+  }
+  await kemaskiniJulat(g, sek.karakter.sheetId, TAB_KRK.TETAPAN, 'A2:B' + (b.length + 1), b);
+}
+async function bacaJadualKrk(g, sek, tab) { return (await bacaBanyak(g, sek.karakter.sheetId, [tab]))[tab]; }
+
+// Ganti keseluruhan satu kategori (susunan = susunan dihantar). Item tidak aktif
+// dikekalkan supaya laporan lama masih memaparkan nama asal.
+async function simpanSenaraiKarakter(ctx) {
+  const { g, sek, badan, now } = ctx;
+  const kat = String(badan.kategori || '').trim().toUpperCase();
+  const had = HAD_KAT[kat];
+  if (!had) return ralat('Kategori tidak sah.');
+  const masuk = Array.isArray(badan.item) ? badan.item : [];
+  const dilihat = new Set(), item = [];
+  let pendua = 0;
+  for (const x of masuk) {
+    const nilai = bersih(typeof x === 'object' && x ? x.nilai : x, had.panjang);
+    if (!nilai) continue;
+    const k = nilai.toLowerCase();
+    if (dilihat.has(k)) { pendua++; continue; }
+    dilihat.add(k);
+    item.push({ nilai, aktif: !(typeof x === 'object' && x && x.aktif === false) });
+  }
+  if (!item.length) return ralat('Senarai ' + had.nama + ' mesti ada sekurang-kurangnya satu item.');
+  if (item.length > had.maks) return ralat('Maksimum ' + had.maks + ' ' + had.nama + '.');
+  if (!item.some(x => x.aktif)) return ralat('Sekurang-kurangnya satu ' + had.nama + ' mesti aktif.');
+
+  const { baris } = await bacaJadualKrk(g, sek, TAB_KRK.SENARAI);
+  const lain = baris.filter(r => String(r.Kategori).trim().toUpperCase() !== kat)
+    .map(r => [String(r.Kategori), String(r.Nilai), String(r.Susunan), String(r.Aktif || 'YA')]);
+  const semua = [...lain, ...item.map((x, i) => [kat, x.nilai, String(i + 1), x.aktif ? 'YA' : 'TIDAK'])];
+  await kosongkanJulat(g, sek.karakter.sheetId, TAB_KRK.SENARAI, 'A2:D');
+  await kemaskiniJulat(g, sek.karakter.sheetId, TAB_KRK.SENARAI, 'A2:D' + (semua.length + 1), semua);
+
+  const ubah = { [SIAP[kat]]: new Date(now()).toISOString() };
+  if (kat === KAT.TERAS && badan.huraian && typeof badan.huraian === 'object') {
+    const hur = {};
+    item.forEach(x => { const h = bersih(badan.huraian[x.nilai], 200); if (h) hur[x.nilai] = h; });
+    ubah.KRK_TERAS_HURAIAN = JSON.stringify(hur);
+  }
+  await tulisTetapanKrk(g, sek, ubah);
+  await auditKarakter(ctx, 'KARAKTER_SENARAI', kat, 'BERJAYA', item.length + ' item, ' + item.filter(x => !x.aktif).length + ' tidak aktif');
+  return json({ ok: true, kategori: kat, bilangan: item.length, pendua });
+}
+
+// Ganti keseluruhan pemetaan guru kelas. Satu guru boleh banyak kelas; satu kelas boleh banyak guru.
+async function simpanGuruKelas(ctx) {
+  const { g, sek, sesi, kenal, badan, now } = ctx;
+  const masuk = Array.isArray(badan.pemetaan) ? badan.pemetaan : null;
+  if (!masuk) return ralat('Data pemetaan tidak sah.');
+  if (masuk.length > 1000) return ralat('Terlalu banyak pemetaan.');
+  const d = await bacaKarakter(g, sek, [TAB_KRK.SENARAI, TAB_KRK.GURUKELAS]);
+  const kelasAktif = new Set((kumpulSenarai(d[TAB_KRK.SENARAI].baris)[KAT.KELAS] || []).filter(x => x.aktif).map(x => x.nilai));
+  const guru = new Map(guruAktif(kenal, sek).map(x => [x.email, x]));
+  const lama = new Map(d[TAB_KRK.GURUKELAS].baris.map(r => [String(r.Kelas) + '|' + String(r.Email).trim().toLowerCase(), r]));
+  const salah = [], dilihat = new Set(), baris = [];
+  const masa = new Date(now()).toISOString();
+  for (const m of masuk) {
+    const kelas = bersih(m && m.kelas, 60), email = bersih(m && m.email, 200).toLowerCase();
+    if (!kelasAktif.has(kelas)) { salah.push((kelas || '(kosong)') + ': kelas tiada atau tidak aktif'); continue; }
+    if (!guru.has(email)) { salah.push((email || '(kosong)') + ': bukan guru aktif sekolah ini'); continue; }
+    const k = kelas + '|' + email;
+    if (dilihat.has(k)) continue;
+    dilihat.add(k);
+    const r = lama.get(k);
+    baris.push([kelas, email, r ? String(r.Ditambah) : masa, r ? String(r.DitambahOleh) : sesi.email]);
+  }
+  if (salah.length) return ralat('Pemetaan tidak disimpan: ' + salah.slice(0, 5).join('; ') + (salah.length > 5 ? ' (dan ' + (salah.length - 5) + ' lagi)' : ''), 400, { salah });
+  await kosongkanJulat(g, sek.karakter.sheetId, TAB_KRK.GURUKELAS, 'A2:D');
+  if (baris.length) await kemaskiniJulat(g, sek.karakter.sheetId, TAB_KRK.GURUKELAS, 'A2:D' + (baris.length + 1), baris);
+  await auditKarakter(ctx, 'KARAKTER_GURUKELAS', '', 'BERJAYA', baris.length + ' pemetaan');
+  return json({ ok: true, bilangan: baris.length });
+}
+
+const TETAPAN_KRK = {
+  KRK_KOD_SEKOLAH: { panjang: 20 },
+  KRK_TAJUK_DOKUMEN: { panjang: 150, wajib: true },
+  KRK_NAMA_PENGESAH: { panjang: 120 },
+  KRK_JAWATAN_PENGESAH: { panjang: 120 },
+  KRK_WAJIB_TTD: { pilihan: ['YA', 'TIDAK'] },
+  KRK_HAD_MUNDUR_HARI: { nombor: [0, 366] },
+  KRK_AKTIF: { pilihan: ['YA', 'TIDAK'] }
+};
+
+async function simpanTetapanKarakter(ctx) {
+  const { g, sek, badan, now } = ctx;
+  const masuk = (badan && typeof badan.tetapan === 'object' && badan.tetapan) || {};
+  const ubah = {}, ditolak = [];
+  for (const [k, v] of Object.entries(masuk)) {
+    const p = TETAPAN_KRK[k];
+    if (!p) { ditolak.push(k); continue; }
+    if (p.pilihan) {
+      const x = String(v).trim().toUpperCase();
+      if (!p.pilihan.includes(x)) return ralat(k + ' mesti ' + p.pilihan.join(' atau ') + '.');
+      ubah[k] = x;
+    } else if (p.nombor) {
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < p.nombor[0] || n > p.nombor[1]) return ralat('Had mundur tarikh mesti nombor bulat ' + p.nombor[0] + ' hingga ' + p.nombor[1] + ' hari.');
+      ubah[k] = String(n);
+    } else {
+      const x = bersih(v, p.panjang);
+      if (p.wajib && !x) return ralat('Tajuk dokumen tidak boleh kosong.');
+      ubah[k] = x;
+    }
+  }
+  if (!Object.keys(ubah).length) return ralat('Tiada tetapan untuk disimpan.');
+  ubah[SIAP.TETAPAN] = new Date(now()).toISOString();
+  await tulisTetapanKrk(g, sek, ubah);
+  await auditKarakter(ctx, 'KARAKTER_TETAPAN', '', 'BERJAYA', Object.keys(ubah).filter(k => k !== SIAP.TETAPAN).join(', '));
+  return json({ ok: true, disimpan: Object.keys(ubah).filter(k => k !== SIAP.TETAPAN), ditolak });
 }

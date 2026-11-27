@@ -40,9 +40,20 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 | Fasa | Status |
 |---|---|
 | 0 Sheet asing dan pemasangan | Siap 27/11/2026 |
-| 1 Setup sekolah dan skrin pilihan modul | |
+| 1 Setup sekolah dan skrin pilihan modul | Siap 27/11/2026 |
 | 2 Borang dan rekod | |
 | 3 Tandatangan dan PDF | |
 | 4 Laporan Saya dan Kelas | |
 | 5 Dashboard dan eksport | |
 | 6 Demo, panduan, keselamatan | |
+
+## Nota pelaksanaan Fasa 1
+
+- **Laluan:** `GET /karakter/config` (semua peranan), `GET /karakter/setup` (admin, satu bacaan untuk Setup dan Panduan), `POST /karakter/senarai`, `POST /karakter/gurukelas`, `POST /karakter/tetapan` (admin). Senarai e-Karakter guna laluan sendiri `/karakter/senarai` (bukan `/senarai` OPR) kerana disimpan dalam Sheet e-Karakter.
+- **Senarai disimpan seluruh kategori sekaligus** (susunan = susunan dihantar). Item dinyahaktif kekal dengan `Aktif = TIDAK`. Pendua (huruf besar/kecil) dibuang. Had: kelas dan subjek 60 aksara, maksimum 200; teras 40 aksara, maksimum 12, sekurang-kurangnya satu aktif.
+- **Huraian teras** disimpan bersama senarai teras (satu permintaan) dalam `KRK_TERAS_HURAIAN`.
+- **Panduan Mula Pantas** dikira di server. Penanda dalaman `KRK_SIAP_KELAS`, `KRK_SIAP_SUBJEK`, `KRK_SIAP_TERAS`, `KRK_SIAP_TETAPAN` (tidak dihantar kepada guru).
+- **Pemetaan guru kelas** disimpan sekaligus; guru mesti aktif dalam tab Guru OPR, kelas mesti aktif. Pemetaan yatim dipaparkan sebagai amaran.
+- **Pilihan modul dipapar kepada admin sahaja buat masa ini.** Guru terus ke OPR sehingga borang e-Karakter siap (Fasa 2), supaya sekolah percubaan tidak nampak modul separuh siap. `KRK_AKTIF` akan dikuatkuasakan untuk guru pada Fasa 2. Demo `/s/demo` belum ada e-Karakter (Fasa 6).
+- **Keputusan 9 (nilai "Lain-lain")** dipindah ke Fasa 2, kerana nilai itu hanya wujud selepas guru menghantar laporan.
+- Video tutorial OPR 01 (daftar sekolah) belum menunjukkan skrin pilihan modul. Rakam semula dengan `npm run video 01` bila perlu.

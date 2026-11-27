@@ -163,6 +163,19 @@ export function googlePalsu(senario = {}) {
         if (!shm) return Response.json({ error: { code: 404, message: 'Requested entity was not found.' } }, { status: 404 });
         return Response.json({ sheets: [...shm.tabs.keys()].map(title => ({ properties: { title } })) });
       }
+      // values:batchGet
+      const mBg = u.match(/\/spreadsheets\/([^/?:]+)\/values:batchGet\?(.*)$/);
+      if (mBg) {
+        const shg = sheet.get(mBg[1]);
+        if (!shg) return Response.json({ error: { code: 404, message: 'Requested entity was not found.' } }, { status: 404 });
+        const valueRanges = [];
+        for (const r of new URLSearchParams(mBg[2]).getAll('ranges')) {
+          const t = r.replace(/^'|'(!.*)?$/g, '').replace(/''/g, "'");
+          if (!shg.tabs.has(t)) return Response.json({ error: { code: 400, message: 'Unable to parse range: ' + t } }, { status: 400 });
+          valueRanges.push({ range: r, values: shg.tabs.get(t) });
+        }
+        return Response.json({ valueRanges });
+      }
       // batchUpdate: addSheet
       const mBatch = u.match(/\/spreadsheets\/([^/?:]+):batchUpdate/);
       if (mBatch && kaedah === 'POST') {
