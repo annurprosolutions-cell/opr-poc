@@ -489,6 +489,128 @@ const BABAK = [
       await h.kata('Data kekal dalam Google Drive sekolah sendiri.', 2400);
       await h.tamat('Cuba demo percuma');
     }
+  },
+  // ======================================================================
+  // e-Karakter (mod demo /s/demo?m=karakter)
+  // ======================================================================
+  {
+    id: '08', fail: '08-karakter-setup-admin', url: '/s/demo?m=karakter', sedia: '#tabKarakter button', demo: true,
+    async run(h) {
+      const pg = h.pg;
+      await h.tajuk('e-Karakter: setup admin', 'Kelas, mata pelajaran, teras, guru kelas, tetapan');
+      await h.kata('Pilih modul Pembentukan Karakter. Admin nampak Panduan Mula dan Setup.', 2600);
+      await h.klik('#tabKarakter button[data-krk=Panduan]', { lepas: 900 });
+      await h.gambar('krk-m-panduan');
+      await h.kata('Panduan Mula menunjukkan langkah yang sudah siap.', 2200);
+      await h.klik('.krk-langkah-item[data-langkah=kelas] button', { lepas: 900 });
+      await h.kata('Kelas: tampal senarai kelas dari Excel, satu baris satu kelas.');
+      await h.taip('#tampalKrk', '5 Al-Biruni\n5 Ibnu Rusyd', { delay: 30 });
+      await h.klik('#tambahKrk', { lepas: 700 });
+      await h.gambar('krk-m-kelas');
+      await h.kata('Nyahaktif kelas yang tidak digunakan. Laporan lama kekal dengan nama asal.', 2600);
+      await h.klik('#simpanKrk', { lepas: 900 });
+      await h.klik('#subKarakter button[data-sub=teras]', { lepas: 800 });
+      await h.kata('Teras: empat teras lalai dengan huraian. Admin boleh tambah sehingga 12.', 2600);
+      await h.gambar('krk-m-teras');
+      await h.klik('#subKarakter button[data-sub=gurukelas]', { lepas: 800 });
+      await h.kata('Guru kelas: pilih guru bagi setiap kelas. Mereka nampak laporan kelas itu sahaja.');
+      await h.pilih('.krk-gk-baris[data-kelas="5 Ibnu Sina"] select', 'guru.demo@contoh.edu.my');
+      await h.gambar('krk-m-gurukelas', { el: '.krk-gk-baris[data-kelas="5 Ibnu Sina"]' });
+      await h.klik('#simpanGuruKelas', { lepas: 900 });
+      await h.klik('#subKarakter button[data-sub=tetapan]', { lepas: 800 });
+      await h.kata('Tetapan: kod sekolah, pengesah, dan sama ada tandatangan guru wajib.', 2600);
+      await h.gambar('krk-m-tetapan');
+      await h.tamat('Setup e-Karakter selesai');
+    }
+  },
+  {
+    id: '09', fail: '09-karakter-guru-telefon', url: '/s/demo?m=karakter&peranan=guru', sedia: '#borangKrk', demo: true, telefon: true,
+    async run(h) {
+      const pg = h.pg;
+      await h.tajuk('e-Karakter: isi dan tandatangan', 'Untuk guru, dari telefon');
+      await h.kata('Pilih kelas dan mata pelajaran. Nama guru diambil daripada akaun.', 2400);
+      await h.pilih('#kKelas', '5 Ibnu Sina');
+      await h.pilih('#kSubjek', 'Sains');
+      await h.kata('Tanda elemen teras yang diterapkan.', 1600);
+      await h.skrol('#kTeras', 500);
+      await h.klik('.krk-teras-kad[for=kTeras0]', { lepas: 400 });
+      await h.klik('.krk-teras-kad[for=kTeras1]', { lepas: 400 });
+      await h.gambar('krk-m-borang-telefon');
+      await h.taip('#kTajuk', 'Eksperimen tumbesaran pokok', { delay: 35 });
+      await h.kata('Butang Cadangan ayat membantu memulakan catatan.', 2000);
+      await h.klik('#cadanganAyat', { lepas: 900 });
+      await h.skrol('#kGambar', 500);
+      await h.fail('#kGambar', 'aktiviti.jpg', 'image/jpeg', await gambarContoh(pg, ['#0f766e', '#134e4a'], 'Menyukat tumbesaran'));
+      await pg.waitForFunction(() => document.querySelectorAll('#kSenaraiGambar img').length === 1);
+      await h.klik('#kAkuan', { lepas: 500 });
+      await h.kata('Tandatangan dengan jari. Boleh disimpan untuk laporan seterusnya.', 2200);
+      await h.klik('#butangTtd', { lepas: 700 });
+      const k = await pg.locator('#kanvasTtd').boundingBox();
+      if (h.video) {
+        await pg.mouse.move(k.x + 20, k.y + 110, { steps: 10 }); await pg.mouse.down();
+        for (const [dx, dy] of [[60, 40], [100, 120], [150, 50], [200, 105], [260, 70], [320, 60]]) await pg.mouse.move(k.x + dx, k.y + dy, { steps: 10 });
+        await pg.mouse.up();
+      } else {
+        await pg.mouse.move(k.x + 20, k.y + 110); await pg.mouse.down();
+        for (const [dx, dy] of [[60, 40], [100, 120], [150, 50], [200, 105], [260, 70], [320, 60]]) await pg.mouse.move(k.x + dx, k.y + dy, { steps: 6 });
+        await pg.mouse.up();
+      }
+      await h.gambar('krk-m-ttd');
+      await h.klik('#gunaTtd', { lepas: 800 });
+      await h.kata('Tekan Lihat pratonton A4 untuk semak rupa PDF.', 1800);
+      await h.klik('#togolPratonton', { lepas: 1200 });
+      await h.gambar('krk-m-pratonton', { el: '#kPratonton' });
+      await h.skrol('#hantarKrk', 600);
+      await h.kata('Hantar. PDF dijana dan disimpan sendiri dalam Google Drive sekolah.', 2400);
+      await h.klik('#hantarKrk', { lepas: 300 });
+      await pg.waitForFunction(() => /Laporan dihantar/.test(document.getElementById('mesejKarakter').textContent), null, { timeout: 60000 });
+      await h.atas(500);
+      await h.klik('#tabKarakter button[data-krk=Laporan]', { lepas: 900 });
+      await pg.waitForSelector('#kSenaraiLaporan .krk-item');
+      await h.kata('Laporan anda tersenarai dengan lencana PDF siap dan Bertandatangan.', 2400);
+      await h.gambar('krk-m-laporan');
+      await h.tamat('Laporan karakter dihantar');
+    }
+  },
+  {
+    id: '10', fail: '10-karakter-guru-kelas', url: '/s/demo?m=karakter&peranan=gurukelas', sedia: '#tabKarakter button', demo: true, telefon: true,
+    async run(h) {
+      const pg = h.pg;
+      await h.tajuk('e-Karakter: guru kelas', 'Laporan semua guru bagi kelas anda');
+      await h.klik('#tabKarakter button[data-krk=Laporan]', { lepas: 800 });
+      await h.kata('Guru kelas ada sub-tab Kelas Saya.', 1600);
+      await h.klik('#kSkopTab button[data-skop=kelas]', { lepas: 1200 });
+      await pg.waitForSelector('.krk-ringkasan-kad');
+      await h.kata('Ringkasan kelas: bilangan laporan, teras terbanyak, guru yang melapor.', 2600);
+      await h.gambar('krk-m-kelas-saya');
+      await h.klik('#kSenaraiLaporan .krk-item:not(:has-text("Cikgu Aminah")) button', { lepas: 1200 });
+      await pg.waitForSelector('#kBacaSahaja');
+      await h.kata('Laporan guru lain dibuka dalam mod baca sahaja. PDF boleh dimuat turun.', 2600);
+      await h.gambar('krk-m-butiran');
+      await h.tamat('Guru kelas nampak kelasnya sahaja');
+    }
+  },
+  {
+    id: '11', fail: '11-karakter-dashboard', url: '/s/demo?m=karakter', sedia: '#tabKarakter button', demo: true,
+    async run(h) {
+      const pg = h.pg;
+      await h.tajuk('e-Karakter: dashboard admin', 'KPI, carta, tapisan, CSV dan PDF');
+      await h.klik('#tabKarakter button[data-krk=Dashboard]', { lepas: 1200 });
+      await pg.waitForSelector('.krk-kpi-kad');
+      await pg.waitForFunction(() => window.Chart && window.Chart.getChart(document.getElementById('krkDonat')));
+      await h.kata('Dashboard: jumlah laporan, kelas terlibat, guru melapor dan teras tertinggi.', 2600);
+      await h.gambar('krk-m-dashboard');
+      await h.skrol('.krk-carta-grid', 900);
+      await h.kata('Pecahan teras, laporan ikut kelas atau subjek, dan top 5 guru.', 2400);
+      await h.klik('#krkModBar button[data-mod=subjek]', { lepas: 1000 });
+      await h.atas(500);
+      await h.kata('Tapis ikut tarikh, kelas, subjek, guru atau teras. Angka dan jadual ikut tapisan.', 2600);
+      await h.pilih('#dTapis_kelas', '5 Ibnu Sina');
+      await h.W(900);
+      await h.kata('Eksport CSV untuk Excel, atau muat turun PDF Dashboard untuk mesyuarat.', 2600);
+      await Promise.all([pg.waitForEvent('download', { timeout: 60000 }).catch(() => null), h.klik('#krkPdfDashboard', { lepas: 600 })]);
+      await h.tamat('Data karakter sekolah dalam satu paparan');
+    }
   }
 ];
 
