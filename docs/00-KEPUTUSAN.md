@@ -7,7 +7,7 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 | # | Perkara | Keputusan | Kesan pada dokumen |
 |---|---|---|---|
 | 1 | Lesen tamat vs PDF | Rekod baharu disekat. Muat naik PDF bagi rekod **sedia ada** dibenarkan walaupun lesen tamat | TRD 5 (Lesen), PRD F-14. Dibina pada Fasa 3 |
-| 2 | Harga | e-Karakter termasuk dalam RM20/bulan atau RM200/tahun. Tiada caj tambahan | Tiada |
+| 2 | Harga | e-Karakter termasuk dalam langganan. Tiada caj tambahan. Mulai 27/11/2026 harga diturunkan kepada RM10/bulan atau RM100/tahun (asal RM20/RM200) | Tiada |
 | 3 | Branch | Kerja terus di `main` (tiada branch `karakter`, tiada PR) | TRD 10, IPD 0.1 |
 | 3b | Navigasi | **Bukan tab baharu.** Selepas log masuk di `/s/<slug>`, pengguna pilih modul pada skrin depan: dua kad "OPR" dan "Pembentukan Karakter". Pilihan terakhir diingat dalam browser, pautan "Tukar modul" di header, `?m=karakter` kekal sebagai pautan terus, demo turut papar dua kad | AFD S-01, DBD 3 (pensuis modul) |
 | 4 | Laluan pemilik platform | Kekal `/pemilik` | PRD R-04 |
@@ -128,3 +128,9 @@ Melebihi kira-kira 2,500 laporan, permintaan senarai/dashboard/butiran mungkin d
   - **Belum dibuat (dicatat):** (1) tiada Content-Security-Policy; skrip modul sebaris dalam `index.html` dan `daftar.html` serta Google Fonts perlu disusun semula dahulu. (2) Had kadar tulis 120 seminit (TRD) belum dibuat kerana setiap kiraan KV memakan kuota 1,000 tulisan sehari pelan percuma; buat selepas pelan berbayar. (3) Sesi 30 hari; pertimbang lebih pendek untuk admin. (4) Teks bermula `=` disimpan sebagai teks dalam Sheet; jika admin memuat turun Sheet sebagai CSV terus dari Google Sheets (bukan butang Eksport CSV), Excel mungkin mentafsirnya sebagai formula. (5) Tiada pemadaman automatik (retention) data murid; bergantung pada sekolah.
 - **6.7:** semua ujian lulus dan di-deploy.
 - **6.8 (pemilik):** ujian sebenar dengan satu sekolah pilot di telefon sebenar.
+
+## Kemas kini 27/11/2026: tema baharu dan harga
+
+- **Tema:** skrin log masuk, pilihan modul, akaun belum didaftar dan sistem belum sedia kini skrin gelap penuh dengan latar garisan cahaya (SVG sebaris, animasi dimatikan jika `prefers-reduced-motion`) dan kad kaca. Aplikasi cerah: bar atas melekit (logo, cip peranan, avatar inisial), kad bucu 22px, tab bentuk pil dengan pilihan aktif biru gelap, butang biru `#0a4ff0`, aksen merah `#e1252f`. Fon Inter dan Inter Tight (Google Fonts). Mod gelap automatik dibuang supaya rupa sama di semua peranti. Token warna dalam `app.css` turut digunakan sale page, daftar, pemilik dan privasi.
+- **Harga:** RM10 sebulan, RM100 setahun. `PRICE_MONTH=10`, `PRICE_YEAR=100`, `YEARLY_MIN_AMOUNT=75` (jumlah >= RM75 tanpa nama item dikira tahunan). Harga item borang BCL 21187 dikemas kini. Pelanggan lama kekal dengan tarikh tamat sedia ada.
+- **Belum dikemas kini:** video tutorial (`public/panduan/video/*.mp4`) masih menunjukkan tema lama.

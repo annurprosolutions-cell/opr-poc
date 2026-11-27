@@ -1157,7 +1157,7 @@ async function apiPemilik(req, env, url, now) {
   if (!sesi) return ralat('Belum log masuk.', 401);
   if (!pemilikSah(env, sesi)) return ralat('Hanya pemilik AnnurPro.', 403);
   const p = url.pathname;
-  const harga = { bulanan: Number(env.PRICE_MONTH || 20), tahunan: Number(env.PRICE_YEAR || 200) };
+  const harga = { bulanan: Number(env.PRICE_MONTH || 10), tahunan: Number(env.PRICE_YEAR || 100) };
 
   if (p === '/api/pemilik/ringkasan' && req.method === 'GET') {
     const sekolah = (await bacaSemua(env, 'school:')).filter(x => x.nilai).map(x => x.nilai);

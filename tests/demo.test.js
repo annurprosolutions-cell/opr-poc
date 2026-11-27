@@ -14,7 +14,7 @@ test('sale page: pautan dalaman wujud dan tiada dakwaan rekaan', () => {
     assert.doesNotThrow(() => readFileSync(new URL('../public' + m[1], import.meta.url)), m[1]);
   }
   for (const p of ['/s/demo', '/daftar', '/privasi']) assert.ok(html.includes(`href="${p}"`), p);
-  assert.ok(html.includes('RM20') && html.includes('RM200') && html.includes('14 hari'));
+  assert.ok(html.includes('RM10') && html.includes('RM100') && html.includes('14 hari'));
   assert.doesNotMatch(html, /testimoni|\d+\s*(\+\s*)?sekolah (telah|sudah) (guna|menggunakan)/i);
   // Setiap gambar ada width/height (elak anjakan susun atur)
   for (const m of html.matchAll(/<img [^>]+>/g)) assert.match(m[0], /width="\d+" height="\d+"/);

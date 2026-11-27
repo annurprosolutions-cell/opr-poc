@@ -23,8 +23,13 @@ async function mulaSesi() {
   if (!ME.ok) return mesej($('mesej'), 'bahaya', ME.ralat || 'Tidak dapat memuatkan maklumat akaun.');
 
   paparLesen(ME);
-  $('pengguna').append(el('span', { text: ME.email }),
-    el('button', { class: 'butang sekunder', type: 'button', onclick: logKeluar, text: 'Keluar' }));
+  const peranan = ME.peranan === 'admin' ? 'Admin sekolah' : ME.peranan === 'guru' ? 'Guru' : '';
+  const inisial = (ME.email || '?').replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase() || '?';
+  $('pengguna').append(
+    ...(peranan ? [el('span', { class: 'cip-peranan' }, el('span', { class: 'cip-peranan-label', text: 'Peranan' }), el('b', { text: peranan }))] : []),
+    el('span', { class: 'avatar', title: ME.email, 'aria-label': ME.email, text: inisial }),
+    el('button', { class: 'butang sekunder butang-keluar', type: 'button', onclick: logKeluar, text: 'Keluar' }));
+  document.querySelectorAll('[data-emel]').forEach(n => { n.textContent = ME.email; });
 
   if (ME.peranan === 'tiada' || ME.peranan === 'tidak_aktif') {
     $('tajukBukan').textContent = ME.peranan === 'tidak_aktif' ? 'Akaun dinyahaktifkan' : 'Akaun belum didaftarkan';
@@ -662,6 +667,7 @@ if (!sek.ok) {
   mesej($('mesej'), 'amaran', 'Semak semula pautan yang diberi oleh admin sekolah anda.');
 } else {
   document.title = sek.nama + ' | Annur OPR';
+  document.querySelectorAll('[data-nama-sekolah]').forEach(n => { n.textContent = sek.nama; });
   $('namaSekolah').textContent = sek.nama;
   $('pautan').textContent = 'opr.annurpro.com/s/' + sek.slug;
   const q = new URLSearchParams(location.search);
@@ -673,4 +679,5 @@ if (!sek.ok) {
 }
 }
 
+document.querySelectorAll('[data-keluar]').forEach(b => { b.onclick = logKeluar; });
 mula();

@@ -468,7 +468,7 @@ try {
     'PDF Dashboard: A4 landskap, 2 muka (KPI dan carta; jadual dan pengesahan)');
   semak(await admin.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'dashboard: tiada skrol mendatar pada 390px');
   await admin.click('#krkJadual .krk-jadual tbody tr button');
-  await admin.waitForSelector('#muatTurunPdf');
+  await admin.waitForFunction(() => (document.querySelector('#krkLaporan h2')?.textContent || '').includes('Pertandingan kuiz sains') && document.getElementById('muatTurunPdf'), null, { timeout: 15000 }).catch(() => {});
   semak((await admin.textContent('#krkLaporan h2')).includes('Pertandingan kuiz sains'), 'butang Lihat dalam jadual membuka butiran laporan');
   semak(await admin.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'borang dan laporan e-Karakter: tiada skrol mendatar pada 390px');
   await admin.click('#tukarModul');

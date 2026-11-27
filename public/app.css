@@ -1,15 +1,9 @@
 :root{
-  --bg:#f4f6fb; --kad:#ffffff; --teks:#0f172a; --redup:#5b6478; --garis:#e2e6ef;
-  --utama:#312e81; --utama-teks:#ffffff; --aksen:#0f766e;
-  --ok:#047857; --ok-bg:#ecfdf5; --amaran:#b45309; --amaran-bg:#fffbeb; --bahaya:#b91c1c; --bahaya-bg:#fef2f2;
-  --jejari:14px;
-}
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#0b1020; --kad:#141a2e; --teks:#e6e9f2; --redup:#9aa3b8; --garis:#26304a;
-    --utama:#818cf8; --utama-teks:#0b1020; --aksen:#2dd4bf;
-    --ok:#34d399; --ok-bg:#062a1f; --amaran:#fbbf24; --amaran-bg:#2a1f06; --bahaya:#f87171; --bahaya-bg:#2a0b0b;
-  }
+  --bg:#edf2fb; --kad:#ffffff; --teks:#0b1530; --redup:#5b6888; --garis:#e3e9f4;
+  --utama:#0a4ff0; --utama-teks:#ffffff; --aksen:#e1252f; --navy:#0b1838; --biru-gelap:#0a2a6e;
+  --ok:#12803e; --ok-bg:#e5f7eb; --amaran:#8a5a00; --amaran-bg:#fff3cd; --bahaya:#d11a26; --bahaya-bg:#fdecec;
+  --jejari:22px; --bayang:0 1px 2px rgba(16,24,40,.04),0 10px 30px rgba(20,45,100,.07);
+  --fon:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --fon-tajuk:"Inter Tight",Inter,system-ui,sans-serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -355,3 +349,138 @@ h3{font-size:1rem;margin:0 0 .6rem}
 .krk-lentur{flex-wrap:wrap;row-gap:8px}
 .krk-kpi-nilai.teks{font-size:20px;overflow-wrap:normal;word-break:normal;hyphens:auto}
 .krk-kanvas-petunjuk[hidden]{display:none}
+
+/* ======================================================================
+   TEMA: skrin log masuk gelap (kaca) + aplikasi cerah
+   ====================================================================== */
+body{font-family:var(--fon);font-size:15.5px;background:linear-gradient(180deg,#e3ecfc 0,var(--bg) 420px) no-repeat,var(--bg);-webkit-font-smoothing:antialiased}
+h1,h2,h3,.jenama,.angka,.krk-kpi-nilai,.kad-modul-tajuk{font-family:var(--fon-tajuk);letter-spacing:-.015em}
+h1{font-size:1.75rem;font-weight:600}
+h2{font-size:1.15rem;font-weight:600}
+a{color:var(--utama)}
+.bekas{padding:14px 16px 48px}
+/* Bar atas */
+.kepala{position:sticky;top:10px;z-index:25;margin-bottom:16px;padding:10px 12px 10px 12px;background:rgba(255,255,255,.94);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-radius:var(--jejari);box-shadow:var(--bayang)}
+.jenama{display:inline-flex;align-items:center;gap:0;font-weight:600;font-size:1.15rem;color:var(--teks)}
+.jenama span{color:var(--teks);margin-left:.28em}
+.jenama::before{margin-right:10px}
+.jenama::before,.logo-tanda{content:'';flex:0 0 40px;width:40px;height:40px;border-radius:50%;
+  background:var(--aksen) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 3h7l4 4v14H7z'/%3E%3Cpath d='M14 3v4h4M10 12h5M10 16h5'/%3E%3C/svg%3E") center/20px no-repeat;
+  box-shadow:0 6px 16px rgba(225,37,47,.35)}
+.logo-tanda{display:inline-block}
+.pengguna{gap:8px}
+.cip-peranan{display:flex;flex-direction:column;line-height:1.15;padding:6px 14px;border-radius:16px;background:#f1f5fc}
+.cip-peranan-label{font-size:.66rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--redup)}
+.cip-peranan b{font-weight:600;font-size:.92rem}
+.avatar{flex:0 0 40px;width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,#1f63ff,#0a3fc7);color:#fff;font-weight:600;font-size:.9rem;letter-spacing:.02em}
+.butang-keluar{min-height:40px;padding:6px 14px}
+@media (max-width:640px){.cip-peranan{display:none}.jenama{font-size:1.05rem}.jenama::before{flex-basis:36px;width:36px;height:36px}.avatar{width:36px;height:36px;flex-basis:36px}}
+/* Kad */
+.kad{border:1px solid rgba(227,233,244,.7);border-radius:var(--jejari);padding:22px;box-shadow:var(--bayang)}
+.kad-kepala{padding:20px 24px;margin-top:0}
+.kad-kepala h1{margin:.15rem 0 .2rem}
+.kad-kepala #pautan{margin:0}
+.baris-modul{margin:6px 0 0}
+@media (max-width:640px){.kad{padding:18px}.kad-kepala{padding:16px 18px}h1{font-size:1.45rem}}
+/* Butang dan medan */
+.butang{border-radius:12px;font-weight:600;transition:background .15s,box-shadow .15s,transform .15s}
+.butang:not(.sekunder):not(.bahaya):not(.butang-kaca){box-shadow:0 6px 16px rgba(10,79,240,.22)}
+.butang:not(.sekunder):not(.bahaya):not(.butang-kaca):not(:disabled):hover{background:#0841c9}
+.butang.sekunder{background:#fff;color:var(--teks);border:1px solid var(--garis)}
+.butang.sekunder:not(:disabled):hover{border-color:#c7d3ea;background:#f7f9fe}
+.butang.bahaya{background:#fff;border-color:#f3c3c6}
+input[type=text],input[type=search],input[type=email],select,textarea,input[type=date],input[type=time],input[type=number],
+.krk-baris input[type=text],.krk-gambar-item input,.krk-tapis input,.krk-tapis-dash input[type=search],.krk-tapis-dash input[type=date]{
+  background:#fff;border:1px solid var(--garis);border-radius:12px}
+.awalan{background:#fff;border-radius:12px}
+select:focus,textarea:focus,input:focus,input[type=text]:focus{outline:none;border-color:var(--utama);box-shadow:0 0 0 3px rgba(10,79,240,.16)}
+input[type=checkbox]:focus{box-shadow:none;outline:2px solid var(--utama)}
+/* Tab: kumpulan pil, aktif biru gelap */
+.tab{background:#fff;border:1px solid rgba(227,233,244,.8);border-radius:999px;padding:5px;gap:4px;box-shadow:var(--bayang);scrollbar-width:none}
+.tab::-webkit-scrollbar{display:none}
+.tab button{border-radius:999px;padding:8px 16px;color:#40506f;font-weight:500}
+.tab button:hover{background:#f1f5fc;color:var(--teks)}
+.tab button[aria-selected=true]{background:var(--navy);color:#fff;font-weight:600}
+#tab,#tabKarakter{width:fit-content;max-width:100%}
+@media (min-width:900px){#tab,#tabKarakter{margin-left:auto;margin-right:auto}}
+.tab-kecil{background:#f1f5fc;box-shadow:none;border:0;width:fit-content;max-width:100%}
+.tab-kecil button[aria-selected=true]{background:#fff;color:var(--teks);box-shadow:0 1px 3px rgba(16,24,40,.12)}
+/* Lencana status */
+.pil{font-weight:600;padding:4px 10px;letter-spacing:0}
+.pil.admin{background:var(--navy)}
+.mesej{border-radius:16px;border:1px solid transparent}
+.mesej.ok{border-color:#bfe8cd}.mesej.amaran{border-color:#f5dc9a}.mesej.bahaya{border-color:#f5c2c5}
+/* Senarai, jubin, jadual */
+.item{background:#fff;border-radius:16px;transition:border-color .15s,box-shadow .15s}
+.item:hover{border-color:#cbd6ec;box-shadow:0 4px 14px rgba(20,45,100,.06)}
+.jubin-item,.logo-slot,.jenis-baris,.krk-langkah-item{border-radius:16px;background:#f8faff}
+.jubin-item .angka{font-weight:600}
+.jadual th,.krk-jadual th{color:#3d5a8c;font-weight:600}
+.kumpulan{border-radius:16px}
+.overlay{background:rgba(5,10,25,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.overlay-kad,.krk-dialog{border-radius:var(--jejari);box-shadow:0 30px 80px rgba(5,10,25,.35)}
+.terapung{background:var(--navy)}
+footer a{color:var(--redup)}
+
+/* ---------------- Skrin gelap: log masuk, pilihan modul ---------------- */
+.latar-gelap{display:none;position:fixed;inset:0;z-index:60;background:#04060c;overflow:hidden}
+body:has(.skrin:not(.tersembunyi)) .latar-gelap{display:block}
+body:has(.skrin:not(.tersembunyi)){overflow:hidden}
+.latar-svg{position:absolute;inset:0;width:100%;height:100%}
+.denyut{opacity:.85;animation:denyut 7s linear infinite}
+.denyut.d1{animation-delay:-1.6s;animation-duration:8s}.denyut.d2{animation-delay:-3.1s}.denyut.d3{animation-delay:-4.4s;animation-duration:9s}.denyut.d4{animation-delay:-5.7s}
+@keyframes denyut{from{stroke-dashoffset:970}to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.denyut{animation:none;display:none}}
+.skrin{position:fixed;inset:0;z-index:61;overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:minmax(0,1fr);
+  align-content:start;justify-items:center;gap:28px;padding:max(36px,7vh) 16px 32px;color:#e8ecf5;font-family:var(--fon)}
+.skrin-hero{width:100%;max-width:460px}
+.garis-merah{display:block;width:56px;height:3px;border-radius:2px;background:var(--aksen);margin-bottom:20px}
+.hero-tajuk{margin:0;font-family:var(--fon-tajuk);font-weight:500;font-size:clamp(2rem,8.6vw,4.6rem);line-height:1.02;letter-spacing:-.04em;color:#fff}
+.hero-sub{margin:18px 0 0;max-width:430px;color:rgba(232,236,245,.75);font-size:.98rem}
+.kaca{width:100%;max-width:460px;padding:28px 26px 18px;border-radius:28px;color:#e8ecf5;
+  background:linear-gradient(160deg,rgba(255,255,255,.17),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.18);
+  -webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);
+  box-shadow:0 30px 80px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.2)}
+.kaca-lebar{max-width:520px}
+.kaca-jenama{display:flex;gap:12px;align-items:center;margin-bottom:24px}
+.kaca-jenama b{display:block;color:#fff;font-weight:600;font-size:1.02rem}
+.kaca-sekolah{display:block;margin-top:2px;font-size:.7rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(232,236,245,.68)}
+.kaca h2{margin:0 0 6px;font-size:1.65rem;color:#fff}
+.kaca-redup{margin:0 0 22px;color:rgba(232,236,245,.75);font-size:.95rem;overflow-wrap:anywhere}
+.kaca-redup b{color:#fff;font-weight:600}
+.butang.butang-biru{min-height:54px;border-radius:14px;color:#fff;background:linear-gradient(180deg,#2167ff,#0a44e0);box-shadow:0 12px 28px rgba(10,68,224,.45)}
+.butang.butang-biru:not(:disabled):hover{background:linear-gradient(180deg,#3a78ff,#0b4cf5)}
+.butang.butang-kaca{margin-top:12px;min-height:52px;border-radius:14px;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2)}
+.butang.butang-kaca:hover{background:rgba(255,255,255,.12)}
+.kaca-kaki{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-top:24px;padding-top:14px;
+  border-top:1px solid rgba(255,255,255,.14);font-size:.8rem;color:rgba(232,236,245,.6)}
+.kaca-kaki a,.pautan-kaca{color:#8fb0ff;text-decoration:none}
+.pautan-kaca{background:none;border:0;padding:6px 0;font:inherit;font-weight:600;cursor:pointer}
+.kaca-kaki a:hover,.pautan-kaca:hover{text-decoration:underline}
+/* Kad modul dalam kaca */
+.kaca .pilih-modul{grid-template-columns:minmax(0,1fr);gap:10px}
+.kaca .kad-modul{flex-direction:row;align-items:center;gap:14px;min-height:0;padding:16px;border-radius:18px;color:#fff;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);transition:background .15s,border-color .15s,transform .15s}
+.kaca .kad-modul:hover,.kaca .kad-modul:focus-visible{background:rgba(255,255,255,.12);border-color:#5b8cff;transform:translateY(-1px);outline:none}
+.kad-modul-ikon{flex:0 0 50px;height:50px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.82rem;
+  letter-spacing:.03em;color:#fff;background:linear-gradient(160deg,#2167ff,#0a3fc7);box-shadow:0 8px 18px rgba(10,63,199,.4)}
+.kad-modul-ikon.karakter{background:linear-gradient(160deg,#ff5a4f,#d11a26);box-shadow:0 8px 18px rgba(209,26,38,.4)}
+.kad-modul-teks{display:flex;flex-direction:column;align-items:flex-start;gap:3px;flex:1 1 auto;min-width:0}
+.kaca .kad-modul-tajuk{font-size:1.06rem;font-weight:600}
+.kad-modul-huraian{font-size:.86rem;line-height:1.4;color:rgba(232,236,245,.72)}
+.kad-modul-nota{font-size:.76rem;color:#ffb27d}
+.kad-modul-anak{flex:0 0 auto;font-size:1.25rem;color:rgba(255,255,255,.55);transition:transform .15s,color .15s}
+.kaca .kad-modul:hover .kad-modul-anak{transform:translateX(3px);color:#fff}
+.kaca .lencana-terakhir{margin-top:4px;background:rgba(52,211,153,.16);color:#6ee7b7}
+@media (min-width:960px){
+  .skrin{grid-template-columns:minmax(0,1.15fr) minmax(0,auto);align-content:center;align-items:center;justify-items:stretch;
+    gap:56px;padding:48px clamp(40px,8vw,150px)}
+  .skrin .kaca{justify-self:end;width:460px}
+  .skrin .kaca-lebar{width:520px}
+  .skrin-hero{max-width:600px}
+  .skrin > .kaca:only-child{grid-column:1/-1;justify-self:center}
+}
+@media (max-width:420px){.kaca{padding:22px 18px 14px;border-radius:24px}.kad-modul-ikon{flex-basis:44px;height:44px}.kad-modul-anak{display:none}}
+@media (max-width:959px){.latar-svg{opacity:.6}.skrin-hero{text-shadow:0 2px 16px rgba(0,0,0,.85)}}

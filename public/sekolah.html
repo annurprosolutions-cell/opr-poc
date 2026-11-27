@@ -8,7 +8,8 @@
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/dokumen.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="overlay" class="overlay tersembunyi" role="status" aria-live="polite"><div class="overlay-kad"><div class="pusing"></div><p id="overlayTeks">Sedang memproses...</p></div></div>
@@ -18,44 +19,87 @@
     <div id="pengguna" class="pengguna"></div>
   </div>
 
-  <p class="redup kecil" id="pautan"></p>
-  <h1 id="namaSekolah">Memuatkan...</h1>
-  <p id="barisModul" class="baris-modul tersembunyi"><span id="labelModul"></span> <button type="button" id="tukarModul" class="pautan-butang">Tukar modul</button></p>
+  <div class="kad kad-kepala">
+    <p class="redup kecil" id="pautan"></p>
+    <h1 id="namaSekolah">Memuatkan...</h1>
+    <p id="barisModul" class="baris-modul tersembunyi"><span id="labelModul"></span> <button type="button" id="tukarModul" class="pautan-butang">Tukar modul</button></p>
+  </div>
   <div id="notisLesen"></div>
   <div id="mesej"></div>
 
   <!-- Pilihan modul selepas log masuk (OPR / Pembentukan Karakter) -->
-  <section id="pilihModul" class="tersembunyi" aria-labelledby="tajukPilihModul">
-    <h2 id="tajukPilihModul">Pilih modul</h2>
-    <div class="pilih-modul">
-      <button type="button" class="kad-modul" data-modul="opr">
-        <span class="kad-modul-tajuk">OPR</span>
-        <span class="redup">One Page Report untuk program dan aktiviti sekolah.</span>
-        <span class="lencana-terakhir tersembunyi">Terakhir digunakan</span>
-      </button>
-      <button type="button" class="kad-modul" data-modul="karakter">
-        <span class="kad-modul-tajuk">Pembentukan Karakter</span>
-        <span class="redup">Rekod penerapan elemen teras karakter dalam setiap sesi PdP.</span>
-        <span class="kecil redup" id="notaModulKarakter">Baharu. Lengkapkan setup sebelum guru mula menggunakannya.</span>
-        <span class="lencana-terakhir tersembunyi">Terakhir digunakan</span>
-      </button>
+  <!-- Skrin gelap: log masuk, pilihan modul, akaun belum didaftar -->
+  <div class="latar-gelap" aria-hidden="true"><svg class="latar-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><defs><linearGradient id="gv0" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="520"><stop offset="0" stop-color="#5b8cff" stop-opacity="0"/><stop offset=".55" stop-color="#5b8cff" stop-opacity=".9"/><stop offset="1" stop-color="#5b8cff" stop-opacity="0"/></linearGradient><linearGradient id="gl0" gradientUnits="userSpaceOnUse" x1="720" y1="520" x2="720" y2="900"><stop offset="0" stop-color="#5b8cff" stop-opacity="0"/><stop offset=".5" stop-color="#5b8cff" stop-opacity=".75"/><stop offset="1" stop-color="#5b8cff" stop-opacity=".35"/></linearGradient><linearGradient id="gv1" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="520"><stop offset="0" stop-color="#5b8cff" stop-opacity="0"/><stop offset=".55" stop-color="#5b8cff" stop-opacity=".9"/><stop offset="1" stop-color="#5b8cff" stop-opacity="0"/></linearGradient><linearGradient id="gl1" gradientUnits="userSpaceOnUse" x1="720" y1="520" x2="720" y2="900"><stop offset="0" stop-color="#5b8cff" stop-opacity="0"/><stop offset=".5" stop-color="#5b8cff" stop-opacity=".75"/><stop offset="1" stop-color="#5b8cff" stop-opacity=".35"/></linearGradient><linearGradient id="gv2" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="520"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset=".55" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient><linearGradient id="gl2" gradientUnits="userSpaceOnUse" x1="720" y1="520" x2="720" y2="900"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset=".5" stop-color="#ffffff" stop-opacity=".75"/><stop offset="1" stop-color="#ffffff" stop-opacity=".35"/></linearGradient><linearGradient id="gv3" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="520"><stop offset="0" stop-color="#ff8a3d" stop-opacity="0"/><stop offset=".55" stop-color="#ff8a3d" stop-opacity=".9"/><stop offset="1" stop-color="#ff8a3d" stop-opacity="0"/></linearGradient><linearGradient id="gl3" gradientUnits="userSpaceOnUse" x1="720" y1="520" x2="720" y2="900"><stop offset="0" stop-color="#ff8a3d" stop-opacity="0"/><stop offset=".5" stop-color="#ff8a3d" stop-opacity=".75"/><stop offset="1" stop-color="#ff8a3d" stop-opacity=".35"/></linearGradient><linearGradient id="gv4" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="520"><stop offset="0" stop-color="#8fb0ff" stop-opacity="0"/><stop offset=".55" stop-color="#8fb0ff" stop-opacity=".9"/><stop offset="1" stop-color="#8fb0ff" stop-opacity="0"/></linearGradient><linearGradient id="gl4" gradientUnits="userSpaceOnUse" x1="720" y1="520" x2="720" y2="900"><stop offset="0" stop-color="#8fb0ff" stop-opacity="0"/><stop offset=".5" stop-color="#8fb0ff" stop-opacity=".75"/><stop offset="1" stop-color="#8fb0ff" stop-opacity=".35"/></linearGradient><linearGradient id="gv5" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="520"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset=".55" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient><linearGradient id="gl5" gradientUnits="userSpaceOnUse" x1="720" y1="520" x2="720" y2="900"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset=".5" stop-color="#ffffff" stop-opacity=".75"/><stop offset="1" stop-color="#ffffff" stop-opacity=".35"/></linearGradient><linearGradient id="gv6" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="520"><stop offset="0" stop-color="#ff6b4a" stop-opacity="0"/><stop offset=".55" stop-color="#ff6b4a" stop-opacity=".9"/><stop offset="1" stop-color="#ff6b4a" stop-opacity="0"/></linearGradient><linearGradient id="gl6" gradientUnits="userSpaceOnUse" x1="720" y1="520" x2="720" y2="900"><stop offset="0" stop-color="#ff6b4a" stop-opacity="0"/><stop offset=".5" stop-color="#ff6b4a" stop-opacity=".75"/><stop offset="1" stop-color="#ff6b4a" stop-opacity=".35"/></linearGradient><filter id="cahayaKabur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter><radialGradient id="kabusTengah" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#1b2a55" stop-opacity=".55"/><stop offset="1" stop-color="#05070d" stop-opacity="0"/></radialGradient></defs><rect width="1440" height="900" fill="url(#kabusTengah)"/><g filter="url(#cahayaKabur)" opacity=".7"><line x1="653" y1="103" x2="653" y2="390" stroke="url(#gv4)" stroke-width="1" opacity="0.49"/><line x1="768" y1="88" x2="768" y2="389" stroke="url(#gv4)" stroke-width="1.6" opacity="0.28"/><line x1="765" y1="117" x2="765" y2="459" stroke="url(#gv4)" stroke-width="1" opacity="0.57"/><line x1="870" y1="69" x2="870" y2="428" stroke="url(#gv3)" stroke-width="1.2" opacity="0.65"/><line x1="541" y1="135" x2="541" y2="390" stroke="url(#gv0)" stroke-width="1.2" opacity="0.56"/><line x1="699" y1="62" x2="699" y2="404" stroke="url(#gv0)" stroke-width="1.6" opacity="0.29"/><line x1="672" y1="39" x2="672" y2="504" stroke="url(#gv1)" stroke-width="1" opacity="0.30"/><line x1="913" y1="-12" x2="913" y2="500" stroke="url(#gv4)" stroke-width="1" opacity="0.55"/><line x1="603" y1="92" x2="603" y2="394" stroke="url(#gv4)" stroke-width="1" opacity="0.60"/><line x1="879" y1="178" x2="879" y2="445" stroke="url(#gv3)" stroke-width="1.2" opacity="0.31"/><line x1="731" y1="101" x2="731" y2="393" stroke="url(#gv6)" stroke-width="1.2" opacity="0.59"/><line x1="714" y1="140" x2="714" y2="484" stroke="url(#gv1)" stroke-width="1" opacity="0.59"/><line x1="599" y1="10" x2="599" y2="408" stroke="url(#gv1)" stroke-width="1.6" opacity="0.66"/><line x1="914" y1="-1" x2="914" y2="490" stroke="url(#gv2)" stroke-width="1" opacity="0.77"/><line x1="477" y1="166" x2="477" y2="402" stroke="url(#gv4)" stroke-width="1" opacity="0.26"/><line x1="1306" y1="70" x2="1306" y2="487" stroke="url(#gv2)" stroke-width="1.2" opacity="0.60"/><line x1="769" y1="535" x2="1945" y2="900" stroke="url(#gl1)" stroke-width="1.2" opacity="0.54"/><line x1="735" y1="535" x2="1106" y2="900" stroke="url(#gl0)" stroke-width="1" opacity="0.43"/><line x1="691" y1="535" x2="-3" y2="900" stroke="url(#gl6)" stroke-width="1" opacity="0.53"/><line x1="714" y1="535" x2="566" y2="900" stroke="url(#gl4)" stroke-width="2.2" opacity="0.53"/><line x1="671" y1="535" x2="-506" y2="900" stroke="url(#gl3)" stroke-width="1.6" opacity="0.29"/><line x1="739" y1="535" x2="1185" y2="900" stroke="url(#gl2)" stroke-width="1.2" opacity="0.39"/><line x1="763" y1="535" x2="1797" y2="900" stroke="url(#gl1)" stroke-width="2.2" opacity="0.80"/><line x1="715" y1="535" x2="586" y2="900" stroke="url(#gl5)" stroke-width="1" opacity="0.46"/></g><g><line x1="653" y1="103" x2="653" y2="390" stroke="url(#gv4)" stroke-width="1" opacity="0.49"/><line x1="853" y1="-27" x2="853" y2="451" stroke="url(#gv0)" stroke-width="1" opacity="0.53"/><line x1="823" y1="53" x2="823" y2="496" stroke="url(#gv0)" stroke-width="1" opacity="0.66"/><line x1="768" y1="88" x2="768" y2="389" stroke="url(#gv4)" stroke-width="1.6" opacity="0.28"/><line x1="780" y1="-11" x2="780" y2="439" stroke="url(#gv4)" stroke-width="1" opacity="0.62"/><line x1="1046" y1="83" x2="1046" y2="475" stroke="url(#gv0)" stroke-width="2.4" opacity="0.62"/><line x1="765" y1="117" x2="765" y2="459" stroke="url(#gv4)" stroke-width="1" opacity="0.57"/><line x1="829" y1="77" x2="829" y2="489" stroke="url(#gv3)" stroke-width="2.4" opacity="0.85"/><line x1="593" y1="-0" x2="593" y2="489" stroke="url(#gv0)" stroke-width="2.4" opacity="0.45"/><line x1="870" y1="69" x2="870" y2="428" stroke="url(#gv3)" stroke-width="1.2" opacity="0.65"/><line x1="999" y1="-4" x2="999" y2="428" stroke="url(#gv3)" stroke-width="1.6" opacity="0.28"/><line x1="858" y1="107" x2="858" y2="487" stroke="url(#gv4)" stroke-width="1.2" opacity="0.47"/><line x1="541" y1="135" x2="541" y2="390" stroke="url(#gv0)" stroke-width="1.2" opacity="0.56"/><line x1="966" y1="106" x2="966" y2="388" stroke="url(#gv5)" stroke-width="1.2" opacity="0.67"/><line x1="1203" y1="23" x2="1203" y2="434" stroke="url(#gv5)" stroke-width="1.2" opacity="0.26"/><line x1="699" y1="62" x2="699" y2="404" stroke="url(#gv0)" stroke-width="1.6" opacity="0.29"/><line x1="736" y1="14" x2="736" y2="435" stroke="url(#gv6)" stroke-width="1.6" opacity="0.30"/><line x1="584" y1="59" x2="584" y2="457" stroke="url(#gv1)" stroke-width="1.6" opacity="0.81"/><line x1="672" y1="39" x2="672" y2="504" stroke="url(#gv1)" stroke-width="1" opacity="0.30"/><line x1="985" y1="-7" x2="985" y2="472" stroke="url(#gv0)" stroke-width="1.6" opacity="0.79"/><line x1="807" y1="-8" x2="807" y2="455" stroke="url(#gv4)" stroke-width="2.4" opacity="0.46"/><line x1="913" y1="-12" x2="913" y2="500" stroke="url(#gv4)" stroke-width="1" opacity="0.55"/><line x1="1161" y1="110" x2="1161" y2="458" stroke="url(#gv3)" stroke-width="1.6" opacity="0.51"/><line x1="256" y1="66" x2="256" y2="436" stroke="url(#gv1)" stroke-width="1" opacity="0.89"/><line x1="603" y1="92" x2="603" y2="394" stroke="url(#gv4)" stroke-width="1" opacity="0.60"/><line x1="766" y1="169" x2="766" y2="466" stroke="url(#gv0)" stroke-width="1" opacity="0.65"/><line x1="838" y1="36" x2="838" y2="431" stroke="url(#gv0)" stroke-width="1" opacity="0.80"/><line x1="879" y1="178" x2="879" y2="445" stroke="url(#gv3)" stroke-width="1.2" opacity="0.31"/><line x1="911" y1="18" x2="911" y2="496" stroke="url(#gv1)" stroke-width="2.4" opacity="0.27"/><line x1="863" y1="169" x2="863" y2="454" stroke="url(#gv1)" stroke-width="2.4" opacity="0.84"/><line x1="731" y1="101" x2="731" y2="393" stroke="url(#gv6)" stroke-width="1.2" opacity="0.59"/><line x1="502" y1="160" x2="502" y2="430" stroke="url(#gv1)" stroke-width="2.4" opacity="0.60"/><line x1="350" y1="95" x2="350" y2="490" stroke="url(#gv6)" stroke-width="1" opacity="0.77"/><line x1="714" y1="140" x2="714" y2="484" stroke="url(#gv1)" stroke-width="1" opacity="0.59"/><line x1="681" y1="-34" x2="681" y2="419" stroke="url(#gv2)" stroke-width="1" opacity="0.70"/><line x1="770" y1="170" x2="770" y2="443" stroke="url(#gv5)" stroke-width="1.2" opacity="0.87"/><line x1="599" y1="10" x2="599" y2="408" stroke="url(#gv1)" stroke-width="1.6" opacity="0.66"/><line x1="858" y1="158" x2="858" y2="498" stroke="url(#gv3)" stroke-width="1.2" opacity="0.77"/><line x1="1049" y1="160" x2="1049" y2="490" stroke="url(#gv6)" stroke-width="1" opacity="0.56"/><line x1="914" y1="-1" x2="914" y2="490" stroke="url(#gv2)" stroke-width="1" opacity="0.77"/><line x1="977" y1="48" x2="977" y2="513" stroke="url(#gv5)" stroke-width="1" opacity="0.36"/><line x1="674" y1="-12" x2="674" y2="401" stroke="url(#gv3)" stroke-width="1" opacity="0.65"/><line x1="477" y1="166" x2="477" y2="402" stroke="url(#gv4)" stroke-width="1" opacity="0.26"/><line x1="553" y1="136" x2="553" y2="482" stroke="url(#gv0)" stroke-width="2.4" opacity="0.74"/><line x1="1209" y1="3" x2="1209" y2="502" stroke="url(#gv0)" stroke-width="1.2" opacity="0.39"/><line x1="1306" y1="70" x2="1306" y2="487" stroke="url(#gv2)" stroke-width="1.2" opacity="0.60"/><line x1="763" y1="535" x2="1803" y2="900" stroke="url(#gl0)" stroke-width="1.6" opacity="0.74"/><line x1="741" y1="535" x2="1246" y2="900" stroke="url(#gl6)" stroke-width="2.2" opacity="0.70"/><line x1="769" y1="535" x2="1945" y2="900" stroke="url(#gl1)" stroke-width="1.2" opacity="0.54"/><line x1="658" y1="535" x2="-839" y2="900" stroke="url(#gl3)" stroke-width="1.2" opacity="0.58"/><line x1="756" y1="535" x2="1614" y2="900" stroke="url(#gl1)" stroke-width="1.2" opacity="0.33"/><line x1="735" y1="535" x2="1106" y2="900" stroke="url(#gl0)" stroke-width="1" opacity="0.43"/><line x1="722" y1="535" x2="779" y2="900" stroke="url(#gl4)" stroke-width="2.2" opacity="0.68"/><line x1="669" y1="535" x2="-556" y2="900" stroke="url(#gl4)" stroke-width="1" opacity="0.39"/><line x1="691" y1="535" x2="-3" y2="900" stroke="url(#gl6)" stroke-width="1" opacity="0.53"/><line x1="728" y1="535" x2="920" y2="900" stroke="url(#gl6)" stroke-width="1" opacity="0.49"/><line x1="735" y1="535" x2="1085" y2="900" stroke="url(#gl4)" stroke-width="1.2" opacity="0.63"/><line x1="714" y1="535" x2="566" y2="900" stroke="url(#gl4)" stroke-width="2.2" opacity="0.53"/><line x1="687" y1="535" x2="-98" y2="900" stroke="url(#gl4)" stroke-width="1.6" opacity="0.76"/><line x1="771" y1="535" x2="1993" y2="900" stroke="url(#gl1)" stroke-width="2.2" opacity="0.33"/><line x1="671" y1="535" x2="-506" y2="900" stroke="url(#gl3)" stroke-width="1.6" opacity="0.29"/><line x1="686" y1="535" x2="-120" y2="900" stroke="url(#gl0)" stroke-width="1.2" opacity="0.62"/><line x1="757" y1="535" x2="1640" y2="900" stroke="url(#gl6)" stroke-width="1.2" opacity="0.77"/><line x1="739" y1="535" x2="1185" y2="900" stroke="url(#gl2)" stroke-width="1.2" opacity="0.39"/><line x1="673" y1="535" x2="-455" y2="900" stroke="url(#gl3)" stroke-width="1.2" opacity="0.66"/><line x1="667" y1="535" x2="-595" y2="900" stroke="url(#gl3)" stroke-width="1.2" opacity="0.79"/><line x1="763" y1="535" x2="1797" y2="900" stroke="url(#gl1)" stroke-width="2.2" opacity="0.80"/><line x1="708" y1="535" x2="408" y2="900" stroke="url(#gl3)" stroke-width="1.2" opacity="0.45"/><line x1="667" y1="535" x2="-601" y2="900" stroke="url(#gl2)" stroke-width="1" opacity="0.44"/><line x1="715" y1="535" x2="586" y2="900" stroke="url(#gl5)" stroke-width="1" opacity="0.46"/><line x1="722" y1="535" x2="776" y2="900" stroke="url(#gl2)" stroke-width="1" opacity="0.31"/><line x1="774" y1="535" x2="2076" y2="900" stroke="url(#gl1)" stroke-width="1" opacity="0.30"/></g><line class="denyut d0" x1="660" y1="0" x2="660" y2="520" stroke="#5b8cff" stroke-width="2" stroke-dasharray="70 900" stroke-linecap="round"/><line class="denyut d1" x1="1151" y1="0" x2="1151" y2="520" stroke="#ff8a3d" stroke-width="2" stroke-dasharray="70 900" stroke-linecap="round"/><line class="denyut d2" x1="733" y1="0" x2="733" y2="520" stroke="#ffffff" stroke-width="2" stroke-dasharray="70 900" stroke-linecap="round"/><line class="denyut d3" x1="350" y1="0" x2="350" y2="520" stroke="#ff8a3d" stroke-width="2" stroke-dasharray="70 900" stroke-linecap="round"/><line class="denyut d4" x1="514" y1="0" x2="514" y2="520" stroke="#ffffff" stroke-width="2" stroke-dasharray="70 900" stroke-linecap="round"/></svg></div>
+
+  <section id="pilihModul" class="skrin tersembunyi" aria-labelledby="tajukPilihModul">
+    <div class="skrin-hero">
+      <span class="garis-merah" aria-hidden="true"></span>
+      <p class="hero-tajuk">Satu sekolah, dua modul, satu tempat.</p>
+      <p class="hero-sub">Pilih modul untuk mula. Anda boleh tukar modul pada bila-bila masa.</p>
+    </div>
+    <div class="kaca kaca-lebar">
+      <div class="kaca-jenama"><span class="logo-tanda" aria-hidden="true"></span><div><b>Annur OPR</b><span class="kaca-sekolah" data-nama-sekolah></span></div></div>
+      <h2 id="tajukPilihModul">Pilih modul</h2>
+      <p class="kaca-redup">Log masuk sebagai <b data-emel></b></p>
+      <div class="pilih-modul">
+        <button type="button" class="kad-modul" data-modul="opr">
+          <span class="kad-modul-ikon" aria-hidden="true">OPR</span>
+          <span class="kad-modul-teks">
+            <span class="kad-modul-tajuk">OPR</span>
+            <span class="kad-modul-huraian">One Page Report untuk program dan aktiviti sekolah.</span>
+            <span class="lencana-terakhir tersembunyi">Terakhir digunakan</span>
+          </span>
+          <span class="kad-modul-anak" aria-hidden="true">&rarr;</span>
+        </button>
+        <button type="button" class="kad-modul" data-modul="karakter">
+          <span class="kad-modul-ikon karakter" aria-hidden="true">eK</span>
+          <span class="kad-modul-teks">
+            <span class="kad-modul-tajuk">Pembentukan Karakter</span>
+            <span class="kad-modul-huraian">Rekod penerapan elemen teras karakter dalam setiap sesi PdP.</span>
+            <span class="kad-modul-nota" id="notaModulKarakter">Baharu. Lengkapkan setup sebelum guru mula menggunakannya.</span>
+            <span class="lencana-terakhir tersembunyi">Terakhir digunakan</span>
+          </span>
+          <span class="kad-modul-anak" aria-hidden="true">&rarr;</span>
+        </button>
+      </div>
+      <div class="kaca-kaki"><span><a href="/panduan/" target="_blank" rel="noopener">Panduan</a> &middot; <a href="/privasi">Privasi</a></span><button type="button" class="pautan-kaca" data-keluar>Log keluar</button></div>
     </div>
   </section>
 
-  <section id="perluLogin" class="kad tersembunyi">
-    <h2>Log masuk</h2>
-    <p>Gunakan akaun Google yang didaftarkan oleh admin sekolah anda.</p>
-    <p><a id="butangLogin" class="butang" href="#">Log masuk dengan Google</a></p>
+  <section id="perluLogin" class="skrin tersembunyi" aria-labelledby="tajukLogin">
+    <div class="skrin-hero">
+      <span class="garis-merah" aria-hidden="true"></span>
+      <p class="hero-tajuk">Rekod, jana, dan simpan laporan sekolah.</p>
+      <p class="hero-sub">Annur OPR dan e-Karakter. Laporan siap dalam satu halaman, data kekal dalam Google Drive sekolah anda.</p>
+    </div>
+    <div class="kaca">
+      <div class="kaca-jenama"><span class="logo-tanda" aria-hidden="true"></span><div><b>Annur OPR</b><span class="kaca-sekolah" data-nama-sekolah></span></div></div>
+      <h2 id="tajukLogin">Log masuk</h2>
+      <p class="kaca-redup">Gunakan akaun Google atau DELIMa yang didaftarkan oleh admin sekolah anda.</p>
+      <a id="butangLogin" class="butang butang-biru penuh" href="#">Log masuk dengan Google <span aria-hidden="true">&rarr;</span></a>
+      <a class="butang butang-kaca penuh" href="/panduan/" target="_blank" rel="noopener">Baca panduan pengguna</a>
+      <div class="kaca-kaki"><span><a href="/panduan/" target="_blank" rel="noopener">Panduan</a> &middot; <a href="/privasi">Privasi</a></span><span>AnnurPro Solutions</span></div>
+    </div>
   </section>
 
-  <section id="bukanAhli" class="kad tersembunyi">
-    <h2 id="tajukBukan">Akaun belum didaftarkan</h2>
-    <p id="teksBukan"></p>
+  <section id="bukanAhli" class="skrin tersembunyi" aria-labelledby="tajukBukan">
+    <div class="kaca">
+      <div class="kaca-jenama"><span class="logo-tanda" aria-hidden="true"></span><div><b>Annur OPR</b><span class="kaca-sekolah" data-nama-sekolah></span></div></div>
+      <h2 id="tajukBukan">Akaun belum didaftarkan</h2>
+      <p id="teksBukan" class="kaca-redup"></p>
+      <button type="button" class="butang butang-biru penuh" data-keluar>Log keluar dan cuba akaun lain</button>
+      <div class="kaca-kaki"><span><a href="/panduan/" target="_blank" rel="noopener">Panduan</a> &middot; <a href="/privasi">Privasi</a></span><span>AnnurPro Solutions</span></div>
+    </div>
   </section>
 
-  <section id="belumSediaGuru" class="kad tersembunyi">
-    <h2>Sistem belum sedia</h2>
-    <p>Admin sekolah belum melengkapkan penyediaan sistem. Sila cuba lagi kemudian.</p>
+  <section id="belumSediaGuru" class="skrin tersembunyi" aria-labelledby="tajukBelumSedia">
+    <div class="kaca">
+      <div class="kaca-jenama"><span class="logo-tanda" aria-hidden="true"></span><div><b>Annur OPR</b><span class="kaca-sekolah" data-nama-sekolah></span></div></div>
+      <h2 id="tajukBelumSedia">Sistem belum sedia</h2>
+      <p class="kaca-redup">Admin sekolah belum melengkapkan penyediaan sistem. Sila cuba lagi kemudian.</p>
+      <button type="button" class="butang butang-kaca penuh" data-keluar>Log keluar</button>
+      <div class="kaca-kaki"><span><a href="/panduan/" target="_blank" rel="noopener">Panduan</a> &middot; <a href="/privasi">Privasi</a></span><span>AnnurPro Solutions</span></div>
+    </div>
   </section>
 
   <!-- ============ APLIKASI ============ -->

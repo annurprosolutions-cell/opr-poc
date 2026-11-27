@@ -27,6 +27,7 @@ const e = binaEnv({ ASSETS: { fetch: async (r) => {
 async function pasang(ctx) {
   await ctx.route('**/*', async r => {
     const q = r.request(), u = new URL(q.url());
+    if (/^fonts\.(googleapis|gstatic)\.com$/.test(u.host)) return r.continue();
     if (u.origin !== ASAS) return r.abort();
     const body = ['GET', 'HEAD'].includes(q.method()) ? undefined : q.postDataBuffer();
     const res = await handle(new Request(q.url(), { method: q.method(), headers: q.headers(), body }), e, { fetch: g.f, now: () => T0 });

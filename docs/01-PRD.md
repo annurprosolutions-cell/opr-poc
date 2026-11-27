@@ -6,7 +6,7 @@ Versi 1.0 | 26/11/2026 | Pemilik produk: Dr. Ruz (AnnurPro Solutions)
 
 e-Karakter ialah modul tambahan dalam **Annur OPR** (`opr.annurpro.com/s/<slug>`) untuk merekod pelaksanaan pembentukan karakter murid dalam setiap sesi PdP. Guru isi borang ringkas (kelas, subjek, elemen teras, catatan, gambar), tandatangan secara digital, dan jana PDF A4 satu muka. Admin sekolah nampak dashboard keseluruhan. Guru kelas nampak laporan kelasnya sahaja.
 
-Tiada produk, domain atau lesen baharu. Sekolah yang melanggan Annur OPR (RM20/bulan atau RM200/tahun) terus dapat OPR dan e-Karakter sekali. Data setiap sekolah kekal dalam Google Drive admin sekolah itu sendiri, sama seperti OPR.
+Tiada produk, domain atau lesen baharu. Sekolah yang melanggan Annur OPR (RM10/bulan atau RM100/tahun mulai 27/11/2026) terus dapat OPR dan e-Karakter sekali. Data setiap sekolah kekal dalam Google Drive admin sekolah itu sendiri, sama seperti OPR.
 
 Ini menggantikan prototype e-Karakter lama (satu `index.html` + Apps Script untuk satu sekolah).
 

@@ -827,7 +827,7 @@ test('API pemilik: hanya OWNER_EMAILS; ringkasan, tambah bulan, tetapkan tarikh,
   // Kredit dibayar menukar pilot kepada bulanan, jadi kini dikira langganan berbayar aktif
   assert.equal(r2.sekolah[0].lesen.plan, 'bulanan');
   assert.equal(r2.ringkasan.berbayarAktif, 1);
-  assert.equal(r2.ringkasan.mrr, 20);
+  assert.equal(r2.ringkasan.mrr, 10);
 });
 
 test('tambah 1 bulan kepada pelan tahunan aktif: pelan kekal tahunan', async () => {

@@ -119,7 +119,7 @@ const jumlahBulan = (items) => {
   return n;
 };
 export function bulanPelan(items, amount, env, alt) {
-  return jumlahBulan(items) || jumlahBulan(alt) || (parseFloat(amount) >= numEnv(env.YEARLY_MIN_AMOUNT, 150) ? 12 : 1);
+  return jumlahBulan(items) || jumlahBulan(alt) || (parseFloat(amount) >= numEnv(env.YEARLY_MIN_AMOUNT, 75) ? 12 : 1);
 }
 
 // BCL tidak menandatangani webhook: sahkan setiap pesanan dengan API BCL sebelum memberi lesen.
