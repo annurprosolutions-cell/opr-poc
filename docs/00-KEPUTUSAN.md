@@ -42,7 +42,7 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 | 0 Sheet asing dan pemasangan | Siap 27/11/2026 |
 | 1 Setup sekolah dan skrin pilihan modul | Siap 27/11/2026 |
 | 2 Borang dan rekod | Siap 27/11/2026 |
-| 3 Tandatangan dan PDF | |
+| 3 Tandatangan dan PDF | Siap 27/11/2026 |
 | 4 Laporan Saya dan Kelas | |
 | 5 Dashboard dan eksport | |
 | 6 Demo, panduan, keselamatan | |
@@ -70,3 +70,15 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 - **Draf setempat:** teks borang disimpan dalam browser (bukan gambar) dan dipulihkan selepas muat semula; dikosongkan selepas hantar.
 - **Akses guru kepada modul masih ditutup** (pilihan modul hanya untuk admin). Admin boleh menguji borang sepenuhnya. Dibuka kepada guru pada Fasa 3 bila tandatangan dan PDF siap, supaya guru tidak menghantar laporan tanpa PDF. `KRK_AKTIF = TIDAK` sudah dikuatkuasakan di server (guru tidak boleh hantar).
 - Ikon SVG pada kad teras (DBD 2) belum dibuat; kad guna warna teras dan nama sahaja.
+
+## Nota pelaksanaan Fasa 3
+
+- **Modul kini dibuka kepada guru.** Guru nampak skrin pilihan modul bila admin sudah membuka e-Karakter sekali (Sheet wujud) dan `KRK_AKTIF` bukan `TIDAK`. Jika tidak, guru terus ke OPR.
+- **Laluan:** `POST /karakter/fail?jenis=ttd` (PNG sahaja, semak bait, maks 150KB dan 800x300, ke `e-Karakter/Tandatangan`), `GET /karakter/ttd`, `POST /karakter/ttd {fileId}` (simpan untuk guna semula), `POST /karakter/ttd/padam`, `GET /karakter/ttd/gambar` (milik sendiri sahaja), `POST|GET /karakter/rekod/<id>/pdf`.
+- **Tandatangan pada laporan:** `ttdFileId` dalam `POST /karakter/rekod` mesti tandatangan tersimpan pengguna itu sendiri atau fail tandatangan yang baru dimuat naiknya. Admin tidak boleh menandatangani bagi pihak guru (tiada laluan untuk mengedit laporan orang lain). Edit tanpa tandatangan semula memadam tandatangan.
+- **Tandatangan tersimpan diganti/dipadam:** fail lama dibuang ke Tong Sampah hanya jika tiada laporan merujuknya (BSD 2.3).
+- **PDF:** dijana oleh pelayar selepas Hantar dan dimuat naik (maks 2MB, semak `%PDF-`) ke `e-Karakter/PDF` dengan nama `Laporan_Karakter_<Kelas>_<Tarikh>_<ID>.pdf`. Jana semula menimpa kandungan fail yang SAMA (Drive `uploadType=media`), bukan fail baharu. Pemilik atau admin boleh jana semula.
+- **Status PDF:** `tiada`, `siap`, `lapuk`. Edit laporan mengosongkan `PdfPada` (fail PDF kekal) supaya status `lapuk` tidak bergantung pada jam; PDF dijana semula sejurus selepas edit disimpan.
+- **Keputusan 1 dilaksanakan:** `POST /karakter/rekod/<id>/pdf` dibenarkan walaupun lesen tamat; laporan baharu disekat (402).
+- **Susun atur PDF:** A4 potret 794 x 1122 px, satu muka untuk 0 hingga 4 gambar (diuji dengan 12 teras dan catatan panjang). Catatan yang tidak muat dipotong dengan "..." dalam PDF sahaja. Dengan 3 hingga 4 gambar dan banyak teras, ruang catatan dalam PDF hanya kira-kira 3 baris.
+- **Logo** diambil daripada Logo 1 modul OPR; nama, alamat, telefon dan warna kotak (`WARNA_2`) daripada Tetapan OPR.

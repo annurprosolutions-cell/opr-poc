@@ -14,6 +14,7 @@ Cloudflare Worker "annur-opr"  (repo ini, deploy automatik setiap push ke main)
  ├─ src/lesen.js       lesen + webhook BCL (dari Worker lesen Annur Time Table)
  ├─ src/laporan.js     normalisasi + rekod laporan (dari Code.gs v2)
  ├─ src/karakter.js    modul e-Karakter (Sheet asing, pemasangan, /karakter/*)
+ ├─ public/karakter*.js, tandatangan.js  UI e-Karakter: setup, borang, laporan, A4/PDF, tandatangan
  ├─ public/dokumen.js  enjin pratonton A4 + PDF (kod v2 verbatim + lapisan sambungan)
  ├─ public/pentadbiran.js  dashboard, tetapan, logo, jenis, senarai, semakan (admin)
  ├─ public/vendor/     html2pdf 0.10.1, pdf.js 3.11.174 (salinan tempatan, bukan CDN)
@@ -41,6 +42,7 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | e-Karakter 0 | Modul e-Karakter: Google Sheet **asing** (`... (e-Karakter)`) + folder `e-Karakter` (PDF, Lampiran, Tandatangan) dicipta semasa daftar; sekolah sedia ada dinaik taraf automatik oleh admin; `POST /karakter/skema/pasang` membaiki tab/seed yang hilang; audit `KARAKTER_*`. Reka bentuk dan keputusan: `docs/` (baca `docs/00-KEPUTUSAN.md` dahulu) | Siap |
 | e-Karakter 1 | Skrin pilihan modul (OPR / Pembentukan Karakter) untuk admin, Panduan Mula Pantas, Setup: kelas, mata pelajaran, teras (dengan huraian), guru kelas, tetapan dokumen, struktur. Semua disimpan dalam Sheet e-Karakter | Siap |
 | e-Karakter 2 | Borang laporan karakter (kelas/subjek dengan Lain-lain, kad teras berwarna, cadangan ayat, maks 4 gambar dimampat 900px, akuan ibu bapa, draf setempat), Laporan saya/semua (cari, tapis, halaman), butiran dengan gambar melalui Worker, edit dan padam lembut | Siap |
+| e-Karakter 3 | Tandatangan guru (lukis dengan jari, upload gambar, tersimpan), pratonton A4, PDF satu muka dijana selepas Hantar dan disimpan automatik dalam `e-Karakter/PDF` (jana semula menimpa fail sama), muat turun PDF, status PDF, wajib tandatangan; modul dibuka kepada guru | Siap |
 
 ## Ujian
 

@@ -18,7 +18,7 @@ import { json, ralat } from './lib.js';
 import {
   ciptaFolder, ciptaSpreadsheet, pindahKeFolder, infoFail, tambahBaris, bacaObjek,
   senaraiTab, tambahTab, pautanSheet, pautanFolder, RalatGoogle,
-  bacaBanyak, kemaskiniJulat, kosongkanJulat, muatNaik, muatTurun, buangKeTong
+  bacaBanyak, kemaskiniJulat, kosongkanJulat, muatNaik, muatTurun, buangKeTong, kemaskiniKandungan
 } from './google.js';
 import { hariIni, tambahHari } from './lesen.js';
 import { hurufLajur } from './laporan.js';
@@ -171,6 +171,14 @@ export async function apiKarakter(ctx, sub) {
   if (mr && mr[2] && req.method === 'POST') return await padamRekod(ctx, mr[1], laluan);
   const mf = s.match(/^\/fail\/([A-Za-z0-9_-]{10,128})$/);
   if (mf && req.method === 'GET') return await hantarFailKarakter(ctx, mf[1], laluan);
+  // Fasa 3: tandatangan dan PDF
+  const mp = s.match(/^\/rekod\/(KRK-\d{8}-[A-Z0-9]{5})\/pdf$/);
+  if (mp && req.method === 'POST') return await simpanPdf(ctx, mp[1], laluan);
+  if (mp && req.method === 'GET') return await hantarPdf(ctx, mp[1], laluan);
+  if (s === '/ttd' && req.method === 'GET') return await bacaTtd(ctx);
+  if (s === '/ttd' && req.method === 'POST') return await simpanTtd(ctx);
+  if (s === '/ttd/padam' && req.method === 'POST') return await padamTtd(ctx);
+  if (s === '/ttd/gambar' && req.method === 'GET') return await gambarTtd(ctx);
 
   if (s === '/struktur' && req.method === 'GET') {
     if (!admin) return tolakKarakter(ctx, laluan, 'Bukan admin');
@@ -454,7 +462,9 @@ function jenisGambar(b) {
 
 async function terimaFailKarakter(ctx) {
   const { env, g, sek, sesi, url, bait, req } = ctx;
-  if ((url.searchParams.get('jenis') || 'lampiran') !== 'lampiran') return ralat('Jenis fail tidak sah.');
+  const jenisMinta = url.searchParams.get('jenis') || 'lampiran';
+  if (jenisMinta === 'ttd') return await terimaTtd(ctx);
+  if (jenisMinta !== 'lampiran') return ralat('Jenis fail tidak sah.');
   const mime = String(req.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
   if (!bait || !bait.length) return ralat('Fail kosong.');
   if (bait.length > HAD_GAMBAR) return ralat('Gambar melebihi had 10MB.', 413);
@@ -472,7 +482,7 @@ function ringkasRekod(r) {
   return { id: String(r.ID), tarikh: String(r.TarikhISO), masa: String(r.Masa), kelas: String(r.Kelas), subjek: String(r.Subjek),
     teras: pecahId(r.Teras), tajuk: String(r.Tajuk), nama: String(r.NamaGuru), email: String(r.PemilikEmail),
     bilGambar: Number(r.BilGambar) || 0, adaTtd: !!r.TtdFileId, adaPdf: !!r.PdfFileId,
-    dikemaskini: String(r.DikemaskiniPada || r.Timestamp) };
+    pdf: statusPdf(r), dikemaskini: String(r.DikemaskiniPada || r.Timestamp) };
 }
 
 // Pengesahan penuh di server (BSD 8, TRD 5). Pulangkan { ralat } atau { data }.
@@ -505,7 +515,7 @@ function sahkanInput(m, { teras, admin, hariIniMyt, had }) {
 
 async function simpanRekod(ctx) {
   const { env, g, sek, sesi, kenal, admin, badan, now } = ctx;
-  const d = await bacaKarakter(g, sek, [TAB_KRK.SENARAI, TAB_KRK.TETAPAN, TAB_KRK.REKOD]);
+  const d = await bacaKarakter(g, sek, [TAB_KRK.SENARAI, TAB_KRK.TETAPAN, TAB_KRK.REKOD, TAB_KRK.TTD]);
   const t = kumpulTetapan(d[TAB_KRK.TETAPAN].baris);
   if (!admin && t.KRK_AKTIF === 'TIDAK') return tolakKarakter(ctx, 'POST /karakter/rekod', 'Modul tidak aktif', 'Modul e-Karakter belum diaktifkan oleh admin sekolah.');
   const teras = (kumpulSenarai(d[TAB_KRK.SENARAI].baris)[KAT.TERAS] || []).filter(x => x.aktif).map(x => x.nilai);
@@ -542,6 +552,22 @@ async function simpanRekod(ctx) {
   }
   if (ids.length && badan.akuanGambar !== true) return ralat('Sila tanda akuan kebenaran ibu bapa atau penjaga bagi gambar murid.');
 
+  // Tandatangan (F-07): hanya milik pengguna yang log masuk. Sama ada tandatangan
+  // tersimpan pengguna ini, atau fail tandatangan yang baru dimuat naik olehnya.
+  const ttd = String(badan.ttdFileId || '');
+  let ttdBaharu = false;
+  if (ttd) {
+    if (!/^[A-Za-z0-9_-]{10,128}$/.test(ttd)) return ralat('Rujukan tandatangan tidak sah.');
+    const tersimpan = d[TAB_KRK.TTD].baris.find(r => String(r.Email).trim().toLowerCase() === sesi.email);
+    if (!tersimpan || String(tersimpan.FileId) !== ttd) {
+      const rek = await env.OPR_KV.get('upload:' + sek.slug + ':' + ttd, 'json');
+      if (!rek || rek.email !== sesi.email || rek.jenis !== 'krk-ttd') return ralat('Tandatangan tidak sah atau sudah luput. Sila tandatangan semula.');
+      ttdBaharu = true;
+    }
+  } else if (String(t.KRK_WAJIB_TTD).toUpperCase() === 'YA') {
+    return ralat('Sekolah anda mewajibkan tandatangan guru sebelum laporan dihantar.');
+  }
+
   // Tahun sesi daripada Tetapan OPR (satu sumber identiti sekolah)
   let tahunSesi = v.data.TarikhISO.slice(0, 4);
   try {
@@ -558,7 +584,9 @@ async function simpanRekod(ctx) {
   Object.assign(rekod, v.data, {
     DikemaskiniPada: masa, NamaGuru: namaGuru(kenal, sesi), BilGambar: String(ids.length), GambarIds: ids.join(','),
     Kapsyen: JSON.stringify(kapsyen), AkuanGambar: ids.length ? 'YA' : '', TahunSesi: tahunSesi,
-    TtdFileId: '', TtdPada: ''    // edit memadam tandatangan; guru perlu tandatangan semula (Fasa 3)
+    // Edit memadam tandatangan lama; guru perlu tandatangan semula dalam penghantaran yang sama
+    TtdFileId: ttd, TtdPada: ttd ? masa : '',
+    PdfPada: ''                   // PDF sedia ada kini lapuk sehingga dijana semula (fail sama akan ditimpa)
   });
   rekod.KandunganHash = await hashKandungan(rekod);
 
@@ -568,11 +596,14 @@ async function simpanRekod(ctx) {
   else await tambahBaris(g, sek.karakter.sheetId, TAB_KRK.REKOD, [baris]);
 
   for (const fid of baharu) await env.OPR_KV.delete('upload:' + sek.slug + ':' + fid);
+  if (ttdBaharu) await env.OPR_KV.delete('upload:' + sek.slug + ':' + ttd);
+  if (ttd) await auditKarakter(ctx, 'KARAKTER_TANDATANGAN', rekod.ID, 'BERJAYA', '');
   for (const fid of lamaIds.filter(x => !ids.includes(x))) {
     try { await buangKeTong(g, fid); } catch (e) { console.error('Buang gambar lama gagal', fid, e && e.message); }
   }
   await auditKarakter(ctx, 'KARAKTER_SIMPAN', rekod.ID, 'BERJAYA', (lama ? 'Kemas kini' : 'Baharu') + ', ' + ids.length + ' gambar');
-  return json({ ok: true, id: rekod.ID, baharu: !lama, rekod: ringkasRekod(rekod) });
+  return json({ ok: true, id: rekod.ID, baharu: !lama, rekod: { ...ringkasRekod(rekod), hash: rekod.KandunganHash.slice(0, 8),
+    timestamp: rekod.Timestamp, ttdPada: rekod.TtdPada, ttdFileId: rekod.TtdFileId } });
 }
 
 // Senarai berhalaman. skop=saya (lalai, semua peranan) atau skop=semua (admin sahaja).
@@ -618,8 +649,9 @@ async function bacaSatuRekod(ctx, id, laluan) {
   const kap = kapsyenDari(r);
   return json({ ok: true, rekod: { ...ringkasRekod(r), catatan: String(r.Catatan), timestamp: String(r.Timestamp),
     gambar: pecahId(r.GambarIds).map((fileId, i) => ({ fileId, kapsyen: kap[i] || '' })),
-    akuanGambar: ya(r.AkuanGambar), hash: String(r.KandunganHash).slice(0, 8), tahunSesi: String(r.TahunSesi) },
-    boleh: { edit: pemilik, padam: pemilik || ctx.admin } });
+    akuanGambar: ya(r.AkuanGambar), hash: String(r.KandunganHash).slice(0, 8), tahunSesi: String(r.TahunSesi),
+    ttdFileId: String(r.TtdFileId || ''), ttdPada: String(r.TtdPada || ''), pdfPada: String(r.PdfPada || '') },
+    boleh: { edit: pemilik, padam: pemilik || ctx.admin, janaPdf: pemilik || ctx.admin } });
 }
 
 // Soft delete: baris kekal dalam Sheet dengan Dipadam = YA. Fail tidak dibuang.
@@ -642,10 +674,134 @@ async function hantarFailKarakter(ctx, fileId, laluan) {
   if (!RE_ID.test(id)) return ralat('Rujukan laporan tidak sah.');
   const x = await cariRekodBolehBaca(ctx, id, laluan);
   if (x.respons) return x.respons;
-  if (!pecahId(x.r.GambarIds).includes(fileId)) return ralat('Fail tidak berkaitan dengan laporan ini.', 404);
+  if (![...pecahId(x.r.GambarIds), String(x.r.TtdFileId || '')].includes(fileId)) return ralat('Fail tidak berkaitan dengan laporan ini.', 404);
   const res = await muatTurun(ctx.g, fileId);
   return new Response(res.body, { headers: {
     'content-type': res.headers.get('content-type') || 'application/octet-stream',
     'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff'
   } });
+}
+
+// ======================================================================
+// Fasa 3: tandatangan (F-07) dan PDF dalam Drive (F-08)
+// ======================================================================
+
+const HAD_TTD = 150 * 1000;
+const HAD_PDF = 2 * 1024 * 1024;
+
+export function statusPdf(r) {
+  if (!r.PdfFileId) return 'tiada';
+  // Edit mengosongkan PdfPada (lihat simpanRekod), jadi tidak bergantung pada jam
+  return r.PdfPada && String(r.PdfPada) >= String(r.DikemaskiniPada || '') ? 'siap' : 'lapuk';
+}
+
+// PNG sahaja: semak bait tandatangan, saiz dan dimensi (IHDR).
+function semakPng(b) {
+  const tandatangan = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (b.length < 24 || !tandatangan.every((x, i) => b[i] === x) || String.fromCharCode(...b.slice(12, 16)) !== 'IHDR') return { ralat: 'Tandatangan mesti fail PNG.' };
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const w = dv.getUint32(16), h = dv.getUint32(20);
+  if (!w || !h || w > 800 || h > 300) return { ralat: 'Saiz tandatangan maksimum 800 x 300 piksel.' };
+  return { w, h };
+}
+
+async function terimaTtd({ env, g, sek, sesi, bait, req }) {
+  const mime = String(req.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (mime !== 'image/png') return ralat('Tandatangan mesti fail PNG.');
+  if (!bait || !bait.length) return ralat('Fail kosong.');
+  if (bait.length > HAD_TTD) return ralat('Fail tandatangan melebihi 150KB.', 413);
+  const p = semakPng(bait);
+  if (p.ralat) return ralat(p.ralat);
+  const nama = 'ttd-' + sesi.email.replace(/[^a-z0-9]/g, '_').slice(0, 40) + '-' + Date.now() + '.png';
+  const id = await muatNaik(g, sek.karakter.subfolder.TTD, nama, 'image/png', bait);
+  await env.OPR_KV.put('upload:' + sek.slug + ':' + id, JSON.stringify({ email: sesi.email, jenis: 'krk-ttd' }), { expirationTtl: 86400 });
+  return json({ ok: true, fileId: id });
+}
+
+async function bacaTtd({ g, sek, sesi }) {
+  const { baris } = await bacaJadualKrk(g, sek, TAB_KRK.TTD);
+  const r = baris.find(x => String(x.Email).trim().toLowerCase() === sesi.email && x.FileId);
+  return json({ ok: true, ada: !!r, fileId: r ? String(r.FileId) : '', dikemaskini: r ? String(r.DikemaskiniPada) : '' });
+}
+
+// Tulis semula tab KarakterTtd (satu baris setiap guru); buang fail lama jika tiada rekod merujuknya.
+async function tulisTtd(ctx, fileIdBaharu) {
+  const { g, sek, sesi, now } = ctx;
+  const d = await bacaKarakter(g, sek, [TAB_KRK.TTD, TAB_KRK.REKOD]);
+  const baris = d[TAB_KRK.TTD].baris.map(r => [String(r.Email).trim().toLowerCase(), String(r.FileId), String(r.DikemaskiniPada)]);
+  const i = baris.findIndex(r => r[0] === sesi.email);
+  const lama = i >= 0 ? baris[i][1] : '';
+  if (i >= 0) baris.splice(i, 1);
+  if (fileIdBaharu) baris.push([sesi.email, fileIdBaharu, new Date(now()).toISOString()]);
+  await kosongkanJulat(g, sek.karakter.sheetId, TAB_KRK.TTD, 'A2:C');
+  if (baris.length) await kemaskiniJulat(g, sek.karakter.sheetId, TAB_KRK.TTD, 'A2:C' + (baris.length + 1), baris);
+  // BSD 2.3: fail lama dikekalkan jika masih dirujuk oleh mana-mana laporan
+  if (lama && lama !== fileIdBaharu && !d[TAB_KRK.REKOD].baris.some(r => String(r.TtdFileId) === lama)) {
+    try { await buangKeTong(g, lama); } catch (e) { console.error('Buang tandatangan lama gagal', e && e.message); }
+  }
+}
+
+async function simpanTtd(ctx) {
+  const { env, sek, sesi, badan } = ctx;
+  const fid = String((badan && badan.fileId) || '');
+  if (!/^[A-Za-z0-9_-]{10,128}$/.test(fid)) return ralat('Rujukan tandatangan tidak sah.');
+  const rek = await env.OPR_KV.get('upload:' + sek.slug + ':' + fid, 'json');
+  if (!rek || rek.email !== sesi.email || rek.jenis !== 'krk-ttd') return ralat('Tandatangan tidak sah atau sudah luput. Sila tandatangan semula.');
+  await tulisTtd(ctx, fid);
+  await auditKarakter(ctx, 'KARAKTER_TTD_SIMPAN', '', 'BERJAYA', '');
+  return json({ ok: true, fileId: fid });
+}
+
+async function padamTtd(ctx) {
+  await tulisTtd(ctx, '');
+  await auditKarakter(ctx, 'KARAKTER_TTD_SIMPAN', '', 'BERJAYA', 'Tandatangan tersimpan dipadam');
+  return json({ ok: true });
+}
+
+// Hanya tandatangan tersimpan milik sendiri.
+async function gambarTtd(ctx) {
+  const { g, sek, sesi } = ctx;
+  const { baris } = await bacaJadualKrk(g, sek, TAB_KRK.TTD);
+  const r = baris.find(x => String(x.Email).trim().toLowerCase() === sesi.email && x.FileId);
+  if (!r) return ralat('Tiada tandatangan tersimpan.', 404);
+  const res = await muatTurun(g, String(r.FileId));
+  return new Response(res.body, { headers: { 'content-type': 'image/png', 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } });
+}
+
+const namaPdf = (r) => ('Laporan_Karakter_' + String(r.Kelas) + '_' + String(r.TarikhISO) + '_' + String(r.ID))
+  .replace(/[^A-Za-z0-9_-]+/g, '_').replace(/_+/g, '_').slice(0, 150) + '.pdf';
+
+// PDF dijana oleh pelayar selepas Hantar, kemudian disimpan di sini. Fail sedia ada
+// DITIMPA (fail sama), supaya Drive tidak penuh dengan versi lama.
+// Pemilik atau admin (jana semula). Dibenarkan walaupun lesen tamat (keputusan 1).
+async function simpanPdf(ctx, id, laluan) {
+  const { g, sek, sesi, admin, bait, now } = ctx;
+  if (!bait || !bait.length) return ralat('Fail PDF kosong.');
+  if (bait.length > HAD_PDF) return ralat('PDF melebihi 2MB.', 413);
+  if (String.fromCharCode(...bait.slice(0, 5)) !== '%PDF-') return ralat('Fail bukan PDF.');
+  const { baris, tajuk } = await bacaJadualKrk(g, sek, TAB_KRK.REKOD);
+  const r = baris.find(x => String(x.ID) === id);
+  if (!r || ya(r.Dipadam)) return ralat('Laporan tidak dijumpai.', 404);
+  if (!admin && String(r.PemilikEmail).toLowerCase() !== sesi.email) return tolakKarakter(ctx, laluan, 'Bukan pemilik rekod', 'Anda hanya boleh menjana PDF bagi laporan sendiri.');
+  let fid = String(r.PdfFileId || '');
+  if (fid) {
+    try { await kemaskiniKandungan(g, fid, 'application/pdf', bait); }
+    catch (e) { if (e instanceof RalatGoogle && e.status === 404) fid = ''; else throw e; }
+  }
+  if (!fid) fid = await muatNaik(g, sek.karakter.subfolder.PDF, namaPdf(r), 'application/pdf', bait);
+  const rekod = { ...r, PdfFileId: fid, PdfPada: new Date(now()).toISOString() };
+  const b = tajuk.map(h => { const x = rekod[h]; return x === undefined || x === null ? '' : String(x); });
+  await kemaskiniJulat(g, sek.karakter.sheetId, TAB_KRK.REKOD, 'A' + r._baris + ':' + hurufLajur(tajuk.length) + r._baris, [b]);
+  await auditKarakter(ctx, 'KARAKTER_PDF', id, 'BERJAYA', r.PdfFileId ? 'Ditimpa' : 'Baharu');
+  return json({ ok: true, pdfFileId: fid, pdf: statusPdf(rekod) });
+}
+
+async function hantarPdf(ctx, id, laluan) {
+  const x = await cariRekodBolehBaca(ctx, id, laluan);
+  if (x.respons) return x.respons;
+  if (!x.r.PdfFileId) return ralat('PDF belum dijana untuk laporan ini.', 404);
+  const res = await muatTurun(ctx.g, String(x.r.PdfFileId));
+  return new Response(res.body, { headers: {
+    'content-type': 'application/pdf', 'content-disposition': 'attachment; filename="' + namaPdf(x.r) + '"',
+    'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } });
 }

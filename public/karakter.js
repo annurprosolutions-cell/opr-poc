@@ -20,9 +20,9 @@ export async function mula(konteks) {
   bekas.append(el('nav', { id: 'tabKarakter', class: 'tab', role: 'tablist' }), el('div', { id: 'mesejKarakter' }),
     ...PANE.map(k => el('section', { id: 'krk' + k, class: 'kad krk-pane tersembunyi' })));
   K.overlay(true, 'Menyediakan e-Karakter untuk sekolah anda...');
-  try { CFG = await api(K.A('/karakter/config')); } finally { K.overlay(false); }
+  try { CFG = K.config || await api(K.A('/karakter/config')); } finally { K.overlay(false); }
   if (!CFG.ok) { const r = CFG; CFG = null; return pesan(r.perluSediaKarakter ? 'amaran' : 'bahaya', r.ralat || 'e-Karakter belum boleh digunakan.'); }
-  B.pasang({ A: K.A, overlay: K.overlay, pesan, getCfg: () => CFG, slug: K.slug, email: K.email });
+  B.pasang({ A: K.A, overlay: K.overlay, pesan, getCfg: () => CFG, getOprCfg: K.getOprCfg, slug: K.slug, email: K.email });
   const tabs = [['Borang', 'Borang'], ['Laporan', 'Laporan']];
   if (CFG.admin) tabs.push(['Panduan', 'Panduan Mula'], ['Setup', 'Setup']);
   tabs.forEach(([k, label]) => $('tabKarakter').append(el('button', { type: 'button', role: 'tab', 'data-krk': k,

@@ -89,6 +89,16 @@ export function googlePalsu(senario = {}) {
     if (senario.refreshMati && /googleapis\.com\/(drive|upload|v4\/spreadsheets)|sheets\.googleapis\.com/.test(u)) {
       return Response.json({ error: { code: 401, message: 'Invalid Credentials' } }, { status: 401 });
     }
+    // ---- Drive: timpa kandungan fail sedia ada (uploadType=media)
+    const mMedia = u.match(/^https:\/\/www\.googleapis\.com\/upload\/drive\/v3\/files\/([^?]+)\?uploadType=media/);
+    if (mMedia && kaedah === 'PATCH') {
+      const rec = fail.get(mMedia[1]);
+      if (!rec || rec.trashed) return Response.json({ error: { code: 404, message: 'File not found: ' + mMedia[1] } }, { status: 404 });
+      rec.data = new Uint8Array(opt.body instanceof Uint8Array ? opt.body : await new Response(opt.body).arrayBuffer());
+      rec.mimeType = opt.headers['content-type'];
+      rec.versi = (rec.versi || 1) + 1;
+      return Response.json({ id: mMedia[1] });
+    }
     // ---- Drive: muat naik multipart (metadata JSON + kandungan)
     if (u.startsWith('https://www.googleapis.com/upload/drive/v3/files')) {
       const raw = new Uint8Array(await opt.body.arrayBuffer());

@@ -1,9 +1,12 @@
-// e-Karakter Fasa 2: Borang (S-02) dan Laporan Saya (S-05 asas, S-06 butiran).
+// e-Karakter: Borang (S-02) dengan pratonton A4 (S-03) dan tandatangan (S-04),
+// Laporan Saya (S-05 asas) dan butiran (S-06) dengan PDF.
 // Server mengesahkan semua input; semakan di sini hanya untuk mesej cepat.
 import { $, el, api } from '/app.js';
 import { kecilkanImej } from '/dokumen.js';
+import { bukaTandatangan } from '/tandatangan.js';
+import { pratonton, janaPdf, keDataUrl } from '/karakter-dokumen.js';
 
-let K = null;          // { A, overlay, pesan, getCfg, slug, email }
+let K = null;          // { A, overlay, pesan, getCfg, getOprCfg, slug, email }
 let borang = null;     // keadaan borang semasa
 let senarai = { skop: 'saya', halaman: 1, cari: '', kelas: '', teras: '' };
 
@@ -25,6 +28,36 @@ const lencanaTeras = (n) => el('span', { class: 'krk-lencana', style: '--w:' + w
 
 export function pasang(konteks) { K = konteks; }
 
+// ====================================================================== dokumen A4
+function identitiSekolah() {
+  const o = (K.getOprCfg && K.getOprCfg()) || {};
+  const t = o.tetapan || {};
+  const logo = o.logo && o.logo[1] ? K.A('/logo/1?v=' + encodeURIComponent(o.logo[1])) : '';
+  return { nama: t.NAMA_SEKOLAH || '', alamat: t.ALAMAT_SEKOLAH || '', telefon: t.TELEFON || '', warna: t.WARNA_2 || '', logo };
+}
+function dataDokumen(d, lain) {
+  const C = K.getCfg();
+  return { tarikh: d.tarikh, masa: d.masa, kelas: d.kelas, subjek: d.subjek, tajuk: d.tajuk, catatan: d.catatan,
+    teras: d.teras, semuaTeras: C.teras.map(t => t.nama), nama: lain.nama || C.nama,
+    gambar: lain.gambar || [], ttdSrc: lain.ttdSrc || '', ttdPada: lain.ttdPada || '', id: lain.id || '', hash: lain.hash || '',
+    sekolah: identitiSekolah(), krk: C.tetapan || {} };
+}
+// Jana PDF di pelayar dan simpan dalam Drive sekolah (fail sama ditimpa bila dijana semula).
+async function janaDanSimpanPdf(dok) {
+  K.overlay(true, 'Menjana PDF...');
+  const salin = { ...dok, gambar: [], sekolah: { ...dok.sekolah } };
+  for (const x of dok.gambar) salin.gambar.push({ kapsyen: x.kapsyen, src: await keDataUrl(x.src) });
+  salin.ttdSrc = await keDataUrl(dok.ttdSrc);
+  salin.sekolah.logo = await keDataUrl(dok.sekolah.logo).catch(() => '');
+  const blob = await janaPdf(salin);
+  K.overlay(true, 'Menyimpan PDF ke Google Drive sekolah...');
+  const res = await fetch(K.A('/karakter/rekod/' + encodeURIComponent(dok.id) + '/pdf'),
+    { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/pdf' }, body: blob });
+  const r = await res.json().catch(() => ({}));
+  if (!res.ok || !r.ok) throw new Error(r.ralat || 'PDF tidak dapat disimpan (' + res.status + ').');
+  return r;
+}
+
 // ====================================================================== draf setempat
 const kunciDraf = () => 'krk.draf.' + K.slug + '.' + K.email;
 function simpanDraf() {
@@ -40,7 +73,7 @@ const masaKini = () => { const d = new Date(); return String(d.getHours()).padSt
 function borangKosong() {
   const C = K.getCfg();
   return { id: null, data: { tarikh: C.hariIni, masa: masaKini(), kelas: (C.guruKelas || [])[0] || '', subjek: '', teras: [], tajuk: '', catatan: '' },
-    gambar: [], akuan: false };
+    gambar: [], akuan: false, ttd: null };
 }
 
 export function paparBorang(bekas, mula) {
@@ -51,11 +84,16 @@ export function paparBorang(bekas, mula) {
     if (d && d.data) { Object.assign(borang.data, d.data); borang.drafDipulih = true; }
   }
   const C = K.getCfg();
-  const b = kosongkan(bekas);
+  const luar = kosongkan(bekas);
+  const b = el('div', { class: 'krk-lajur-borang' });
+  const panelPratonton = el('div', { class: 'krk-pratonton tertutup', id: 'kPratonton' },
+    el('div', { class: 'baris-antara' }, el('b', { text: 'Pratonton A4' }), el('span', { class: 'kecil redup', text: 'Inilah yang dijana sebagai PDF.' })),
+    el('div', { id: 'kA4', class: 'ruang-atas' }));
+  luar.append(el('div', { class: 'krk-susun' }, b, panelPratonton));
   b.append(el('div', { class: 'baris-antara' },
     el('h2', { text: borang.id ? 'Edit laporan karakter' : 'Laporan karakter baharu' }),
     borang.id ? el('button', { type: 'button', class: 'butang sekunder', text: 'Batal edit', onclick: () => { borang = null; paparBorang(bekas); } }) : ''));
-  if (borang.id) b.append(el('p', { class: 'redup kecil', text: 'ID ' + borang.id + '. Menyimpan perubahan akan memadam tandatangan (jika ada); anda perlu tandatangan semula.' }));
+  if (borang.id) b.append(el('div', { class: 'mesej amaran kecil', text: 'ID ' + borang.id + '. Tandatangan asal dipadam bila perubahan disimpan. Sila tandatangan semula di bawah sebelum menyimpan.' }));
   if (borang.drafDipulih) {
     b.append(el('div', { class: 'mesej ok kecil', text: 'Draf yang belum dihantar dipulihkan. Gambar tidak disimpan dalam draf; sila tambah semula.' }));
     borang.drafDipulih = false;
@@ -108,6 +146,10 @@ export function paparBorang(bekas, mula) {
     el('label', { class: 'semak-kotak', id: 'kBlokAkuan' }, (() => { const a = el('input', { type: 'checkbox', id: 'kAkuan' }); a.checked = borang.akuan; a.onchange = () => { borang.akuan = a.checked; }; return a; })(),
       el('span', { text: 'Saya mengesahkan kebenaran ibu bapa atau penjaga telah diperoleh bagi murid yang kelihatan dalam gambar, mengikut dasar sekolah.' })));
 
+  // Tandatangan guru (F-07)
+  const wajib = String((C.tetapan || {}).KRK_WAJIB_TTD).toUpperCase() === 'YA';
+  f.append(el('label', { text: 'Tandatangan' + (wajib ? ' (wajib)' : ' (pilihan)') }), el('div', { id: 'kTtd', class: 'krk-ttd-blok' }));
+
   f.append(el('div', { class: 'baris-butang ruang-atas krk-hantar' },
     el('button', { type: 'submit', class: 'butang', id: 'hantarKrk', text: borang.id ? 'Simpan perubahan' : 'Hantar laporan' }),
     borang.id ? '' : el('button', { type: 'button', class: 'butang sekunder', text: 'Kosongkan borang', onclick: () => {
@@ -117,8 +159,53 @@ export function paparBorang(bekas, mula) {
   f.onsubmit = (ev) => { ev.preventDefault(); hantar(bekas); };
   f.addEventListener('input', simpanDraf);
   f.addEventListener('change', simpanDraf);
-  b.append(f);
+  f.addEventListener('input', kemaskiniPratonton);
+  f.addEventListener('change', kemaskiniPratonton);
+  b.append(f, el('p', { class: 'krk-togol-pratonton ruang-atas' }, el('button', { type: 'button', class: 'butang sekunder', id: 'togolPratonton', text: 'Lihat pratonton A4',
+    onclick: () => { const tutup = panelPratonton.classList.toggle('tertutup'); $('togolPratonton').textContent = tutup ? 'Lihat pratonton A4' : 'Sembunyikan pratonton';
+      if (!tutup) { lukisPratonton(); panelPratonton.scrollIntoView({ behavior: 'smooth', block: 'start' }); } } })));
   lukisGambar();
+  lukisTtd();
+  lukisPratonton();
+}
+
+let tundaPratonton = null;
+function kemaskiniPratonton() { clearTimeout(tundaPratonton); tundaPratonton = setTimeout(lukisPratonton, 250); }
+function lukisPratonton() {
+  const bekas = $('kA4');
+  if (!bekas || !$('borangKrk') || $('kPratonton').offsetParent === null) return;
+  pratonton(bekas, dataDokumen(bacaMedan(), { gambar: borang.gambar.map(x => ({ src: x.src, kapsyen: x.kapsyen })),
+    ttdSrc: borang.ttd ? borang.ttd.src : '', id: borang.id || '' }));
+}
+
+function lukisTtd() {
+  const s = $('kTtd');
+  if (!s) return;
+  kosongkan(s);
+  const C = K.getCfg();
+  if (borang.ttd) {
+    s.append(el('img', { src: borang.ttd.src, alt: 'Tandatangan anda' }),
+      el('button', { type: 'button', class: 'butang sekunder', id: 'tukarTtd', text: 'Tukar', onclick: tandatangan }),
+      el('button', { type: 'button', class: 'butang bahaya', text: 'Buang', onclick: () => { borang.ttd = null; lukisTtd(); lukisPratonton(); } }));
+  } else {
+    s.append(el('button', { type: 'button', class: 'butang sekunder', id: 'butangTtd', text: 'Tandatangan', onclick: tandatangan }),
+      el('span', { class: 'kecil redup', text: C.adaTtd ? 'Anda ada tandatangan tersimpan.' : 'Lukis dengan jari atau muat naik gambar tandatangan.' }));
+  }
+}
+async function tandatangan() {
+  const C = K.getCfg();
+  const h = await bukaTandatangan({ A: K.A, adaTersimpan: !!C.adaTtd });
+  if (!h) return;
+  borang.ttd = h.tersimpan ? { fileId: h.fileId, src: h.src, tersimpan: true } : { src: h.dataUrl, dataUrl: h.dataUrl, simpan: h.simpan };
+  lukisTtd(); lukisPratonton();
+}
+async function muatNaikTtd(dataUrl) {
+  const blob = await (await fetch(dataUrl)).blob();
+  const res = await fetch(K.A('/karakter/fail?jenis=ttd&nama=tandatangan.png'),
+    { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'image/png' }, body: blob });
+  const r = await res.json().catch(() => ({}));
+  if (!res.ok || !r.fileId) throw new Error(r.ralat || 'Tandatangan tidak dapat dimuat naik (' + res.status + ').');
+  return r.fileId;
 }
 
 // Select + pilihan "Lain-lain" yang membuka medan teks.
@@ -174,6 +261,7 @@ async function tambahGambar(input) {
     borang.gambar.push({ src: kecil, dataUrl: kecil, kapsyen: '', nama: f.name });
   }
   lukisGambar();
+  lukisPratonton();
 }
 
 function lukisGambar() {
@@ -183,10 +271,10 @@ function lukisGambar() {
   borang.gambar.forEach((x, i) => {
     const kap = el('input', { type: 'text', maxlength: '80', placeholder: 'Kapsyen (pilihan)', 'aria-label': 'Kapsyen gambar ' + (i + 1) });
     kap.value = x.kapsyen || '';
-    kap.oninput = () => { x.kapsyen = kap.value; };
+    kap.oninput = () => { x.kapsyen = kap.value; kemaskiniPratonton(); };
     s.append(el('div', { class: 'krk-gambar-item' }, el('img', { src: x.src, alt: 'Gambar ' + (i + 1) }), kap,
       el('button', { type: 'button', class: 'butang bahaya kecil-butang', 'aria-label': 'Buang gambar ' + (i + 1), text: '×',
-        onclick: () => { borang.gambar.splice(i, 1); lukisGambar(); } })));
+        onclick: () => { borang.gambar.splice(i, 1); lukisGambar(); lukisPratonton(); } })));
   });
   $('kBlokAkuan').classList.toggle('tersembunyi', !borang.gambar.length);
   $('kGambar').disabled = borang.gambar.length >= MAKS_GAMBAR;
@@ -213,6 +301,8 @@ async function hantar(bekas) {
   if (!d.catatan) kurang.push('huraian');
   if (kurang.length) return K.pesan('amaran', 'Sila lengkapkan: ' + kurang.join(', ') + '.');
   if (borang.gambar.length && !$('kAkuan').checked) return K.pesan('amaran', 'Sila tanda akuan kebenaran ibu bapa atau penjaga bagi gambar.');
+  const C = K.getCfg();
+  if (!borang.ttd && String((C.tetapan || {}).KRK_WAJIB_TTD).toUpperCase() === 'YA') return K.pesan('amaran', 'Sekolah anda mewajibkan tandatangan. Tekan "Tandatangan" dahulu.');
   try {
     for (let i = 0; i < borang.gambar.length; i++) {
       const x = borang.gambar[i];
@@ -220,16 +310,29 @@ async function hantar(bekas) {
       K.overlay(true, 'Memuat naik gambar ' + (i + 1) + '/' + borang.gambar.length + '...');
       x.fileId = await muatNaikGambar(x.dataUrl, x.nama);
     }
+    if (borang.ttd && !borang.ttd.fileId) {
+      K.overlay(true, 'Menyimpan tandatangan...');
+      borang.ttd.fileId = await muatNaikTtd(borang.ttd.dataUrl);
+      if (borang.ttd.simpan) {
+        const s = await api(K.A('/karakter/ttd'), { method: 'POST', body: { fileId: borang.ttd.fileId } });
+        if (s.ok) C.adaTtd = true;
+      }
+    }
     K.overlay(true, 'Menghantar laporan...');
     const r = await api(K.A('/karakter/rekod'), { method: 'POST', body: {
-      ...(borang.id ? { id: borang.id } : {}), data: d,
+      ...(borang.id ? { id: borang.id } : {}), data: d, ttdFileId: borang.ttd ? borang.ttd.fileId : '',
       gambar: borang.gambar.map(x => ({ fileId: x.fileId, kapsyen: (x.kapsyen || '').trim() })), akuanGambar: $('kAkuan').checked } });
     if (!r.ok) return K.pesan('bahaya', r.ralat || 'Laporan tidak dapat dihantar. Data borang masih ada; cuba lagi.');
     const edit = !!borang.id;
+    const dok = dataDokumen(d, { id: r.id, hash: r.rekod.hash, ttdPada: r.rekod.ttdPada, ttdSrc: borang.ttd ? borang.ttd.src : '',
+      gambar: borang.gambar.map(x => ({ src: x.src, kapsyen: (x.kapsyen || '').trim() })) });
     buangDraf();
     borang = borangKosong();
     paparBorang(bekas);
-    K.pesan('ok', (edit ? 'Perubahan disimpan' : 'Laporan dihantar') + ' (ID ' + r.id + '). Lihat dalam tab Laporan.');
+    let pdfOk = true;
+    try { await janaDanSimpanPdf(dok); } catch (e) { pdfOk = false; console.error('PDF gagal', e); }
+    K.pesan(pdfOk ? 'ok' : 'amaran', (edit ? 'Perubahan disimpan' : 'Laporan dihantar') + ' (ID ' + r.id + '). '
+      + (pdfOk ? 'PDF disimpan dalam Google Drive sekolah.' : 'PDF belum siap; buka laporan dalam tab Laporan dan tekan "Jana semula PDF".'));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {
     K.pesan('bahaya', (e && e.message) || 'Rangkaian terputus. Data borang masih ada; cuba lagi.');
@@ -288,7 +391,9 @@ function kadLaporan(x, buka) {
     el('div', { class: 'atas' }, el('div', {}, el('div', { class: 'tajuk', text: x.tajuk }),
       el('div', { class: 'meta', text: tarikhDmy(x.tarikh) + (x.masa ? ' ' + x.masa : '') + ' · ' + x.kelas + ' · ' + x.subjek + (senarai.skop === 'semua' ? ' · ' + x.nama : '') }))),
     el('div', { class: 'krk-lencana-baris' }, ...x.teras.map(lencanaTeras),
-      x.bilGambar ? el('span', { class: 'pil draf', text: x.bilGambar + ' gambar' }) : ''),
+      x.bilGambar ? el('span', { class: 'pil draf', text: x.bilGambar + ' gambar' }) : '',
+      x.adaTtd ? el('span', { class: 'pil draf', text: 'Bertandatangan' }) : '',
+      el('span', { class: 'pil ' + (x.pdf === 'siap' ? 'ok-pdf' : 'hantar'), text: x.pdf === 'siap' ? 'PDF siap' : x.pdf === 'lapuk' ? 'PDF perlu dijana semula' : 'PDF belum siap' })),
     el('div', { class: 'aksi' }, el('button', { type: 'button', class: 'butang sekunder', text: 'Lihat', onclick: buka })));
 }
 
@@ -309,7 +414,22 @@ async function paparButiran(bekas, id, bukaBorang) {
     el('div', { class: 'krk-lencana-baris' }, ...x.teras.map(lencanaTeras)),
     el('p', { class: 'krk-catatan', text: x.catatan }),
     gambar);
+  const ttdUrl = x.ttdFileId ? await muatGambar(x.id, x.ttdFileId) : '';
+  b.append(el('div', { class: 'krk-ttd-blok ruang-atas' }, el('span', { class: 'kecil redup', text: x.ttdFileId ? 'Ditandatangani:' : 'Belum ditandatangani.' }),
+    ttdUrl ? el('img', { src: ttdUrl, alt: 'Tandatangan guru' }) : ''));
   const aksi = el('div', { class: 'baris-butang ruang-atas' });
+  if (x.adaPdf) aksi.append(el('button', { type: 'button', class: 'butang', id: 'muatTurunPdf', text: 'Muat turun PDF', onclick: () => muatTurunPdf(x) }));
+  if (r.boleh.janaPdf) aksi.append(el('button', { type: 'button', class: 'butang sekunder', id: 'janaSemulaPdf', text: x.pdf === 'siap' ? 'Jana semula PDF' : 'Jana PDF sekarang', onclick: async () => {
+    try {
+      const dok = dataDokumen({ tarikh: x.tarikh, masa: x.masa, kelas: x.kelas, subjek: x.subjek, tajuk: x.tajuk, catatan: x.catatan, teras: x.teras },
+        { id: x.id, hash: x.hash, ttdPada: x.ttdPada, ttdSrc: ttdUrl, nama: x.nama,
+          gambar: await Promise.all(x.gambar.map(async gb => ({ src: await muatGambar(x.id, gb.fileId), kapsyen: gb.kapsyen }))) });
+      await janaDanSimpanPdf(dok);
+      K.pesan('ok', 'PDF dijana dan disimpan dalam Google Drive sekolah.');
+      paparButiran(bekas, x.id, bukaBorang);
+    } catch (e) { K.pesan('bahaya', (e && e.message) || 'PDF tidak dapat dijana.'); }
+    finally { K.overlay(false); }
+  } }));
   if (r.boleh.edit) aksi.append(el('button', { type: 'button', class: 'butang', text: 'Edit', onclick: () => editLaporan(x, bukaBorang) }));
   if (r.boleh.padam) aksi.append(el('button', { type: 'button', class: 'butang bahaya', text: 'Padam', onclick: async () => {
     if (!confirm('Padam laporan "' + x.tajuk + '"?')) return;
@@ -324,6 +444,20 @@ async function paparButiran(bekas, id, bukaBorang) {
     gambar.append(el('figure', {}, url ? el('img', { src: url, alt: gb.kapsyen || 'Gambar aktiviti' }) : el('div', { class: 'redup kecil', text: 'Gambar tidak dapat dimuatkan.' }),
       gb.kapsyen ? el('figcaption', { text: gb.kapsyen }) : ''));
   }
+}
+
+async function muatTurunPdf(x) {
+  K.overlay(true, 'Memuat turun PDF...');
+  try {
+    const res = await fetch(K.A('/karakter/rekod/' + encodeURIComponent(x.id) + '/pdf'), { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('PDF tidak dapat dimuat turun (' + res.status + ').');
+    const nama = ((res.headers.get('content-disposition') || '').match(/filename="([^"]+)"/) || [])[1] || x.id + '.pdf';
+    const url = URL.createObjectURL(await res.blob());
+    const a = el('a', { href: url, download: nama });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { K.pesan('bahaya', e.message); }
+  finally { K.overlay(false); }
 }
 
 async function muatGambar(rekodId, fileId) {

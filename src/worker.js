@@ -548,7 +548,8 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
   const lesen = nilai(await lesenSekolah(env, sek, now()), now(), env);
   const infoLesen = { lesen, buyUrl: env.BUY_URL || '' };
   // Lesen tamat: operasi tulis disekat; baca, buka PDF dan eksport kekal. Data dalam Drive tidak disentuh.
-  if (req.method === 'POST' && !lesen.ok && !['/setup', '/health', '/karakter/skema/pasang'].includes(sub)) {
+  // Keputusan e-Karakter 1: PDF bagi laporan SEDIA ADA masih boleh disimpan walaupun lesen tamat.
+  if (req.method === 'POST' && !lesen.ok && !['/setup', '/health', '/karakter/skema/pasang'].includes(sub) && !/^\/karakter\/rekod\/KRK-[^/]+\/pdf$/.test(sub)) {
     return ralat(lesen.reason === 'percubaan-tamat'
       ? 'Tempoh percubaan sekolah ini telah tamat. Laporan sedia ada masih boleh dibuka; langgan untuk terus menambah laporan.'
       : 'Langganan sekolah ini telah tamat. Laporan sedia ada masih boleh dibuka; perbaharui langganan untuk terus menambah laporan.', 402, { lesenTamat: true, lesen });
@@ -575,7 +576,7 @@ async function apiSekolah(req, env, url, sek, sesi, sub, f, now) {
   }
 
   let badan = {}, bait = null;
-  if (req.method === 'POST' && (sub === '/fail' || sub === '/karakter/fail' || /^\/logo\/[1-6]$/.test(sub))) {
+  if (req.method === 'POST' && (sub === '/fail' || sub === '/karakter/fail' || /^\/logo\/[1-6]$/.test(sub) || /^\/karakter\/rekod\/KRK-[^/]+\/pdf$/.test(sub))) {
     const panjang = Number(req.headers.get('content-length') || 0);
     if (panjang > HAD_FAIL.pdf) return ralat('Fail terlalu besar.', 413);
     bait = new Uint8Array(await req.arrayBuffer());

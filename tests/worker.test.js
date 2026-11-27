@@ -1279,3 +1279,127 @@ test('karakter fasa 2: edit, tukar gambar, padam lembut, senarai bertapis dan be
   assert.equal((await panggilApi(e, g, x.a, '/karakter/config')).aktifUntukGuru, false);
   assert.equal((await panggilApi(e, g, x.sesiAdmin, '/karakter/rekod', { data: dataSah() })).ok, true);
 });
+
+// ======================================================================
+// e-Karakter Fasa 3: tandatangan dan PDF
+// ======================================================================
+function pngPalsu(w = 400, h = 120, isi = 50) {
+  const b = new Uint8Array(33 + isi);
+  b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  const dv = new DataView(b.buffer); dv.setUint32(16, w); dv.setUint32(20, h);
+  return b;
+}
+const pdfPalsu = (teks = 'satu muka') => new TextEncoder().encode('%PDF-1.4\n' + teks + '\n%%EOF');
+async function postBinari(e, g, sesi, laluan, bait, mime) {
+  const h = new Headers({ 'content-type': mime, Origin: ASAS, Cookie: 'opr_sesi=' + encodeURIComponent(sesi) });
+  const r = await handle(new Request(ASAS + '/api/s/smkwakanda' + laluan, { method: 'POST', headers: h, body: bait }), e, deps(g));
+  return { status: r.status, ...(await r.json()) };
+}
+const ttdNaik = (x, sesi, bait = pngPalsu()) => postBinari(x.e, x.g, sesi, '/karakter/fail?jenis=ttd', bait, 'image/png');
+
+test('karakter fasa 3: penerimaan IPD - tandatangan, hantar, PDF dalam Drive, muat turun, edit memadam tandatangan', async () => {
+  const x = await sekolahKarakter();
+  const { e, g } = x;
+  // Lukis dan simpan tandatangan
+  const t = await ttdNaik(x, x.a);
+  assert.equal(t.ok, true);
+  const sek = await x.sek();
+  assert.deepEqual(g.fail.get(t.fileId).parents, [sek.karakter.subfolder.TTD], 'tandatangan dalam e-Karakter/Tandatangan');
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/ttd', { fileId: t.fileId })).ok, true);
+  const bt = await panggilApi(e, g, x.a, '/karakter/ttd');
+  assert.equal(bt.ada, true); assert.equal(bt.fileId, t.fileId);
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/config')).adaTtd, true);
+  const gt = await handle(req('/api/s/smkwakanda/karakter/ttd/gambar', { kuki: { opr_sesi: x.a } }), e, deps(g));
+  assert.equal(gt.status, 200);
+  assert.equal((await panggilApi(e, g, x.b, '/karakter/ttd')).ada, false, 'guru B tiada tandatangan');
+
+  // Hantar dengan tandatangan tersimpan
+  const r = await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah(), ttdFileId: t.fileId });
+  assert.equal(r.ok, true);
+  assert.equal(r.rekod.ttdFileId, t.fileId); assert.ok(r.rekod.ttdPada); assert.equal(r.rekod.hash.length, 8);
+  assert.equal(r.rekod.pdf, 'tiada');
+  let baris = (await x.rekodSheet())[1];
+  assert.equal(baris[15], t.fileId); assert.ok(baris[16]);
+  // Guru kelas/guru lain tidak boleh guna tandatangan orang lain
+  const rb = await panggilApi(e, g, x.b, '/karakter/rekod', { data: dataSah(), ttdFileId: t.fileId });
+  assert.match(rb.ralat, /Tandatangan tidak sah/);
+
+  // PDF: pelayar jana selepas Hantar, Worker simpan dalam e-Karakter/PDF
+  const p1 = await postBinari(e, g, x.a, '/karakter/rekod/' + r.id + '/pdf', pdfPalsu('v1'), 'application/pdf');
+  assert.equal(p1.ok, true); assert.equal(p1.pdf, 'siap');
+  assert.deepEqual(g.fail.get(p1.pdfFileId).parents, [sek.karakter.subfolder.PDF]);
+  assert.match(g.fail.get(p1.pdfFileId).name, /^Laporan_Karakter_5_Ibnu_Sina_2026-11-06_KRK-/);
+  baris = (await x.rekodSheet())[1];
+  assert.equal(baris[22], p1.pdfFileId); assert.ok(baris[23]);
+  const dl = await handle(req('/api/s/smkwakanda/karakter/rekod/' + r.id + '/pdf', { kuki: { opr_sesi: x.a } }), e, deps(g));
+  assert.equal(dl.status, 200);
+  assert.match(dl.headers.get('content-disposition'), /attachment; filename="Laporan_Karakter_/);
+  assert.equal(new TextDecoder().decode(await dl.arrayBuffer()), '%PDF-1.4\nv1\n%%EOF');
+  // Gambar tandatangan boleh dibaca melalui rekod (untuk pratonton/PDF)
+  assert.equal((await handle(req('/api/s/smkwakanda/karakter/fail/' + t.fileId + '?rekod=' + r.id, { kuki: { opr_sesi: x.a } }), e, deps(g))).status, 200);
+
+  // Edit tanpa tandatangan semula: tandatangan dipadam, status PDF lapuk
+  const ed = await panggilApi(e, g, x.a, '/karakter/rekod', { id: r.id, data: dataSah({ tajuk: 'Tajuk baharu' }) });
+  assert.equal(ed.ok, true); assert.equal(ed.rekod.adaTtd, false); assert.equal(ed.rekod.pdf, 'lapuk');
+  baris = (await x.rekodSheet())[1];
+  assert.equal(baris[15], ''); assert.equal(baris[16], '');
+  // Tandatangan semula + jana semula: fail PDF SAMA ditimpa (tiada pendua)
+  const bilFail = g.fail.size;
+  await panggilApi(e, g, x.a, '/karakter/rekod', { id: r.id, data: dataSah({ tajuk: 'Tajuk baharu' }), ttdFileId: t.fileId });
+  for (let i = 2; i <= 4; i++) {
+    const p = await postBinari(e, g, x.a, '/karakter/rekod/' + r.id + '/pdf', pdfPalsu('v' + i), 'application/pdf');
+    assert.equal(p.pdfFileId, p1.pdfFileId);
+  }
+  assert.equal(g.fail.size, bilFail, 'tiada fail PDF baharu selepas 3 kali jana semula');
+  assert.equal(new TextDecoder().decode(g.fail.get(p1.pdfFileId).data), '%PDF-1.4\nv4\n%%EOF');
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod/' + r.id)).rekod.pdf, 'siap');
+  const audit = g.sheet.get(sek.karakter.sheetId).tabs.get('AuditLog').map(a => a[3]);
+  for (const a of ['KARAKTER_TTD_SIMPAN', 'KARAKTER_TANDATANGAN', 'KARAKTER_PDF']) assert.ok(audit.includes(a), a);
+});
+
+test('karakter fasa 3: akses PDF dan tandatangan, pengesahan fail, wajib tandatangan, lesen tamat', async () => {
+  const x = await sekolahKarakter();
+  const { e, g } = x;
+  // Pengesahan fail tandatangan
+  assert.equal((await ttdNaik(x, x.a, new TextEncoder().encode('bukan png'))).status, 400);
+  assert.match((await ttdNaik(x, x.a, pngPalsu(1200, 200))).ralat, /800 x 300/);
+  assert.equal((await ttdNaik(x, x.a, pngPalsu(400, 120, 160000))).status, 413);
+  assert.equal((await postBinari(e, g, x.a, '/karakter/fail?jenis=ttd', JPEG, 'image/jpeg')).status, 400);
+  // Guru B tidak boleh simpan tandatangan yang dimuat naik oleh guru A
+  const ta = await ttdNaik(x, x.a);
+  assert.match((await panggilApi(e, g, x.b, '/karakter/ttd', { fileId: ta.fileId })).ralat, /tidak sah/);
+  // Tandatangan sekali guna (tidak disimpan) diterima untuk satu laporan
+  const r = await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah(), ttdFileId: ta.fileId });
+  assert.equal(r.ok, true);
+  assert.equal(await e.OPR_KV.get('upload:smkwakanda:' + ta.fileId), null);
+  // PDF: guru B ditolak, bukan PDF ditolak, terlalu besar ditolak, admin boleh jana semula
+  assert.equal((await postBinari(e, g, x.b, '/karakter/rekod/' + r.id + '/pdf', pdfPalsu(), 'application/pdf')).status, 403);
+  assert.equal((await postBinari(e, g, x.a, '/karakter/rekod/' + r.id + '/pdf', JPEG, 'application/pdf')).status, 400);
+  assert.equal((await postBinari(e, g, x.a, '/karakter/rekod/' + r.id + '/pdf', new Uint8Array(2 * 1024 * 1024 + 10).fill(37), 'application/pdf')).status, 413);
+  assert.equal((await handle(req('/api/s/smkwakanda/karakter/rekod/' + r.id + '/pdf', { kuki: { opr_sesi: x.a } }), e, deps(g))).status, 404, 'belum ada PDF');
+  assert.equal((await postBinari(e, g, x.sesiAdmin, '/karakter/rekod/' + r.id + '/pdf', pdfPalsu(), 'application/pdf')).ok, true);
+  assert.equal((await handle(req('/api/s/smkwakanda/karakter/rekod/' + r.id + '/pdf', { kuki: { opr_sesi: x.b } }), e, deps(g))).status, 403);
+  // Wajib tandatangan (KRK_WAJIB_TTD = YA)
+  await panggilApi(e, g, x.sesiAdmin, '/karakter/tetapan', { tetapan: { KRK_WAJIB_TTD: 'YA' } });
+  assert.match((await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah() })).ralat, /mewajibkan tandatangan/);
+  // Padam tandatangan tersimpan: fail lama dikekalkan kerana dirujuk oleh laporan
+  const ts = await ttdNaik(x, x.a);
+  await panggilApi(e, g, x.a, '/karakter/ttd', { fileId: ts.fileId });
+  await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah(), ttdFileId: ts.fileId });
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/ttd/padam', {})).ok, true);
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/ttd')).ada, false);
+  assert.equal(g.fail.get(ts.fileId).trashed, false, 'fail tandatangan dirujuk laporan tidak dibuang');
+  // Tandatangan tersimpan yang tidak dirujuk dibuang bila diganti
+  const t1 = await ttdNaik(x, x.b), t2 = await ttdNaik(x, x.b);
+  await panggilApi(e, g, x.b, '/karakter/ttd', { fileId: t1.fileId });
+  await panggilApi(e, g, x.b, '/karakter/ttd', { fileId: t2.fileId });
+  assert.equal(g.fail.get(t1.fileId).trashed, true);
+  assert.equal((await panggilApi(e, g, x.b, '/karakter/ttd')).fileId, t2.fileId);
+  // Lesen tamat: laporan baharu disekat, PDF bagi laporan sedia ada masih boleh disimpan (keputusan 1)
+  const sek = await x.sek();
+  await e.OPR_KV.put('lesen:smkwakanda', JSON.stringify({ plan: 'percubaan', expires: '2026-11-01', day: 1 }));
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod', { data: dataSah(), ttdFileId: t2.fileId })).status, 402);
+  assert.equal((await postBinari(e, g, x.a, '/karakter/rekod/' + r.id + '/pdf', pdfPalsu('tamat'), 'application/pdf')).ok, true);
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod/' + r.id)).ok, true, 'baca kekal');
+  assert.ok(sek.karakter.sheetId);
+});

@@ -48,7 +48,7 @@ async function mulaSesi() {
   if (ME.peranan === 'admin') tabs.push('Dashboard', 'Guru', 'Tetapan');
   if (ME.pemilik) tabs.push('Drive');
   tabsOpr = tabs;
-  if (!bolehKarakter()) return mulaOpr();
+  if (!(await bolehKarakter())) return mulaOpr();
   $('tukarModul').onclick = paparPilihanModul;
   const m = new URLSearchParams(location.search).get('m');
   if (m === 'opr' || m === 'karakter') return pilihModul(m);
@@ -56,11 +56,19 @@ async function mulaSesi() {
 }
 
 // ====================================================================== modul (OPR / e-Karakter)
-// Fasa 1: hanya admin nampak pilihan modul (setup e-Karakter). Guru terus ke OPR
-// sehingga borang e-Karakter siap (Fasa 2). Demo belum ada e-Karakter.
+// Admin sentiasa nampak pilihan modul (untuk setup). Guru nampak pilihan modul bila
+// admin sudah membuka e-Karakter sekali dan modul tidak dimatikan (KRK_AKTIF).
+// Demo belum ada e-Karakter (Fasa 6).
 const KUNCI_MODUL = 'opr.modul.' + slug;
-let tabsOpr = null, oprDimulakan = false, karakterDimulakan = false;
-const bolehKarakter = () => ME && ME.peranan === 'admin' && slug !== 'demo';
+let tabsOpr = null, oprDimulakan = false, karakterDimulakan = false, cfgKarakter = null;
+async function bolehKarakter() {
+  if (!ME || slug === 'demo') return false;
+  if (ME.peranan === 'admin') return true;
+  const r = await api(A('/karakter/config'));
+  if (!r.ok || r.aktifUntukGuru === false) return false;
+  cfgKarakter = r;
+  return true;
+}
 
 function mulaOpr() {
   if (!oprDimulakan) { oprDimulakan = true; bina(tabsOpr); sediaBorang(); }
@@ -69,6 +77,7 @@ function mulaOpr() {
 
 function paparPilihanModul() {
   ['aplikasi', 'appKarakter', 'barisModul', 'butangPratonton'].forEach(id => tunjuk(id, false));
+  tunjuk('notaModulKarakter', ME.peranan === 'admin');
   let akhir = '';
   try { akhir = localStorage.getItem(KUNCI_MODUL) || ''; } catch (e) { /* storan disekat */ }
   document.querySelectorAll('#pilihModul .kad-modul').forEach(b => {
@@ -93,7 +102,7 @@ function pilihModul(m) {
     $('utama').classList.add('lebar');
     if (!karakterDimulakan) {
       karakterDimulakan = true;
-      KR.mula({ A, overlay, slug, email: ME.email, bukaOpr: (tab) => { pilihModul('opr'); buka(tab); } });
+      KR.mula({ A, overlay, slug, email: ME.email, config: cfgKarakter, getOprCfg: () => CFG, bukaOpr: (tab) => { pilihModul('opr'); buka(tab); } });
     }
   } else {
     tunjuk('appKarakter', false);

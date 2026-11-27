@@ -179,3 +179,9 @@ export async function bacaBanyak(g, sheetId, tabs) {
   });
   return hasil;
 }
+
+// Timpa kandungan fail sedia ada (ID sama). Digunakan untuk PDF e-Karakter yang dijana semula.
+export async function kemaskiniKandungan(g, fileId, mime, kandungan) {
+  return panggil(g, UPLOAD + '/files/' + fileId + '?uploadType=media&fields=id', {
+    method: 'PATCH', headers: { 'content-type': mime }, body: kandungan }, 'Kemas kini fail');
+}

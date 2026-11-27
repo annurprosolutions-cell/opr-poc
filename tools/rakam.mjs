@@ -249,6 +249,8 @@ const BABAK = [
       await h.kata('Buka pautan sekolah yang admin kongsi, kemudian log masuk dengan Google.');
       await h.gambar('guru-1-log-masuk');
       await h.klik('#butangLogin', { lepas: 300 });
+      await pg.waitForSelector('#pilihModul:not(.tersembunyi), #tab button', { timeout: 20000 });
+      if (await pg.isVisible('#pilihModul')) await h.klik('.kad-modul[data-modul=opr]', { lepas: 400 });
       await pg.waitForSelector('#tab button', { timeout: 20000 });
       await h.W(700);
       await h.kata('Pilih jenis laporan. Label dan pilihan berubah ikut jenis.');

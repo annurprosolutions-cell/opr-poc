@@ -221,3 +221,65 @@ h3{font-size:1rem;margin:0 0 .6rem}
 .krk-gambar-butiran img{width:100%;height:auto;border-radius:10px;border:1px solid var(--garis)}
 .krk-gambar-butiran figcaption{font-size:.85rem;color:var(--redup);margin-top:4px}
 .krk-lain-baris{margin-top:6px}
+/* e-Karakter: modal tandatangan */
+.krk-dialog{width:min(560px,calc(100vw - 24px));max-width:none;border:0;border-radius:var(--jejari);padding:20px;background:var(--kad);color:var(--teks)}
+.krk-dialog::backdrop{background:rgba(15,23,42,.55)}
+.krk-dialog h2{margin-top:0}
+.krk-ttd-panel{margin-top:12px}
+.krk-kanvas-bekas{position:relative;width:100%;height:160px;background:#fff;border:1px solid var(--garis);border-radius:10px;overflow:hidden}
+.krk-kanvas{position:absolute;inset:0;width:100%;height:160px;touch-action:none;cursor:crosshair;z-index:2}
+.krk-kanvas-petunjuk{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;pointer-events:none;z-index:1}
+.krk-kanvas-garis{position:absolute;left:16px;right:16px;bottom:38px;border-bottom:1px dashed #cbd5e1;pointer-events:none;z-index:1}
+.krk-ttd-imej{display:block;max-width:100%;max-height:140px;margin-top:10px;background:#fff;border:1px solid var(--garis);border-radius:10px;padding:8px}
+.krk-ttd-blok{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px}
+.krk-ttd-blok img{height:60px;max-width:220px;object-fit:contain;background:#fff;border:1px solid var(--garis);border-radius:8px;padding:4px}
+/* e-Karakter: susun atur borang + pratonton */
+.krk-susun{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:1100px){.krk-susun{grid-template-columns:minmax(0,5fr) minmax(0,7fr)}.krk-pratonton{position:sticky;top:12px;align-self:start}.krk-togol-pratonton{display:none}}
+@media (max-width:1099px){.krk-pratonton.tertutup{display:none}}
+.krk-a4-skala{position:relative;overflow:hidden;border:1px solid var(--garis);border-radius:8px;background:#fff}
+/* e-Karakter: muka A4 (sentiasa cerah, saiz tetap untuk PDF) */
+.krk-hos-pdf{position:absolute;left:0;top:0;width:794px;background:#fff}
+.krk-a4{width:794px;height:1122px;box-sizing:border-box;padding:34px 40px 20px;background:#fff;color:#111827;font-family:Inter,Poppins,system-ui,sans-serif;font-size:12px;line-height:1.45;display:flex;flex-direction:column;gap:9px;transform-origin:top left;overflow:hidden}
+.krk-a4 *{box-sizing:border-box}
+.a4k-kepala{display:flex;gap:14px;align-items:center;border-bottom:2px solid var(--wk);padding-bottom:10px}
+.a4k-logo{width:64px;height:64px;object-fit:contain;flex:0 0 64px}
+.a4k-logo.kosong{width:0;flex-basis:0}
+.a4k-nama-baris{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.a4k-nama{font-size:17px;font-weight:800;letter-spacing:.02em}
+.a4k-kod{background:#111827;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.05em}
+.a4k-alamat{color:#475569;font-size:11px;margin-top:3px}
+.a4k-tajuk-dok{text-align:center}
+.a4k-tajuk{font-size:14px;font-weight:800;color:var(--wk);letter-spacing:.03em}
+.a4k-subtajuk{font-size:9.5px;letter-spacing:.2em;color:#64748b;margin-top:2px}
+.a4k-info{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #cbd5e1;border-radius:6px;overflow:hidden}
+.a4k-sel{padding:6px 9px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;display:flex;flex-direction:column;gap:1px;min-width:0}
+.a4k-sel.span3{grid-column:span 3}
+.a4k-label{font-size:8.5px;font-weight:700;letter-spacing:.08em;color:#64748b}
+.a4k-nilai{font-weight:600;overflow-wrap:anywhere}
+.a4k-kotak{border:1px solid #cbd5e1;border-radius:6px;overflow:hidden}
+.a4k-kotak-tajuk{background:var(--wk);color:#fff;font-size:9.5px;font-weight:700;letter-spacing:.08em;padding:5px 10px}
+.a4k-kotak-isi{padding:8px 10px}
+.a4k-teras{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px}
+.a4k-teras-item{display:flex;gap:7px;align-items:center;color:#94a3b8}
+.a4k-teras-item.pilih{color:#111827;font-weight:700}
+.a4k-kotak-tanda{width:14px;height:14px;border:1.5px solid currentColor;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;line-height:1}
+.a4k-kotak-catatan{flex:1 1 auto;min-height:90px;display:flex;flex-direction:column}
+.a4k-catatan-isi{flex:1 1 auto;overflow:hidden;min-height:0}
+.a4k-tajuk-aktiviti{font-weight:800;margin-bottom:4px;overflow-wrap:anywhere}
+.a4k-catatan{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.a4k-gambar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.a4k-gambar.satu{grid-template-columns:minmax(0,1fr);justify-items:center}
+.a4k-gambar figure{margin:0;min-width:0;text-align:center}
+.a4k-gambar img{width:100%;object-fit:cover;border-radius:4px;display:block}
+.a4k-gambar.satu img{width:auto;max-width:100%;object-fit:contain}
+.a4k-gambar figcaption{font-size:9.5px;color:#475569;margin-top:2px;min-height:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.a4k-ttd{display:grid;grid-template-columns:1fr 1fr;gap:40px;font-size:11px}
+.a4k-ttd-label{font-weight:700;margin-bottom:2px}
+.a4k-ttd-ruang{height:56px;display:flex;align-items:flex-end}
+.a4k-ttd-ruang img{max-width:150px;max-height:52px;object-fit:contain}
+.a4k-garis{border-bottom:1.5px dotted #475569;margin:2px 0 4px}
+.a4k-ttd-nama{font-weight:700}
+.a4k-ttd-tarikh{color:#475569}
+.a4k-kaki{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #e2e8f0;padding-top:5px;font-size:8.5px;color:#64748b}
+.pil.ok-pdf{background:var(--ok-bg);color:var(--ok)}
