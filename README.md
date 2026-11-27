@@ -17,7 +17,7 @@ Cloudflare Worker "annur-opr"  (repo ini, deploy automatik setiap push ke main)
  ├─ public/karakter*.js, tandatangan.js  UI e-Karakter: setup, borang, laporan, A4/PDF, tandatangan
  ├─ public/dokumen.js  enjin pratonton A4 + PDF (kod v2 verbatim + lapisan sambungan)
  ├─ public/pentadbiran.js  dashboard, tetapan, logo, jenis, senarai, semakan (admin)
- ├─ public/vendor/     html2pdf 0.10.1, pdf.js 3.11.174 (salinan tempatan, bukan CDN)
+ ├─ public/vendor/     html2pdf 0.10.1, pdf.js 3.11.174, Chart.js 4.4.1 (salinan tempatan, bukan CDN)
  └─ KV OPR_KV          sekolah, sesi, token admin (tersulit)
 
 Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
@@ -44,6 +44,7 @@ Data laporan  ->  Google Drive ADMIN SEKOLAH (bukan pelayan AnnurPro)
 | e-Karakter 2 | Borang laporan karakter (kelas/subjek dengan Lain-lain, kad teras berwarna, cadangan ayat, maks 4 gambar dimampat 900px, akuan ibu bapa, draf setempat), Laporan saya/semua (cari, tapis, halaman), butiran dengan gambar melalui Worker, edit dan padam lembut | Siap |
 | e-Karakter 3 | Tandatangan guru (lukis dengan jari, upload gambar, tersimpan), pratonton A4, PDF satu muka dijana selepas Hantar dan disimpan automatik dalam `e-Karakter/PDF` (jana semula menimpa fail sama), muat turun PDF, status PDF, wajib tandatangan; modul dibuka kepada guru | Siap |
 | e-Karakter 4 | Laporan Kelas untuk guru kelas: sub-tab Saya / Kelas Saya / Semua (admin), ringkasan kelas (bilangan, teras terbanyak, guru yang melapor), butiran baca sahaja dengan PDF; akses ikut pemetaan dikuatkuasakan di server dan berubah serta-merta | Siap |
+| e-Karakter 5 | Dashboard admin: KPI, donat teras, bar kelas/subjek (Chart.js tempatan), top 5 guru, penapis (tarikh, kelas, subjek, guru, teras, carian), jadual berhalaman; Eksport CSV selamat; PDF Dashboard landskap berbilang muka; ujian beban `npm run beban` | Siap |
 
 ## Ujian
 

@@ -3,6 +3,7 @@
 // Semua teks pengguna melalui el()/textContent. Server menguatkuasa akses; UI hanya memudahkan.
 import { $, el, api, mesej } from '/app.js';
 import * as B from '/karakter-borang.js';
+import * as DB from '/karakter-dashboard.js';
 
 let K = null;          // { A, overlay, bukaOpr(tab), slug, email }
 let CFG = null;        // data /karakter/config (semua peranan)
@@ -12,7 +13,7 @@ let draf = {};         // salinan boleh diedit bagi setiap senarai dan pemetaan
 
 const pesan = (jenis, teks) => mesej($('mesejKarakter'), jenis, teks);
 const kosongkan = (n) => { n.textContent = ''; return n; };
-const PANE = ['Borang', 'Laporan', 'Panduan', 'Setup'];
+const PANE = ['Borang', 'Laporan', 'Dashboard', 'Panduan', 'Setup'];
 
 export async function mula(konteks) {
   K = konteks;
@@ -24,7 +25,7 @@ export async function mula(konteks) {
   if (!CFG.ok) { const r = CFG; CFG = null; return pesan(r.perluSediaKarakter ? 'amaran' : 'bahaya', r.ralat || 'e-Karakter belum boleh digunakan.'); }
   B.pasang({ A: K.A, overlay: K.overlay, pesan, getCfg: () => CFG, getOprCfg: K.getOprCfg, slug: K.slug, email: K.email });
   const tabs = [['Borang', 'Borang'], ['Laporan', 'Laporan']];
-  if (CFG.admin) tabs.push(['Panduan', 'Panduan Mula'], ['Setup', 'Setup']);
+  if (CFG.admin) tabs.push(['Dashboard', 'Dashboard'], ['Panduan', 'Panduan Mula'], ['Setup', 'Setup']);
   tabs.forEach(([k, label]) => $('tabKarakter').append(el('button', { type: 'button', role: 'tab', 'data-krk': k,
     'aria-selected': 'false', text: label, onclick: () => bukaTab(k) })));
   bukaTab(CFG.admin && CFG.setupBelumLengkap ? 'Panduan' : 'Borang');
@@ -55,7 +56,11 @@ async function bukaTab(k, dataBorang) {
   document.querySelectorAll('#tabKarakter button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.krk === k)));
   PANE.forEach(p => $('krk' + p).classList.toggle('tersembunyi', p !== k));
   if (k === 'Borang') return B.paparBorang($('krkBorang'), dataBorang);
-  if (k === 'Laporan') return B.paparLaporan($('krkLaporan'), (d) => bukaTab('Borang', d));
+  if (k === 'Laporan') return dataBorang && dataBorang.butiran
+    ? B.bukaButiran($('krkLaporan'), dataBorang.butiran, (d) => bukaTab('Borang', d), 'semua')
+    : B.paparLaporan($('krkLaporan'), (d) => bukaTab('Borang', d));
+  if (k === 'Dashboard') return DB.paparDashboard($('krkDashboard'), { A: K.A, overlay: K.overlay, pesan, getCfg: () => CFG,
+    getOprCfg: K.getOprCfg, bukaButiran: (id) => bukaTab('Laporan', { butiran: id }) });
   if (!S && !(await muat(true))) return;
   if (k === 'Panduan') paparPanduan(); else paparSetup();
 }

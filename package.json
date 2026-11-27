@@ -8,6 +8,7 @@
     "demo-data": "node tools/bina-demo.mjs",
     "skrin": "node tools/tangkap-skrin.mjs",
     "panduan": "node tools/rakam.mjs shot && node tools/bina-manual.cjs public/panduan/index.html public/panduan/manual-annur-opr.pdf",
-    "video": "node tools/rakam.mjs video"
+    "video": "node tools/rakam.mjs video",
+    "beban": "node tools/ujian-beban.mjs 8000"
   }
 }

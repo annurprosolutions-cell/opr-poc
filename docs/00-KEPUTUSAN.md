@@ -44,7 +44,7 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 | 2 Borang dan rekod | Siap 27/11/2026 |
 | 3 Tandatangan dan PDF | Siap 27/11/2026 |
 | 4 Laporan Saya dan Kelas | Siap 27/11/2026 |
-| 5 Dashboard dan eksport | |
+| 5 Dashboard dan eksport | Siap 27/11/2026 (lihat risiko CPU di bawah) |
 | 6 Demo, panduan, keselamatan | |
 
 ## Nota pelaksanaan Fasa 1
@@ -91,3 +91,27 @@ Dokumen 01 hingga 05 ialah reka bentuk asal e-Karakter (26/11/2026). Keputusan d
 - **Pemetaan dibaca setiap permintaan** (tiada cache), jadi perubahan oleh admin berkuat kuasa serta-merta, termasuk menarik akses kelas lama.
 - **Admin yang juga guru kelas** boleh guna sub-tab Kelas Saya (tidak merugikan; admin sudah nampak semua).
 - **UI:** sub-tab Saya, Kelas Saya (jika dipetakan), Semua (admin), menggantikan pemilih skop admin.
+
+## Nota pelaksanaan Fasa 5
+
+- **Laluan (admin sahaja):** `GET /karakter/statistik` (KPI: jumlah, kelas terlibat, guru melapor, teras tertinggi; pecahan teras ikut susunan senarai rasmi; ikut kelas dan subjek; top 5 guru; pilihan penapis termasuk nilai Lain-lain), `GET /karakter/eksport` (CSV), `GET /karakter/rekod?skop=semua&saiz=semua` (maks 1000 baris untuk PDF). Penapis: `dari`, `hingga`, `kelas`, `subjek`, `guru` (emel), `teras`, `cari`.
+- **Satu fungsi penapis (`tapisRekod`)** untuk senarai, statistik, eksport dan PDF, jadi angka KPI sentiasa sepadan dengan jadual (diuji untuk setiap jenis tapisan).
+- **CSV:** UTF-8 BOM, sel bermula `= + - @ TAB CR` diawali `'`, tanpa laporan dipadam, direkod `KARAKTER_EKSPORT` dengan tapisan.
+- **Chart.js 4.4.1** disalin daripada pakej npm ke `public/vendor/chart.umd.min.js` (tiada CDN), dimuat hanya bila Dashboard dibuka.
+- **PDF Dashboard landskap:** muka 1 KPI, donat teras + legenda teks, bar kelas (10 teratas), top 5 guru; muka 2+ jadual 15 baris (tinggi baris tetap); blok pengesahan pada muka akhir atau muka baharu; nombor muka. Setiap muka dirakam berasingan (html2pdf menambah muka pada PDF sama) supaya tiada had tinggi kanvas. Diuji: 1 laporan = 2 muka, 30 = 4 muka, 300 = 22 muka (kira-kira 6.5MB, 14 saat).
+- **Pengajaran:** html2canvas tidak melukis jadual yang melimpah keluar muka (`overflow:hidden`). Kandungan sel kini dibalut `div` bertinggi tetap.
+
+### Ujian beban (IPD 5.6) dan RISIKO had CPU Cloudflare
+
+`npm run beban` (8,000 laporan, Google dipalsukan): pemprosesan Worker 40 hingga 140 ms setiap permintaan, jauh di bawah sasaran 4 saat. Masa rangkaian Google Sheets sebenar (membaca kira-kira 5.8MB untuk 8,000 laporan) belum diukur.
+
+**Risiko yang perlu keputusan pemilik:** pelan percuma Cloudflare Workers memberi kira-kira 10 ms masa CPU setiap permintaan. Anggaran kos CPU untuk menghurai data `KarakterRekod`:
+
+| Laporan | Data | CPU anggaran |
+|---|---|---|
+| 1,000 | 0.7 MB | ~4 ms |
+| 2,000 | 1.3 MB | ~6 ms |
+| 4,000 | 2.7 MB | ~15 ms |
+| 8,000 | 5.3 MB | ~38 ms |
+
+Melebihi kira-kira 2,500 laporan, permintaan senarai/dashboard/butiran mungkin ditolak oleh had CPU pelan percuma. Pilihan: (1) pelan Workers Paid (had CPU jauh lebih tinggi), (2) baca lajur tertentu sahaja dan cache ringkasan dalam KV, (3) pecahkan rekod ikut `TahunSesi`. Belum dilaksanakan; menunggu keputusan. (Angka CPU di atas diukur dalam Node pada mesin pembangunan, bukan dalam Cloudflare; perlu disahkan.)

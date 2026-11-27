@@ -417,6 +417,12 @@ function kadLaporan(x, buka) {
     el('div', { class: 'aksi' }, el('button', { type: 'button', class: 'butang sekunder', text: 'Lihat', onclick: buka })));
 }
 
+// Buka butiran terus (contoh: daripada jadual Dashboard). "Kembali" ke senarai skop yang diberi.
+export function bukaButiran(bekas, id, bukaBorang, skop = 'saya') {
+  senarai = { skop, halaman: 1, cari: '', kelas: '', teras: '' };
+  return paparButiran(bekas, id, bukaBorang);
+}
+
 async function paparButiran(bekas, id, bukaBorang) {
   K.overlay(true, 'Memuatkan laporan...');
   let r;

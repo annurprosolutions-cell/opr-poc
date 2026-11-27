@@ -154,3 +154,122 @@ export async function janaPdf(d) {
     window.scrollTo(0, gulung);
   }
 }
+
+// ======================================================================
+// PDF Dashboard landskap (S-09, DBD 5.2): muka 1 KPI + carta, muka 2+ jadual,
+// nombor muka, blok pengesahan pada muka akhir. Setiap muka dirakam berasingan
+// (elak had tinggi kanvas pelayar bila ratusan laporan).
+// ======================================================================
+const L_LEBAR = 1122, L_TINGGI = L_LEBAR * 210 / 297;
+const BARIS_SEMUKA = 15, BARIS_DENGAN_TTD = 10;
+
+function kepalaLandskap(d, subtajuk) {
+  return el('header', { class: 'a4l-kepala' },
+    d.sekolah.logo ? el('img', { class: 'a4l-logo', src: d.sekolah.logo, alt: '' }) : '',
+    el('div', { class: 'a4l-kepala-teks' },
+      el('div', { class: 'a4k-nama-baris' }, el('span', { class: 'a4k-nama', text: String(d.sekolah.nama || '').toUpperCase() }),
+        d.krk.KRK_KOD_SEKOLAH ? el('span', { class: 'a4k-kod', text: d.krk.KRK_KOD_SEKOLAH }) : ''),
+      el('div', { class: 'a4l-tajuk', text: 'LAPORAN DASHBOARD PEMBENTUKAN KARAKTER' + (subtajuk ? ' · ' + subtajuk : '') }),
+      el('div', { class: 'a4k-alamat', text: 'Tapisan: ' + d.tapisan + ' · Dijana: ' + tarikhDmy(new Date().toISOString().slice(0, 10)) })));
+}
+
+export function binaDashboardPdf(d) {
+  const warna = /^#[0-9a-f]{6}$/i.test(d.sekolah.warna || '') ? d.sekolah.warna : '#312e81';
+  const muka = [];
+  const baru = (...isi) => { const m = el('div', { class: 'krk-a4l', style: '--wk:' + warna }, ...isi); muka.push(m); return m; };
+  const st = d.st, k = st.kpi;
+
+  // Muka 1
+  const donat = el('canvas', { width: '240', height: '240' });
+  const bar = el('canvas', { width: '430', height: '300' });
+  const dataBar = st.kelas.slice(0, 10);
+  const m1 = baru(kepalaLandskap(d, ''),
+    el('div', { class: 'a4l-kpi' }, ...[['JUMLAH LAPORAN', k.jumlah], ['KELAS TERLIBAT', k.kelas], ['GURU MELAPOR', k.guru],
+      ['TERAS TERTINGGI', k.terasTertinggi ? k.terasTertinggi.nama + ' (' + k.terasTertinggi.bil + ')' : '-']]
+      .map(([l, n]) => el('div', { class: 'a4l-kpi-kad' }, el('div', { class: 'a4k-label', text: l }), el('div', { class: 'a4l-kpi-nilai', text: String(n) })))),
+    el('div', { class: 'a4l-carta' },
+      el('section', { class: 'a4k-kotak' }, el('div', { class: 'a4k-kotak-tajuk', text: 'PECAHAN ELEMEN TERAS' }),
+        el('div', { class: 'a4k-kotak-isi a4l-donat' }, donat, el('ul', { class: 'a4l-legenda' }, ...st.teras.map(t =>
+          el('li', {}, el('span', { class: 'a4l-titik', style: 'background:' + d.warnaTeras(t.nama) }), el('span', { text: t.nama }), el('b', { text: String(t.bil) })))))),
+      el('section', { class: 'a4k-kotak' }, el('div', { class: 'a4k-kotak-tajuk', text: 'LAPORAN MENGIKUT KELAS (10 TERATAS)' }), el('div', { class: 'a4k-kotak-isi' }, bar)),
+      el('section', { class: 'a4k-kotak' }, el('div', { class: 'a4k-kotak-tajuk', text: 'TOP 5 GURU' }),
+        el('ol', { class: 'a4k-kotak-isi a4l-top' }, ...st.topGuru.map(gu => el('li', {}, el('span', { text: gu.nama }), el('b', { text: String(gu.bil) })))))));
+  m1.lukis = () => {
+    const Ch = window.Chart;
+    const c1 = st.teras.length ? new Ch(donat, { type: 'doughnut', data: { labels: st.teras.map(t => t.nama), datasets: [{ data: st.teras.map(t => t.bil), backgroundColor: st.teras.map(t => d.warnaTeras(t.nama)), borderWidth: 2 }] },
+      options: { cutout: '62%', animation: false, responsive: false, devicePixelRatio: 2, plugins: { legend: { display: false } } } }) : null;
+    const c2 = dataBar.length ? new Ch(bar, { type: 'bar', data: { labels: dataBar.map(x => x.nama), datasets: [{ data: dataBar.map(x => x.bil), backgroundColor: warna, maxBarThickness: 38, borderRadius: 6 }] },
+      options: { indexAxis: 'y', animation: false, responsive: false, devicePixelRatio: 2, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } } }) : null;
+    return () => { if (c1) c1.destroy(); if (c2) c2.destroy(); };
+  };
+
+  // Muka jadual
+  const baris = d.baris || [];
+  const kumpulan = [];
+  for (let i = 0; i < baris.length; i += BARIS_SEMUKA) kumpulan.push(baris.slice(i, i + BARIS_SEMUKA));
+  // Setiap sel dibalut div bertinggi tetap: baris tidak pernah melebihi 38px, jadi 15 baris sentiasa muat
+  // (jadual yang melimpah muka tidak dilukis oleh html2canvas).
+  const sel = (...isi) => el('td', {}, el('div', { class: 'a4l-sel' }, ...isi));
+  const kepalaJadual = () => el('thead', {}, el('tr', {}, ...['Bil', 'ID dan tarikh', 'Kelas dan subjek', 'Guru', 'Elemen teras', 'Tajuk dan catatan ringkas', 'Gambar'].map(t => el('th', { text: t }))));
+  kumpulan.forEach((kb, ki) => {
+    baru(kepalaLandskap(d, 'SENARAI LAPORAN' + (d.jumlah > baris.length ? ' (' + baris.length + ' daripada ' + d.jumlah + ')' : '')),
+      el('table', { class: 'a4l-jadual' }, kepalaJadual(), el('tbody', {}, ...kb.map((r, i) => el('tr', {},
+        sel(el('div', { text: String(ki * BARIS_SEMUKA + i + 1) })),
+        sel(el('div', { class: 'a4l-kecil a4l-klip1', text: r.id }), el('div', { class: 'a4l-klip1', text: tarikhDmy(r.tarikh) })),
+        sel(el('div', { class: 'a4l-klip1', text: r.kelas }), el('div', { class: 'a4l-kecil a4l-klip1', text: r.subjek })),
+        sel(el('div', { class: 'a4l-klip2', text: r.nama })),
+        sel(el('div', { class: 'a4l-klip2', text: r.teras.join(', ') })),
+        sel(el('div', { class: 'a4l-tebal a4l-klip1', text: r.tajuk }), el('div', { class: 'a4l-kecil a4l-klip1', text: r.catatanRingkas || '' })),
+        sel(el('div', { class: 'a4l-tengah', text: String(r.bilGambar) })))))));
+  });
+
+  // Blok pengesahan pada muka akhir (atau muka baharu jika penuh)
+  const ttd = el('section', { class: 'a4k-ttd a4l-ttd' },
+    el('div', {}, el('div', { class: 'a4k-ttd-label', text: 'Disediakan oleh:' }), el('div', { class: 'a4k-ttd-ruang' }), el('div', { class: 'a4k-garis' }),
+      el('div', { class: 'a4k-ttd-nama', text: ' ' }), el('div', { text: 'Penyelaras Pembentukan Karakter' }), el('div', { class: 'a4k-ttd-tarikh', text: 'Tarikh:' })),
+    el('div', {}, el('div', { class: 'a4k-ttd-label', text: 'Disahkan oleh:' }), el('div', { class: 'a4k-ttd-ruang' }), el('div', { class: 'a4k-garis' }),
+      el('div', { class: 'a4k-ttd-nama', text: String(d.krk.KRK_NAMA_PENGESAH || '').toUpperCase() || ' ' }),
+      el('div', { text: d.krk.KRK_JAWATAN_PENGESAH || '' }), el('div', { class: 'a4k-ttd-tarikh', text: 'Cap Rasmi Sekolah:' })));
+  const akhir = kumpulan.length && kumpulan[kumpulan.length - 1].length <= BARIS_DENGAN_TTD ? muka[muka.length - 1] : baru(kepalaLandskap(d, 'PENGESAHAN'));
+  akhir.append(ttd);
+
+  // Kaki dengan nombor muka
+  muka.forEach((m, i) => m.append(el('footer', { class: 'a4k-kaki a4l-kaki' },
+    el('span', { text: 'Dijana melalui Annur OPR (e-Karakter)' }), el('span', { text: 'Muka ' + (i + 1) + ' / ' + muka.length }))));
+  return muka;
+}
+
+export async function janaPdfLandskap(muka) {
+  await sediaHtml2pdf();
+  const hos = el('div', { class: 'krk-hos-pdf landskap' });
+  muka.forEach(m => { m.style.height = (L_TINGGI - 0.25) + 'px'; hos.append(m); });
+  document.body.append(hos);
+  const gulung = window.scrollY;
+  window.scrollTo(0, 0);
+  const musnah = [];
+  try {
+    muka.forEach(m => { if (m.lukis) musnah.push(m.lukis()); });
+    await Promise.all([...hos.querySelectorAll('img')].map(i => i.complete ? null : new Promise(ok => { i.onload = i.onerror = ok; })));
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // Skala 1.5 dan JPEG 0.75: teks jadual masih jelas, saiz kira-kira sepertiga berbanding skala 2
+    const pilihan = { margin: 0, image: { type: 'jpeg', quality: 0.75 },
+      html2canvas: { scale: 1.5, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }, pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } };
+    const pangkas = function () {
+      const k = this.prop.canvas, pxMuka = Math.floor(k.width * (210 / 297)), penuh = Math.floor(k.height / pxMuka), sisa = k.height - penuh * pxMuka;
+      if (penuh >= 1 && sisa > 0 && sisa <= 8) {
+        const c = document.createElement('canvas'); c.width = k.width; c.height = penuh * pxMuka;
+        c.getContext('2d').drawImage(k, 0, 0); this.prop.canvas = c;
+      }
+    };
+    let w = window.html2pdf().set(pilihan).from(muka[0]).toCanvas().then(pangkas).toPdf();
+    for (const m of muka.slice(1)) {
+      w = w.get('pdf').then(pdf => { pdf.addPage('a4', 'landscape'); }).from(m).toContainer().toCanvas().then(pangkas).toPdf();
+    }
+    return await w.outputPdf('blob');
+  } finally {
+    musnah.forEach(f => { try { f(); } catch (e) { /* abaikan */ } });
+    hos.remove();
+    window.scrollTo(0, gulung);
+  }
+}

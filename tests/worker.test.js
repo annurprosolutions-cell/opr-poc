@@ -1470,3 +1470,66 @@ test('karakter fasa 4: penerimaan IPD - guru kelas nampak laporan 3 guru bagi ke
   // Laporan sendiri dalam kelas lain kekal boleh dibuka (sebagai pemilik)
   assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod?skop=saya')).jumlah, 1);
 });
+
+// ======================================================================
+// e-Karakter Fasa 5: dashboard admin dan eksport
+// ======================================================================
+test('karakter fasa 5: statistik sepadan dengan jadual selepas tapisan; CSV selamat; admin sahaja', async () => {
+  const x = await sekolahKarakter();
+  const { e, g } = x;
+  const hantar = (sesi, d) => panggilApi(e, g, sesi, '/karakter/rekod', { data: dataSah(d) });
+  await hantar(x.a, { tajuk: 'A1', kelas: '5 Ibnu Sina', subjek: 'Sains', teras: ['Penyayang'], tarikh: '2026-11-02' });
+  await hantar(x.a, { tajuk: 'A2', kelas: '4 Sains', subjek: 'Matematik', teras: ['Penyayang', 'Berdaya Tahan'], tarikh: '2026-11-03' });
+  await hantar(x.b, { tajuk: 'B1', kelas: '5 Ibnu Sina', subjek: 'Sains', teras: ['Warganegara Aktif'], tarikh: '2026-11-04' });
+  await hantar(x.b, { tajuk: '=HYPERLINK("http://jahat")', kelas: '1 Lain Kelas', subjek: 'Muzik', teras: ['Penyayang'], catatan: '+cmd|calc\n-2+3', tarikh: '2026-11-05' });
+  const pd = await hantar(x.b, { tajuk: 'Dipadam' });
+  await panggilApi(e, g, x.b, '/karakter/rekod/' + pd.id + '/padam', {});
+
+  const st = await panggilApi(e, g, x.sesiAdmin, '/karakter/statistik');
+  assert.equal(st.ok, true);
+  assert.deepEqual(st.kpi, { jumlah: 4, kelas: 3, guru: 2, terasTertinggi: { nama: 'Penyayang', bil: 3 } });
+  assert.deepEqual(st.teras.map(t => t.nama), ['Penyayang', 'Berdaya Tahan', 'Warganegara Aktif'], 'teras ikut susunan senarai rasmi');
+  assert.deepEqual(st.kelas[0], { nama: '5 Ibnu Sina', bil: 2 });
+  assert.deepEqual(st.topGuru.map(gu => [gu.email, gu.bil]), [['guru.a@gmail.com', 2], ['guru.b@gmail.com', 2]]);
+  assert.ok(st.pilihan.kelas.includes('1 Lain Kelas') && st.pilihan.subjek.includes('Muzik'), 'pilihan penapis termasuk nilai Lain-lain');
+  assert.equal(st.jumlahSemua, 4);
+
+  // Angka sepadan dengan jadual bagi setiap tapisan
+  for (const q of ['kelas=5%20Ibnu%20Sina', 'subjek=Sains', 'teras=Penyayang', 'guru=guru.b%40gmail.com', 'dari=2026-11-03&hingga=2026-11-04', 'cari=hyperlink', 'kelas=5%20Ibnu%20Sina&guru=guru.a%40gmail.com']) {
+    const s = await panggilApi(e, g, x.sesiAdmin, '/karakter/statistik?' + q);
+    const t = await panggilApi(e, g, x.sesiAdmin, '/karakter/rekod?skop=semua&' + q);
+    assert.equal(s.kpi.jumlah, t.jumlah, q);
+    assert.equal(s.teras.reduce((a, b) => a + b.bil, 0), t.data.reduce((a, r) => a + r.teras.length, 0), 'teras ' + q);
+  }
+  assert.equal((await panggilApi(e, g, x.sesiAdmin, '/karakter/statistik?guru=guru.a%40gmail.com')).kpi.jumlah, 2);
+  // saiz=semua untuk PDF dashboard
+  const semua = await panggilApi(e, g, x.sesiAdmin, '/karakter/rekod?skop=semua&saiz=semua');
+  assert.equal(semua.data.length, 4); assert.ok(semua.data[0].catatanRingkas !== undefined);
+
+  // CSV
+  const res = await handle(req('/api/s/smkwakanda/karakter/eksport?subjek=Muzik', { kuki: { opr_sesi: x.sesiAdmin } }), e, deps(g));
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-disposition'), /e-Karakter_smkwakanda_2026-11-08\.csv/);
+  const bait = new Uint8Array(await res.arrayBuffer());
+  assert.deepEqual([...bait.slice(0, 3)], [0xef, 0xbb, 0xbf], 'UTF-8 BOM');
+  const csv = new TextDecoder().decode(bait.slice(3));
+  const baris = csv.trim().split('\r\n');
+  assert.equal(baris.length, 2, 'tajuk + 1 laporan ditapis');
+  assert.ok(baris[0].startsWith('"ID","Tarikh","Masa","Kelas"'));
+  assert.ok(baris[1].includes('"\'=HYPERLINK(""http://jahat"")"'), 'formula dineutralkan');
+  assert.ok(baris[1].includes('"\'+cmd|calc'), 'sel bermula + dineutralkan');
+  const semuaCsv = new TextDecoder().decode(new Uint8Array(await (await handle(req('/api/s/smkwakanda/karakter/eksport', { kuki: { opr_sesi: x.sesiAdmin } }), e, deps(g))).arrayBuffer()));
+  assert.ok(!semuaCsv.includes('Dipadam'), 'laporan dipadam tidak dieksport');
+  const sek = await x.sek();
+  assert.ok(g.sheet.get(sek.karakter.sheetId).tabs.get('AuditLog').some(a => a[3] === 'KARAKTER_EKSPORT' && /1 laporan; subjek=Muzik/.test(a[6])));
+
+  // Guru dan guru kelas: 403
+  await panggilApi(e, g, x.sesiAdmin, '/karakter/gurukelas', { pemetaan: [{ kelas: '5 Ibnu Sina', email: 'guru.a@gmail.com' }] });
+  for (const sesi of [x.a, x.b]) {
+    assert.equal((await panggilApi(e, g, sesi, '/karakter/statistik')).status, 403);
+    assert.equal((await handle(req('/api/s/smkwakanda/karakter/eksport', { kuki: { opr_sesi: sesi } }), e, deps(g))).status, 403);
+    assert.equal((await panggilApi(e, g, sesi, '/karakter/rekod?skop=semua&saiz=semua')).status, 403);
+  }
+  // Penapis guru diabaikan untuk skop saya (tiada kebocoran)
+  assert.equal((await panggilApi(e, g, x.a, '/karakter/rekod?guru=guru.b%40gmail.com')).jumlah, 2);
+});

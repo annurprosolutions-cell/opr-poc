@@ -445,6 +445,31 @@ try {
     'butiran guru kelas: baca sahaja, boleh muat turun PDF, tiada Edit/Padam/Jana semula');
   semak(await aminah.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Laporan Kelas: tiada skrol mendatar pada 390px');
   g.senario.email = 'admin@sekolah.edu.my';
+
+  // ---------------------------------------------------------- e-Karakter Fasa 5: dashboard admin (telefon 390px)
+  await admin.click('#tabKarakter button[data-krk=Dashboard]');
+  await admin.waitForSelector('.krk-kpi-kad');
+  await admin.waitForSelector('#krkJadual .krk-jadual tbody tr');
+  const kpiJumlah = async () => Number((await admin.textContent('.krk-kpi-kad .krk-kpi-nilai')).trim());
+  const bilJadual = async () => Number((await admin.textContent('#krkJumlahJadual')).match(/\d+/)[0]);
+  semak(await kpiJumlah() === 2 && await bilJadual() === 2, 'dashboard: KPI jumlah laporan sepadan dengan jadual (2)');
+  semak(await admin.$('#krkDonat') !== null && await admin.evaluate(() => !!window.Chart && window.Chart.getChart(document.getElementById('krkDonat'))), 'carta donat teras dilukis dengan Chart.js tempatan');
+  semak((await admin.textContent('#krkLegenda')).includes('Penyayang'), 'legenda teras sebagai teks (bukan warna sahaja)');
+  await admin.selectOption('#dTapis_kelas', '5 Al-Biruni');
+  await admin.waitForFunction(() => document.getElementById('krkJumlahJadual') && /^1 laporan/.test(document.getElementById('krkJumlahJadual').textContent));
+  semak(await kpiJumlah() === 1, 'tapisan kelas: KPI dan jadual kedua-duanya 1');
+  const [csvK] = await Promise.all([admin.waitForEvent('download'), admin.click('#krkEksport')]);
+  const csvBait = readFileSync(await csvK.path());
+  semak(csvBait[0] === 0xef && csvBait[1] === 0xbb && csvBait[2] === 0xbf && csvBait.toString('utf8').trim().split('\r\n').length === 2 && csvK.suggestedFilename().endsWith('.csv'),
+    'Eksport CSV: UTF-8 BOM, ikut tapisan (1 laporan)');
+  const [pdfD] = await Promise.all([admin.waitForEvent('download', { timeout: 60000 }), admin.click('#krkPdfDashboard')]);
+  const pdfDTeks = readFileSync(await pdfD.path()).toString('latin1');
+  semak(pdfDTeks.startsWith('%PDF-') && (pdfDTeks.match(/\/Type\s*\/Page[^s]/g) || []).length === 2 && /\/MediaBox\s*\[0 0 841\.\d+ 595\.\d+\]/.test(pdfDTeks),
+    'PDF Dashboard: A4 landskap, 2 muka (KPI dan carta; jadual dan pengesahan)');
+  semak(await admin.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'dashboard: tiada skrol mendatar pada 390px');
+  await admin.click('#krkJadual .krk-jadual tbody tr button');
+  await admin.waitForSelector('#muatTurunPdf');
+  semak((await admin.textContent('#krkLaporan h2')).includes('Pertandingan kuiz sains'), 'butang Lihat dalam jadual membuka butiran laporan');
   semak(await admin.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'borang dan laporan e-Karakter: tiada skrol mendatar pada 390px');
   await admin.click('#tukarModul');
   await admin.click('.kad-modul[data-modul=opr]');

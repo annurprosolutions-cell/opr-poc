@@ -167,6 +167,8 @@ export async function apiKarakter(ctx, sub) {
   if (s === '/rekod' && req.method === 'POST') return await simpanRekod(ctx);
   if (s === '/rekod' && req.method === 'GET') return await senaraiRekod(ctx, laluan);
   if (s === '/statistik' && req.method === 'GET' && ctx.url.searchParams.get('skop') === 'kelas') return await statistikKelas(ctx, laluan);
+  if (s === '/statistik' && req.method === 'GET') return admin ? await statistikAdmin(ctx) : tolakKarakter(ctx, laluan, 'Bukan admin');
+  if (s === '/eksport' && req.method === 'GET') return admin ? await eksportKarakter(ctx) : tolakKarakter(ctx, laluan, 'Bukan admin');
   const mr = s.match(/^\/rekod\/(KRK-\d{8}-[A-Z0-9]{5})(\/padam)?$/);
   if (mr && !mr[2] && req.method === 'GET') return await bacaSatuRekod(ctx, mr[1], laluan);
   if (mr && mr[2] && req.method === 'POST') return await padamRekod(ctx, mr[1], laluan);
@@ -479,9 +481,29 @@ async function terimaFailKarakter(ctx) {
 const pecahId = (v) => String(v || '').split(',').map(x => x.trim()).filter(Boolean);
 function kapsyenDari(r) { try { const a = JSON.parse(r.Kapsyen || '[]'); return Array.isArray(a) ? a.map(String) : []; } catch (e) { return []; } }
 
+const MAKS_SEMUA = 1000;
+
+// Penapis tunggal: julat tarikh, kelas, subjek, teras, guru (emel), carian. Susun terbaru dahulu.
+export function tapisRekod(baris, q, { abaiKelas = false, guru = false } = {}) {
+  const cari = String(q.get('cari') || '').trim().toLowerCase().slice(0, 100);
+  const dari = q.get('dari') || '', hingga = q.get('hingga') || '';
+  const kelas = abaiKelas ? '' : q.get('kelas'), subjek = q.get('subjek'), teras = q.get('teras');
+  const emel = guru ? String(q.get('guru') || '').toLowerCase() : '';
+  return baris
+    .filter(r => !kelas || String(r.Kelas) === kelas)
+    .filter(r => !subjek || String(r.Subjek) === subjek)
+    .filter(r => !teras || pecahId(r.Teras).includes(teras))
+    .filter(r => !emel || String(r.PemilikEmail).toLowerCase() === emel)
+    .filter(r => !dari || String(r.TarikhISO) >= dari)
+    .filter(r => !hingga || String(r.TarikhISO) <= hingga)
+    .filter(r => !cari || [r.Tajuk, r.Catatan, r.Kelas, r.Subjek, r.NamaGuru, r.ID].join(' ').toLowerCase().includes(cari))
+    .sort((a, b) => String(b.TarikhISO).localeCompare(String(a.TarikhISO)) || String(b.Timestamp).localeCompare(String(a.Timestamp)));
+}
+
 function ringkasRekod(r) {
   return { id: String(r.ID), tarikh: String(r.TarikhISO), masa: String(r.Masa), kelas: String(r.Kelas), subjek: String(r.Subjek),
     teras: pecahId(r.Teras), tajuk: String(r.Tajuk), nama: String(r.NamaGuru), email: String(r.PemilikEmail),
+    catatanRingkas: String(r.Catatan || '').replace(/\s+/g, ' ').slice(0, 160),
     bilGambar: Number(r.BilGambar) || 0, adaTtd: !!r.TtdFileId, adaPdf: !!r.PdfFileId,
     pdf: statusPdf(r), dikemaskini: String(r.DikemaskiniPada || r.Timestamp) };
 }
@@ -625,18 +647,12 @@ async function senaraiRekod(ctx, laluan) {
     if (minta && !dipeta.includes(minta)) return tolakKarakter(ctx, laluan + '?skop=kelas&kelas=' + minta.slice(0, 60), 'Kelas tidak dipetakan', 'Anda bukan guru kelas bagi kelas ini.');
     kelasDibenar = minta ? [minta] : dipeta;
   }
-  const cari = String(q.get('cari') || '').trim().toLowerCase().slice(0, 100);
-  const dari = q.get('dari') || '', hingga = q.get('hingga') || '';
-  let data = baris.filter(r => r.ID && !ya(r.Dipadam))
-    .filter(r => skop === 'semua' || (skop === 'kelas' ? kelasDibenar.includes(String(r.Kelas)) : String(r.PemilikEmail).toLowerCase() === sesi.email))
-    .filter(r => skop === 'kelas' || !q.get('kelas') || String(r.Kelas) === q.get('kelas'))
-    .filter(r => !q.get('subjek') || String(r.Subjek) === q.get('subjek'))
-    .filter(r => !q.get('teras') || pecahId(r.Teras).includes(q.get('teras')))
-    .filter(r => !dari || String(r.TarikhISO) >= dari)
-    .filter(r => !hingga || String(r.TarikhISO) <= hingga)
-    .filter(r => !cari || [r.Tajuk, r.Catatan, r.Kelas, r.Subjek, r.NamaGuru, r.ID].join(' ').toLowerCase().includes(cari))
-    .sort((a, b) => String(b.TarikhISO).localeCompare(String(a.TarikhISO)) || String(b.Timestamp).localeCompare(String(a.Timestamp)));
-  const saiz = 20, jumlah = data.length;
+  let data = tapisRekod(baris.filter(r => r.ID && !ya(r.Dipadam))
+    .filter(r => skop === 'semua' || (skop === 'kelas' ? kelasDibenar.includes(String(r.Kelas)) : String(r.PemilikEmail).toLowerCase() === sesi.email)),
+    q, { abaiKelas: skop === 'kelas', guru: skop === 'semua' });
+  // Admin: saiz=semua untuk PDF dashboard (dihadkan)
+  const semuaBaris = skop === 'semua' && q.get('saiz') === 'semua';
+  const saiz = semuaBaris ? MAKS_SEMUA : 20, jumlah = data.length;
   const halaman = Math.min(Math.max(1, parseInt(q.get('halaman'), 10) || 1), Math.max(1, Math.ceil(jumlah / saiz)));
   data = data.slice((halaman - 1) * saiz, halaman * saiz).map(ringkasRekod);
   return json({ ok: true, skop, jumlah, halaman, saiz, data, ...(kelasDibenar ? { kelasDipeta: kelasDipeta(d[TAB_KRK.GURUKELAS], sesi.email) } : {}) });
@@ -842,5 +858,66 @@ async function hantarPdf(ctx, id, laluan) {
   const res = await muatTurun(ctx.g, String(x.r.PdfFileId));
   return new Response(res.body, { headers: {
     'content-type': 'application/pdf', 'content-disposition': 'attachment; filename="' + namaPdf(x.r) + '"',
+    'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } });
+}
+
+// ======================================================================
+// Fasa 5: dashboard admin (F-11) dan eksport (F-12)
+// ======================================================================
+
+const kiraSusun = (peta) => [...peta].map(([nama, bil]) => ({ nama, bil })).sort((a, b) => b.bil - a.bil || a.nama.localeCompare(b.nama));
+
+async function statistikAdmin(ctx) {
+  const { g, sek, url } = ctx;
+  const d = await bacaKarakter(g, sek, [TAB_KRK.REKOD, TAB_KRK.SENARAI]);
+  const sah = d[TAB_KRK.REKOD].baris.filter(r => r.ID && !ya(r.Dipadam));
+  const f = tapisRekod(sah, url.searchParams, { guru: true });
+  const kira = (peta, k) => peta.set(k, (peta.get(k) || 0) + 1);
+  const teras = new Map(), kelas = new Map(), subjek = new Map(), guru = new Map();
+  for (const r of f) {
+    pecahId(r.Teras).forEach(t => kira(teras, t));
+    kira(kelas, String(r.Kelas)); kira(subjek, String(r.Subjek));
+    const e = String(r.PemilikEmail).toLowerCase();
+    if (!guru.has(e)) guru.set(e, { email: e, nama: String(r.NamaGuru || e), bil: 0 });
+    guru.get(e).bil++;
+  }
+  // Teras ikut susunan senarai rasmi (warna konsisten), kemudian teras lama
+  const rasmi = (kumpulSenarai(d[TAB_KRK.SENARAI].baris)[KAT.TERAS] || []).map(x => x.nilai);
+  const terasSusun = [...rasmi.filter(t => teras.has(t)), ...[...teras.keys()].filter(t => !rasmi.includes(t))].map(nama => ({ nama, bil: teras.get(nama) }));
+  const tertinggi = kiraSusun(teras)[0] || null;
+  // Pilihan penapis daripada semua laporan (termasuk nilai "Lain-lain")
+  const pilihan = {
+    kelas: [...new Set(sah.map(r => String(r.Kelas)))].sort(), subjek: [...new Set(sah.map(r => String(r.Subjek)))].sort(),
+    guru: [...new Map(sah.map(r => [String(r.PemilikEmail).toLowerCase(), String(r.NamaGuru || r.PemilikEmail)]))].map(([email, nama]) => ({ email, nama })).sort((a, b) => a.nama.localeCompare(b.nama)),
+    teras: [...new Set([...rasmi, ...sah.flatMap(r => pecahId(r.Teras))])]
+  };
+  return json({ ok: true,
+    kpi: { jumlah: f.length, kelas: kelas.size, guru: guru.size, terasTertinggi: tertinggi },
+    teras: terasSusun, kelas: kiraSusun(kelas), subjek: kiraSusun(subjek),
+    topGuru: [...guru.values()].sort((a, b) => b.bil - a.bil || a.nama.localeCompare(b.nama)).slice(0, 5),
+    pilihan, jumlahSemua: sah.length });
+}
+
+// CSV: UTF-8 BOM, sel bermula = + - @ TAB CR dineutralkan, ikut tapisan, tanpa laporan dipadam.
+export function selCsvKrk(v) {
+  let t = String(v ?? '');
+  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+  return '"' + t.replace(/"/g, '""') + '"';
+}
+
+async function eksportKarakter(ctx) {
+  const { g, sek, url, now } = ctx;
+  const { baris } = await bacaJadualKrk(g, sek, TAB_KRK.REKOD);
+  const f = tapisRekod(baris.filter(r => r.ID && !ya(r.Dipadam)), url.searchParams, { guru: true });
+  const kol = ['ID', 'Tarikh', 'Masa', 'Kelas', 'Mata Pelajaran', 'Guru', 'Emel', 'Elemen Teras', 'Tajuk', 'Catatan',
+    'Bil Gambar', 'Bertandatangan', 'Status PDF', 'Dihantar', 'Dikemas kini', 'Tahun Sesi'];
+  const baris2 = f.map(r => [r.ID, r.TarikhISO, r.Masa, r.Kelas, r.Subjek, r.NamaGuru, r.PemilikEmail, r.Teras, r.Tajuk, r.Catatan,
+    r.BilGambar, r.TtdFileId ? 'YA' : 'TIDAK', statusPdf(r), r.Timestamp, r.DikemaskiniPada, r.TahunSesi]);
+  const csv = '﻿' + [kol, ...baris2].map(b => b.map(selCsvKrk).join(',')).join('\r\n') + '\r\n';
+  const tapisan = ['dari', 'hingga', 'kelas', 'subjek', 'guru', 'teras', 'cari'].filter(k => url.searchParams.get(k)).map(k => k + '=' + url.searchParams.get(k).slice(0, 40)).join(', ');
+  await auditKarakter(ctx, 'KARAKTER_EKSPORT', '', 'BERJAYA', f.length + ' laporan' + (tapisan ? '; ' + tapisan : ''));
+  return new Response(csv, { headers: {
+    'content-type': 'text/csv; charset=utf-8',
+    'content-disposition': 'attachment; filename="e-Karakter_' + sek.slug + '_' + hariIni(now()) + '.csv"',
     'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } });
 }
