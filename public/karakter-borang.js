@@ -2,7 +2,7 @@
 // Laporan Saya (S-05 asas) dan butiran (S-06) dengan PDF.
 // Server mengesahkan semua input; semakan di sini hanya untuk mesej cepat.
 import { $, el, api } from '/app.js';
-import { kecilkanImej } from '/dokumen.js';
+import { pangkasAuto, bukaLaras } from '/karakter-gambar.js';
 import { bukaTandatangan } from '/tandatangan.js';
 import { pratonton, janaPdf, keDataUrl } from '/karakter-dokumen.js';
 
@@ -257,8 +257,11 @@ async function tambahGambar(input) {
   for (const f of fail.slice(0, ruang)) {
     if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { K.pesan('amaran', f.name + ': hanya gambar JPG, PNG atau WEBP.'); continue; }
     const dataUrl = await new Promise((ok, gagal) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = gagal; r.readAsDataURL(f); });
-    const kecil = await kecilkanImej(dataUrl, 900, 0.8, { format: 'image/jpeg' });   // keputusan 8: mampat 900px
-    borang.gambar.push({ src: kecil, dataUrl: kecil, kapsyen: '', nama: f.name });
+    try {
+      // Pangkas automatik ke bingkai tetap 3:2 (1200x800 JPEG, termampat); pengguna boleh laras kemudian.
+      const p = await pangkasAuto(dataUrl);
+      borang.gambar.push({ src: p.hasil, dataUrl: p.hasil, asal: p.asal, st: p.st, kapsyen: '', nama: f.name.replace(/\.[^.]+$/, '') + '.jpg' });
+    } catch (e) { K.pesan('amaran', f.name + ': gambar tidak dapat dibaca.'); }
   }
   lukisGambar();
   lukisPratonton();
@@ -272,9 +275,18 @@ function lukisGambar() {
     const kap = el('input', { type: 'text', maxlength: '80', placeholder: 'Kapsyen (pilihan)', 'aria-label': 'Kapsyen gambar ' + (i + 1) });
     kap.value = x.kapsyen || '';
     kap.oninput = () => { x.kapsyen = kap.value; kemaskiniPratonton(); };
-    s.append(el('div', { class: 'krk-gambar-item' }, el('img', { src: x.src, alt: 'Gambar ' + (i + 1) }), kap,
-      el('button', { type: 'button', class: 'butang bahaya kecil-butang', 'aria-label': 'Buang gambar ' + (i + 1), text: '×',
-        onclick: () => { borang.gambar.splice(i, 1); lukisGambar(); lukisPratonton(); } })));
+    const laras = el('button', { type: 'button', class: 'butang sekunder kecil-butang', 'data-laras': String(i), 'aria-label': 'Laras gambar ' + (i + 1), text: 'Laras',
+      onclick: async () => {
+        const r = await bukaLaras(x.asal || x.src, x.st);
+        if (!r) return;
+        x.src = x.dataUrl = r.dataUrl; x.asal = r.asal; x.st = r.st; x.nama = (x.nama || 'gambar').replace(/\.[^.]+$/, '') + '.jpg';
+        delete x.fileId;   // fail lama diganti semasa simpan
+        lukisGambar(); lukisPratonton();
+      } });
+    s.append(el('div', { class: 'krk-gambar-item' }, el('img', { class: 'krk-gambar-kecil', src: x.src, alt: 'Gambar ' + (i + 1) }), kap,
+      el('div', { class: 'krk-gambar-aksi' }, laras,
+        el('button', { type: 'button', class: 'butang bahaya kecil-butang', 'data-buang': String(i), 'aria-label': 'Buang gambar ' + (i + 1), text: '×',
+          onclick: () => { borang.gambar.splice(i, 1); lukisGambar(); lukisPratonton(); } }))));
   });
   $('kBlokAkuan').classList.toggle('tersembunyi', !borang.gambar.length);
   $('kGambar').disabled = borang.gambar.length >= MAKS_GAMBAR;

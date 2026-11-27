@@ -18,7 +18,8 @@ export function binaA4(d) {
   const semua = [...(d.semuaTeras || [])];
   (d.teras || []).forEach(t => { if (!semua.includes(t)) semua.push(t); });   // teras lama yang sudah ditukar nama
   const n = (d.gambar || []).length;
-  const tinggiGambar = n === 1 ? 208 : n === 2 ? 176 : 144;
+  // Bingkai tetap 3:2 (gambar dipangkas ke nisbah ini semasa dimuat naik); gambar lama dipenuhi (cover) tanpa dipenyet.
+  const [bw, bh] = n === 1 ? [330, 220] : n === 2 ? [300, 200] : [214, 143];
 
   const kepala = el('header', { class: 'a4k-kepala' },
     d.sekolah.logo ? el('img', { class: 'a4k-logo', src: d.sekolah.logo, alt: '' }) : el('div', { class: 'a4k-logo kosong' }),
@@ -47,8 +48,9 @@ export function binaA4(d) {
     el('div', { class: 'a4k-kotak-tajuk', text: 'CATATAN PELAKSANAAN AKTIVITI & IMPAK KARAKTER' }),
     el('div', { class: 'a4k-kotak-isi a4k-catatan-isi' }, el('div', { class: 'a4k-tajuk-aktiviti', text: String(d.tajuk || '').toUpperCase() }), catatanTeks));
   const gambar = n ? kotak('LAMPIRAN BERGAMBAR PELAKSANAAN',
-    el('div', { class: 'a4k-gambar' + (n === 1 ? ' satu' : '') }, ...d.gambar.map(g => el('figure', {},
-      el('img', { src: g.src, alt: '', style: 'height:' + tinggiGambar + 'px' }),
+    el('div', { class: 'a4k-gambar' + (n === 4 ? ' empat' : '') }, ...d.gambar.map(g => el('figure', { style: 'width:' + bw + 'px' },
+      el('div', { class: 'a4k-bingkai', role: 'img', 'aria-label': g.kapsyen || 'Gambar aktiviti',
+        style: 'width:' + bw + 'px;height:' + bh + 'px;background-image:url("' + String(g.src || '').replace(/"/g, '%22') + '")' }),
       el('figcaption', { text: g.kapsyen || '' }))))) : '';
 
   const ttd = el('section', { class: 'a4k-ttd' },

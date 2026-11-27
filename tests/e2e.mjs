@@ -335,11 +335,32 @@ try {
   await admin.click('#tabKarakter button[data-krk=Borang]');
   await admin.waitForSelector('#borangKrk');
   semak((await admin.inputValue('#kTajuk')) === 'Eksperimen tumbesaran pokok' && (await admin.inputValue('#kKelasLain')) === '5 Kelas Pemulihan', 'draf setempat dipulihkan selepas muat semula');
-  const gbr = await admin.evaluate(() => [['#0f766e', 'A'], ['#b45309', 'B']].map(([w, t]) => { const c = document.createElement('canvas'); c.width = 1600; c.height = 1200;
-    const x = c.getContext('2d'); x.fillStyle = w; x.fillRect(0, 0, 1600, 1200); x.fillStyle = '#fff'; x.font = '200px sans-serif'; x.fillText(t, 700, 650); return c.toDataURL('image/png').split(',')[1]; }));
+  const gbr = await admin.evaluate(() => [['#0f766e', 'A', 1600, 1200], ['#b45309', 'B', 900, 1600]].map(([w, t, lb, tg]) => { const c = document.createElement('canvas'); c.width = lb; c.height = tg;
+    const x = c.getContext('2d'); x.fillStyle = w; x.fillRect(0, 0, lb, tg); x.fillStyle = '#fff'; x.font = '200px sans-serif'; x.fillText(t, lb / 2 - 60, tg / 2 + 60); return c.toDataURL('image/png').split(',')[1]; }));
   await admin.setInputFiles('#kGambar', gbr.map((b64, i) => ({ name: 'aktiviti' + i + '.png', mimeType: 'image/png', buffer: Buffer.from(b64, 'base64') })));
   await admin.waitForFunction(() => document.querySelectorAll('#kSenaraiGambar img').length === 2);
   await admin.fill('#kSenaraiGambar .krk-gambar-item >> nth=0 >> input', 'Kumpulan menyukat');
+  // Gambar dipangkas automatik ke bingkai 3:2 (1200x800); butang Laras membuka dialog pangkas
+  const saizGambar = await admin.$$eval('#kSenaraiGambar img', async (n) => Promise.all(n.map(i => new Promise(ok => { const t = new Image(); t.onload = () => ok([t.naturalWidth, t.naturalHeight]); t.src = i.src; }))));
+  semak(saizGambar.length === 2 && saizGambar.every(([w, h]) => w === 1200 && h === 800), 'gambar dipangkas automatik ke bingkai tetap 3:2 (1200x800)');
+  await admin.click('#kSenaraiGambar button[data-laras="1"]');
+  await admin.waitForSelector('#dialogLaras #kanvasLaras');
+  const kdL = await admin.$eval('#kanvasLaras', c => c.width / c.height);
+  semak(Math.abs(kdL - 1.5) < 0.02, 'dialog laras: pratonton 3:2');
+  const zoomAsal = await admin.$eval('#zoomLaras', z => z.value);
+  await admin.click('#muatLaras');
+  const zoomMuat = await admin.$eval('#zoomLaras', z => parseFloat(z.value));
+  semak(zoomMuat < parseFloat(zoomAsal), 'butang Muat penuh mengecilkan zoom supaya seluruh gambar kelihatan');
+  await admin.click('#isiLaras');
+  await admin.$eval('#zoomLaras', z => { z.value = '1.6'; z.dispatchEvent(new Event('input', { bubbles: true })); });
+  const kv = await admin.$eval('#kanvasLaras', c => c.getBoundingClientRect());
+  await admin.mouse.move(kv.x + kv.width / 2, kv.y + kv.height / 2);
+  await admin.mouse.down(); await admin.mouse.move(kv.x + kv.width / 2 + 40, kv.y + kv.height / 2 + 20, { steps: 5 }); await admin.mouse.up();
+  const srcSebelum = await admin.$eval('#kSenaraiGambar img >> nth=1', i => i.src).catch(() => '');
+  await admin.click('#gunaLaras');
+  await admin.waitForFunction(() => !document.getElementById('dialogLaras'));
+  const srcSelepas = await admin.$$eval('#kSenaraiGambar img', n => n[1].src);
+  semak(srcSelepas.startsWith('data:image/jpeg') && srcSelepas !== srcSebelum, 'pangkasan baharu digunakan pada gambar (zoom dan seret)');
   await admin.click('#hantarKrk');
   semak((await admin.textContent('#mesejKarakter')).includes('akuan'), 'tanpa akuan kebenaran: tidak dihantar');
   await admin.check('#kAkuan');
@@ -358,7 +379,7 @@ try {
   semak(await admin.$eval('#kTtd img', i => i.src.startsWith('data:image/png')), 'tandatangan dilukis, dipangkas dan dipapar dalam borang');
   await admin.click('#togolPratonton');
   await admin.waitForSelector('#kA4 .krk-a4');
-  semak((await admin.textContent('#kA4 .krk-a4')).includes('EKSPERIMEN TUMBESARAN POKOK') && await admin.$('#kA4 .a4k-ttd-ruang img') !== null && (await admin.$$('#kA4 .a4k-gambar img')).length === 2,
+  semak((await admin.textContent('#kA4 .krk-a4')).includes('EKSPERIMEN TUMBESARAN POKOK') && await admin.$('#kA4 .a4k-ttd-ruang img') !== null && (await admin.$$('#kA4 .a4k-gambar .a4k-bingkai')).length === 2,
     'pratonton A4: tajuk, 2 gambar dan tandatangan dipapar');
   semak(await admin.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'pratonton A4 muat dalam skrin telefon 390px');
   const bilFailSebelum = g.fail.size;
@@ -392,12 +413,13 @@ try {
   semak((await admin.textContent('.krk-gambar-butiran')).includes('Kumpulan menyukat'), 'butiran: 2 gambar dimuat melalui Worker, kapsyen dipapar');
   await admin.waitForFunction(() => { const i = document.querySelector('.krk-ttd-blok img'); return i && i.complete && i.naturalWidth > 0; });
   const [unduhK] = await Promise.all([admin.waitForEvent('download'), admin.click('#muatTurunPdf')]);
+  if (process.env.SIMPAN_PDF) { const { copyFileSync } = await import('node:fs'); copyFileSync(await unduhK.path(), process.env.SIMPAN_PDF); }
   semak(unduhK.suggestedFilename().startsWith('Laporan_Karakter_') && readFileSync(await unduhK.path()).subarray(0, 5).toString() === '%PDF-', 'butang Muat turun PDF memberi PDF daripada Drive');
   await admin.click('button:text-is("Edit")');
   await admin.waitForSelector('#borangKrk');
   await admin.waitForFunction(() => document.querySelectorAll('#kSenaraiGambar img').length === 2);
   await admin.fill('#kTajuk', 'Eksperimen tumbesaran pokok (dibetulkan)');
-  await admin.click('#kSenaraiGambar .krk-gambar-item >> nth=1 >> button');
+  await admin.click('#kSenaraiGambar .krk-gambar-item >> nth=1 >> button[data-buang]');
   await admin.click('#hantarKrk');
   await admin.waitForFunction(() => document.getElementById('mesejKarakter').textContent.includes('Perubahan disimpan'), null, { timeout: 30000 });
   const selepasEdit = g.sheet.get(sekR.karakter.sheetId).tabs.get('KarakterRekod');
