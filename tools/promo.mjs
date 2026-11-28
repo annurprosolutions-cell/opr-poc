@@ -113,6 +113,8 @@ const LAPISAN = (o) => {
       mk(); const h = document.getElementById('rec-hl'), l = document.getElementById('rec-lbl');
       if (!b) { h.classList.remove('on'); l.classList.remove('on'); return; }
       const p = m ? 8 : 12;
+      const bl = b.left != null ? b.left : b.x, bt = b.top != null ? b.top : b.y;
+      b = { left: bl, top: bt, width: b.width, height: b.height };
       Object.assign(h.style, { left: b.left - p + 'px', top: b.top - p + 'px', width: b.width + 2 * p + 'px', height: b.height + 2 * p + 'px' }); h.classList.add('on');
       if (label) {
         l.textContent = label; l.classList.add('on');
@@ -287,7 +289,9 @@ const BABAK = [
       h.mark('chooser kedua');
       await h.zoom('#pilihModul .kaca', dk ? 1.6 : 1.1, 0.7);
       await h.sampai(8.3);
+      h.mark('kotak opr ' + JSON.stringify(await h.pg.evaluate(() => { const r = document.querySelector('.kad-modul[data-modul=opr]').getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height), innerWidth, innerHeight, document.querySelector('.skrin:not(.tersembunyi)').scrollTop]; })));
       await h.sorot('.kad-modul[data-modul=opr]', 1.8, 'OPR');
+      h.mark('kotak opr selepas ' + JSON.stringify(await h.pg.evaluate(() => { const r = document.querySelector('.kad-modul[data-modul=opr]').getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y)]; })));
       await h.sorot('.kad-modul[data-modul=karakter]', 1.8, 'Pembentukan Karakter');
     }
   },
@@ -422,11 +426,11 @@ const BABAK = [
       for (const [dx, dy] of [[60, 40], [100, 120], [150, 50], [200, 105], [260, 70], [320, 60]]) { await pg.mouse.move(k.x + dx, k.y + dy, { steps: 8 }); await pg.waitForTimeout(40); }
       await pg.mouse.up();
       await h.W(500);
-      await h.sampai(19.2);
-      await h.klik('#gunaTtd', { lepas: 400 });
+      await h.sampai(18.6);
+      await h.klik('#gunaTtd', { lepas: 300 });
       await h.zoom(null, 1, 0.4);
-      h.cue('guru kelas', 21.1);
-      await h.sampai(21.0);
+      h.cue('guru kelas', 20.2);
+      await h.sampai(20.2);
       // Guru kelas
       await pg.goto(ASAS + '/s/demo?m=karakter&peranan=gurukelas');
       await pg.waitForSelector('#tabKarakter button');
@@ -435,8 +439,8 @@ const BABAK = [
       await pg.waitForSelector('.krk-ringkasan-kad');
       await h.zoom('.krk-ringkasan', dk ? 1.6 : 1.2, 0.7);
       await h.sorot('.krk-ringkasan', 0.9, 'Laporan kelas saya');
-      h.cue('dashboard admin', 23.9);
-      await h.sampai(23.9);
+      h.cue('dashboard admin', 23.2);
+      await h.sampai(23.2);
       // Dashboard admin dan PDF landskap
       await pg.goto(ASAS + '/s/demo?m=karakter');
       await pg.waitForSelector('#tabKarakter button');
